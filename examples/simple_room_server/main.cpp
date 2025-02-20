@@ -100,6 +100,10 @@
   #include <helpers/nrf52/TechoBoard.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static TechoBoard board;
+#elif defined(FAKETEC)
+  #include <helpers/nrf52/faketecBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static faketecBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif

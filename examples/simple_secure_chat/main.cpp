@@ -78,6 +78,10 @@
   #include <helpers/nrf52/T1000eBoard.h>
   #include <helpers/CustomLR1110Wrapper.h>
   static T1000eBoard board;
+#elif defined(FAKETEC)
+  #include <helpers/nrf52/faketecBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static faketecBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif

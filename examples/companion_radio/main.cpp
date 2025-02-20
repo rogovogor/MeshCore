@@ -92,6 +92,10 @@
   #include <helpers/nrf52/TechoBoard.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static TechoBoard board;
+#elif defined(FAKETEC)
+  #include <helpers/nrf52/faketecBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static faketecBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif
@@ -1290,7 +1294,9 @@ void setup() {
   sprintf(dev_name, "MeshCore-%s", the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
+#ifdef RAK_4631
   pinMode(WB_IO2, OUTPUT);
+#endif
   serial_interface.begin(Serial);
 #endif
   the_mesh.startInterface(serial_interface);
