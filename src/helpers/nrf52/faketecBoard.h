@@ -2,6 +2,7 @@
 
 #include <MeshCore.h>
 #include <Arduino.h>
+#include <Wire.h>
 
 #define P_LORA_NSS D13 //P1.13 45
 #define P_LORA_DIO_1 D11 //P0.10 10
@@ -29,6 +30,12 @@ public:
     startup_reason = BD_STARTUP_NORMAL;
 
     pinMode(PIN_VBAT_READ, INPUT);
+
+    #if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
+      Wire.begin(PIN_BOARD_SDA, PIN_BOARD_SCL);
+    #else
+      Wire.begin();
+    #endif
 
     pinMode(SX126X_POWER_EN, OUTPUT);
     digitalWrite(SX126X_POWER_EN, HIGH);
