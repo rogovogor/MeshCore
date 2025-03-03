@@ -136,7 +136,29 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
         if (path) sendFlood(path);
       }
     } else if (flags == TXT_TYPE_SIGNED_PLAIN) {
-      // TODO
+      if (timestamp > from.sync_since) {  // make sure 'sync_since' is up-to-date
+        from.sync_since = timestamp;
+      }
+      onSignedMessageRecv(from, packet->isRouteFlood() ? packet->path_len : 0xFF, timestamp, &data[5], (const char *) &data[9]);  // let UI know
+
+      uint32_t ack_hash;    // calc truncated hash of the message timestamp + text + sender pub_key, to prove to sender that we got it
+      mesh::Utils::sha256((uint8_t *) &ack_hash, 4, data, 9 + strlen((char *)&data[9]), from.id.pub_key, PUB_KEY_SIZE);
+
+      if (packet->isRouteFlood()) {
+        // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
+        mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
+                                                PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
+        if (path) sendFlood(path);
+      } else {
+        mesh::Packet* ack = createAck(ack_hash);
+        if (ack) {
+          if (from.out_path_len < 0) {
+            sendFlood(ack);
+          } else {
+            sendDirect(ack, from.out_path, from.out_path_len);
+          }
+        }
+      }
     } else {
       MESH_DEBUG_PRINTLN("onPeerDataRecv: unsupported message type: %u", (uint32_t) flags);
     }
@@ -352,7 +374,7 @@ int  BaseChatMesh::sendStatusRequest(const ContactInfo& recipient, uint32_t& est
   uint8_t temp[13];
   uint32_t now = getRTCClock()->getCurrentTimeUnique();
   memcpy(temp, &now, 4);   // mostly an extra blob to help make packet_hash unique
-  temp[4] = CMD_GET_STATUS;
+  temp[4] = REQ_TYPE_GET_STATUS;
   memset(&temp[5], 0, 4);  // reserved (possibly for 'since' param)
   getRNG()->random(&temp[9], 4);   // random blob to help make packet-hash unique
 
@@ -370,6 +392,121 @@ int  BaseChatMesh::sendStatusRequest(const ContactInfo& recipient, uint32_t& est
     }
   }
   return MSG_SEND_FAILED;
+}
+
+bool BaseChatMesh::startConnection(const ContactInfo& contact, uint16_t keep_alive_secs) {
+  int use_idx = -1;
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (connections[i].keep_alive_millis == 0) {  // free slot?
+      use_idx = i;
+    } else if (connections[i].server_id.matches(contact.id)) {  // already in table?
+      use_idx = i;
+      break;
+    }
+  }
+  if (use_idx < 0) {
+    return false;   // table is full
+  }
+  connections[use_idx].server_id = contact.id;
+  uint32_t interval = connections[use_idx].keep_alive_millis = ((uint32_t)keep_alive_secs)*1000;
+  connections[use_idx].next_ping = futureMillis(interval);
+  connections[use_idx].expected_ack = 0;
+  connections[use_idx].last_activity = getRTCClock()->getCurrentTime();
+  return true;  // success
+}
+
+void BaseChatMesh::stopConnection(const uint8_t* pub_key) {
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (connections[i].server_id.matches(pub_key)) {
+      connections[i].keep_alive_millis = 0;  // mark slot as now free
+      connections[i].next_ping = 0;
+      connections[i].expected_ack = 0;
+      connections[i].last_activity = 0;
+      break;
+    }
+  }
+}
+
+bool BaseChatMesh::hasConnectionTo(const uint8_t* pub_key) {
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (connections[i].keep_alive_millis > 0 && connections[i].server_id.matches(pub_key)) return true;
+  }
+  return false;
+}
+
+void BaseChatMesh::markConnectionActive(const ContactInfo& contact) {
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (connections[i].keep_alive_millis > 0 && connections[i].server_id.matches(contact.id)) {
+      connections[i].last_activity = getRTCClock()->getCurrentTime();
+
+      // re-schedule next KEEP_ALIVE, now that we have heard from server
+      connections[i].next_ping = futureMillis(connections[i].keep_alive_millis);
+      break;
+    }
+  }
+}
+
+bool BaseChatMesh::checkConnectionsAck(const uint8_t* data) {
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (connections[i].keep_alive_millis > 0 && memcmp(&connections[i].expected_ack, data, 4) == 0) {
+      // yes, got an ack for our keep_alive request!
+      connections[i].expected_ack = 0;
+      connections[i].last_activity = getRTCClock()->getCurrentTime();
+
+      // re-schedule next KEEP_ALIVE, now that we have heard from server
+      connections[i].next_ping = futureMillis(connections[i].keep_alive_millis);
+      return true;  // yes, a match
+    }
+  }
+  return false;  /// no match
+}
+
+void BaseChatMesh::checkConnections() {
+  // scan connections[] table, send KEEP_ALIVE requests
+  for (int i = 0; i < MAX_CONNECTIONS; i++) {
+    if (connections[i].keep_alive_millis == 0) continue;  // unused slot
+
+    uint32_t now = getRTCClock()->getCurrentTime();
+    uint32_t expire_secs = (connections[i].keep_alive_millis / 1000) * 5 / 2;   // 2.5 x keep_alive interval
+    if (now >= connections[i].last_activity + expire_secs) {
+      // connection now lost
+      connections[i].keep_alive_millis = 0;
+      connections[i].next_ping = 0;
+      connections[i].expected_ack = 0;
+      connections[i].last_activity = 0;
+      continue;
+    }
+
+    if (millisHasNowPassed(connections[i].next_ping)) {
+      auto contact = lookupContactByPubKey(connections[i].server_id.pub_key, PUB_KEY_SIZE);
+      if (contact == NULL) {
+        MESH_DEBUG_PRINTLN("checkConnections(): Keep_alive contact not found!");
+        continue;
+      }
+      if (contact->out_path_len < 0) {
+        MESH_DEBUG_PRINTLN("checkConnections(): Keep_alive contact, no out_path!");
+        continue;
+      }
+
+      // send KEEP_ALIVE request
+      uint8_t data[9];
+      uint32_t now = getRTCClock()->getCurrentTimeUnique();
+      memcpy(data, &now, 4);
+      data[4] = REQ_TYPE_KEEP_ALIVE;
+      memcpy(&data[5], &contact->sync_since, 4);
+    
+      // calc expected ACK reply
+      mesh::Utils::sha256((uint8_t *)&connections[i].expected_ack, 4, data, 9, self_id.pub_key, PUB_KEY_SIZE);
+
+      auto pkt = createDatagram(PAYLOAD_TYPE_REQ, contact->id, contact->shared_secret, data, 9);
+      if (pkt) {
+        sendDirect(pkt, contact->out_path, contact->out_path_len);
+      }
+    
+      // schedule next KEEP_ALIVE
+      connections[i].next_ping = futureMillis(connections[i].keep_alive_millis);
+    }
+  }
 }
 
 void BaseChatMesh::resetPathTo(ContactInfo& recipient) {

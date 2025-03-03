@@ -21,7 +21,13 @@
 
 /* ------------------------------ Config -------------------------------- */
 
-#define FIRMWARE_VER_TEXT   "v6 (build: 27 Feb 2025)"
+#ifndef FIRMWARE_BUILD_DATE
+  #define FIRMWARE_BUILD_DATE   "3 Mar 2025"
+#endif
+
+#ifndef FIRMWARE_VERSION
+  #define FIRMWARE_VERSION   "v1.0.0"
+#endif
 
 #ifndef LORA_FREQ
   #define LORA_FREQ   915.0
@@ -516,7 +522,8 @@ public:
     updateAdvertTimer();
   }
 
-  const char* getFirmwareVer() override { return FIRMWARE_VER_TEXT; }
+  const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
+  const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
 
   void savePrefs() override {
 #if defined(NRF52_PLATFORM)

@@ -21,7 +21,13 @@
 
 /* ------------------------------ Config -------------------------------- */
 
-#define FIRMWARE_VER_TEXT   "v6 (build: 27 Feb 2025)"
+#ifndef FIRMWARE_BUILD_DATE
+  #define FIRMWARE_BUILD_DATE   "3 Mar 2025"
+#endif
+
+#ifndef FIRMWARE_VERSION
+  #define FIRMWARE_VERSION   "v1.0.0"
+#endif
 
 #ifndef LORA_FREQ
   #define LORA_FREQ   915.0
@@ -117,7 +123,8 @@ struct PostInfo {
 
 #define CLIENT_KEEP_ALIVE_SECS   128
 
-#define REQ_TYPE_KEEP_ALIVE   1
+#define REQ_TYPE_GET_STATUS      0x01   // same as _GET_STATS
+#define REQ_TYPE_KEEP_ALIVE      0x02
 
 #define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
 
@@ -305,7 +312,7 @@ protected:
       // TODO: maybe reply with count of messages waiting to be synced for THIS client?
       reply_data[4] = RESP_SERVER_LOGIN_OK;
       reply_data[5] = (CLIENT_KEEP_ALIVE_SECS >> 4);  // NEW: recommended keep-alive interval (secs / 16)
-      reply_data[6] = 0;  // FUTURE: reserved
+      reply_data[6] = is_admin ? 1 : 0;
       reply_data[7] = 0;  // FUTURE: reserved
       memcpy(&reply_data[8], "OK", 2);  // REVISIT: not really needed
 
@@ -436,12 +443,11 @@ protected:
         uint32_t forceSince = 0;
         if (len >= 9) {   // optional - last post_timestamp client received
           memcpy(&forceSince, &data[5], 4);    // NOTE: this may be 0, if part of decrypted PADDING!
+        } else {
+          memcpy(&data[5], &forceSince, 4);  // make sure there are zeroes in payload (for ack_hash calc below)
         }
         if (forceSince > 0) { 
           client->sync_since = forceSince;    // force-update the 'sync since'
-          len = 9;   // for ACK hash calc below
-        } else {
-          len = 5;   // for ACK hash calc below
         }
 
         uint32_t now = getRTCClock()->getCurrentTime();
@@ -455,7 +461,7 @@ protected:
         // RULE: only send keep_alive response DIRECT!
         if (client->out_path_len >= 0) {
           uint32_t ack_hash;    // calc ACK to prove to sender that we got request
-          mesh::Utils::sha256((uint8_t *) &ack_hash, 4, data, len, client->id.pub_key, PUB_KEY_SIZE);
+          mesh::Utils::sha256((uint8_t *) &ack_hash, 4, data, 9, client->id.pub_key, PUB_KEY_SIZE);
 
           auto reply = createAck(ack_hash);
           if (reply) {
@@ -551,7 +557,8 @@ public:
     updateAdvertTimer();
   }
 
-  const char* getFirmwareVer() override { return FIRMWARE_VER_TEXT; }
+  const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
+  const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
 
   void savePrefs() override {
 #if defined(NRF52_PLATFORM)

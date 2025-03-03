@@ -28,6 +28,7 @@ class CommonCLICallbacks {
 public:
   virtual void savePrefs() = 0;
   virtual const char* getFirmwareVer() = 0;
+  virtual const char* getBuildDate() = 0;
   virtual bool formatFileSystem() = 0;
   virtual void sendSelfAdvertisement(int delay_millis) = 0;
   virtual void updateAdvertTimer() = 0;

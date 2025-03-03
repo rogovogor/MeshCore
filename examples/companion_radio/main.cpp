@@ -96,8 +96,15 @@ static uint32_t _atoi(const char* sp) {
 
 /*------------ Frame Protocol --------------*/
 
-#define FIRMWARE_VER_CODE    1
-#define FIRMWARE_BUILD_DATE   "19 Feb 2025"
+#define FIRMWARE_VER_CODE    2
+
+#ifndef FIRMWARE_BUILD_DATE
+  #define FIRMWARE_BUILD_DATE   "3 Mar 2025"
+#endif
+
+#ifndef FIRMWARE_VERSION
+  #define FIRMWARE_VERSION   "v1.0.0"
+#endif
 
 #define CMD_APP_START              1
 #define CMD_SEND_TXT_MSG           2
@@ -126,6 +133,8 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SEND_RAW_DATA         25
 #define CMD_SEND_LOGIN            26
 #define CMD_SEND_STATUS_REQ       27
+#define CMD_HAS_CONNECTION        28
+#define CMD_LOGOUT                29   // 'Disconnect'
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -435,16 +444,19 @@ protected:
       expected_ack_crc = 0;  // reset our expected hash, now that we have received ACK
       return true;
     }
-    return false;
+    return checkConnectionsAck(data);
   }
 
-  void queueMessage(const ContactInfo& from, uint8_t txt_type, uint8_t path_len, uint32_t sender_timestamp, const char *text) {
+  void queueMessage(const ContactInfo& from, uint8_t txt_type, uint8_t path_len, uint32_t sender_timestamp, const uint8_t* extra, int extra_len, const char *text) {
     int i = 0;
     out_frame[i++] = RESP_CODE_CONTACT_MSG_RECV;
     memcpy(&out_frame[i], from.id.pub_key, 6); i += 6;  // just 6-byte prefix
     out_frame[i++] = path_len;
     out_frame[i++] = txt_type;
     memcpy(&out_frame[i], &sender_timestamp, 4); i += 4;
+    if (extra_len > 0) {
+      memcpy(&out_frame[i], extra, extra_len); i += extra_len;
+    }
     int tlen = strlen(text);   // TODO: UTF-8 ??
     if (i + tlen > MAX_FRAME_SIZE) {
       tlen = MAX_FRAME_SIZE - i;
@@ -462,11 +474,19 @@ protected:
   }
 
   void onMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
-    queueMessage(from, TXT_TYPE_PLAIN, path_len, sender_timestamp, text);
+    markConnectionActive(from);   // in case this is from a server, and we have a connection
+    queueMessage(from, TXT_TYPE_PLAIN, path_len, sender_timestamp, NULL, 0, text);
   }
 
   void onCommandDataRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
-    queueMessage(from, TXT_TYPE_CLI_DATA, path_len, sender_timestamp, text);
+    markConnectionActive(from);   // in case this is from a server, and we have a connection
+    queueMessage(from, TXT_TYPE_CLI_DATA, path_len, sender_timestamp, NULL, 0, text);
+  }
+
+  void onSignedMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const uint8_t *sender_prefix, const char *text) override {
+    markConnectionActive(from);
+    saveContacts();   // from.sync_since change needs to be persisted
+    queueMessage(from, TXT_TYPE_SIGNED_PLAIN, path_len, sender_timestamp, sender_prefix, 4, text);
   }
 
   void onChannelMessageRecv(const mesh::GroupChannel& channel, int in_path_len, uint32_t timestamp, const char *text) override {
@@ -505,7 +525,10 @@ protected:
         out_frame[i++] = PUSH_CODE_LOGIN_SUCCESS;
         out_frame[i++] = 0;  // legacy: is_admin = false
       } else if (data[4] == RESP_SERVER_LOGIN_OK) {   // new login response
-        //  keep_alive_interval  = data[5] * 16
+        uint16_t keep_alive_secs = ((uint16_t)data[5]) * 16;
+        if (keep_alive_secs > 0) {
+          startConnection(contact, keep_alive_secs);
+        }
         out_frame[i++] = PUSH_CODE_LOGIN_SUCCESS;
         out_frame[i++] = data[6];  // permissions (eg. is_admin)
       } else {
@@ -640,11 +663,9 @@ public:
       out_frame[i++] = FIRMWARE_VER_CODE;
       memset(&out_frame[i], 0, 6); i += 6;  // reserved
       memset(&out_frame[i], 0, 12);
-      strcpy((char *) &out_frame[i], FIRMWARE_BUILD_DATE);
-      i += 12;
-      const char* name = board.getManufacturerName();
-      int tlen = strlen(name);
-      memcpy(&out_frame[i], name, tlen); i += tlen;
+      strcpy((char *) &out_frame[i], FIRMWARE_BUILD_DATE); i += 12;
+      StrHelper::strzcpy((char *) &out_frame[i], board.getManufacturerName(), 40); i += 40;
+      StrHelper::strzcpy((char *) &out_frame[i], FIRMWARE_VERSION, 20); i += 20;
       _serial->writeFrame(out_frame, i);
     } else if (cmd_frame[0] == CMD_APP_START && len >= 8) {   // sent when app establishes connection, respond with node ID
       //  cmd_frame[1..7]  reserved future
@@ -1013,6 +1034,17 @@ public:
       } else {
         writeErrFrame();  // contact not found
       }
+    } else if (cmd_frame[0] == CMD_HAS_CONNECTION && len >= 1+PUB_KEY_SIZE) {
+      uint8_t* pub_key = &cmd_frame[1];
+      if (hasConnectionTo(pub_key)) {
+        writeOKFrame();
+      } else {
+        writeErrFrame();
+      }
+    } else if (cmd_frame[0] == CMD_LOGOUT && len >= 1+PUB_KEY_SIZE) {
+      uint8_t* pub_key = &cmd_frame[1];
+      stopConnection(pub_key);
+      writeOKFrame();
     } else {
       writeErrFrame();
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
@@ -1042,6 +1074,8 @@ public:
         _serial->writeFrame(out_frame, 5);
         _iter_started = false;
       }
+    } else if (!_serial->isWriteBusy()) {
+      checkConnections();
     }
   }
 };
