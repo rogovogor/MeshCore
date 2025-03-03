@@ -52,6 +52,11 @@ build_firmware() {
   # build firmware target
   pio run -e $1
 
+  # build merge-bin for esp32 fresh install
+  if [ -f .pio/build/$1/firmware.bin ]; then
+    pio run -t mergebin -e $1
+  fi
+
   # build .uf2 for RAK_4631
   if [[ $1 == *"RAK_4631"* ]]; then
     python bin/uf2conv/uf2conv.py .pio/build/$1/firmware.hex -c -o .pio/build/$1/firmware.uf2 -f 0xADA52840
@@ -63,6 +68,7 @@ build_firmware() {
 
   # copy .bin for esp32 boards
   cp .pio/build/$1/firmware.bin out/${FIRMWARE_FILENAME}.bin 2>/dev/null
+  cp .pio/build/$1/firmware-merged.bin out/${FIRMWARE_FILENAME}-merged.bin 2>/dev/null
 
   # copy .zip and .uf2 of nrf52 boards
   cp .pio/build/$1/firmware.uf2 out/${FIRMWARE_FILENAME}.uf2 2>/dev/null
