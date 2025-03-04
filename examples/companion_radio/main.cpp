@@ -1081,7 +1081,13 @@ public:
 };
 
 #ifdef ESP32
-  #ifdef BLE_PIN_CODE
+  #ifdef WIFI_SSID
+    #include <helpers/esp32/SerialWifiInterface.h>
+    SerialWifiInterface serial_interface;
+    #ifndef TCP_PORT
+      #define TCP_PORT 5000
+    #endif
+  #elif defined(BLE_PIN_CODE)
     #include <helpers/esp32/SerialBLEInterface.h>
     SerialBLEInterface serial_interface;
   #else
@@ -1170,7 +1176,10 @@ void setup() {
   SPIFFS.begin(true);
   the_mesh.begin(SPIFFS, trng);
 
-#ifdef BLE_PIN_CODE
+#ifdef WIFI_SSID
+  WiFi.begin(WIFI_SSID, WIFI_PWD);
+  serial_interface.begin(TCP_PORT);
+#elif defined(BLE_PIN_CODE)
   char dev_name[32+10];
   sprintf(dev_name, "MeshCore-%s", the_mesh.getNodeName());
   serial_interface.begin(dev_name, BLE_PIN_CODE);
