@@ -114,7 +114,8 @@ build_companion_firmwares() {
 #  build_firmware "t1000e_companion_radio_ble"
 
   # build all companion firmwares
-  build_all_firmwares_matching "companion"
+  build_all_firmwares_matching "companion_radio_usb"
+  build_all_firmwares_matching "companion_radio_ble"
 
 }
 
