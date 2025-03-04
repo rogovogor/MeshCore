@@ -62,10 +62,22 @@
   #include <helpers/CustomSX1262Wrapper.h>
   #include <helpers/CustomSX1268Wrapper.h>
   static XiaoC3Board board;
-#elif defined(SEEED_XIAO_S3) || defined(LILYGO_T3S3)
+#elif defined(SEEED_XIAO_S3) 
   #include <helpers/ESP32Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static ESP32Board board;
+#elif defined(LILYGO_T3)
+  #include <helpers/ESP32Board.h>
+  #include <helpers/CustomSX1276Wrapper.h>
+  static ESP32Board board;
+#elif defined(LILYGO_T3S3)
+  #include <helpers/LilyGoT3S3Board.h>
+  #if defined(P_LORA_DIO_0)  // If P_LORA_DIO_0 is defined, we're using SX1276
+    #include <helpers/CustomSX1276Wrapper.h>
+  #else
+    #include <helpers/CustomSX1262Wrapper.h>
+  #endif
+  static LilyGoT3S3Board board;
 #elif defined(RAK_4631)
   #include <helpers/nrf52/RAK4631Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
@@ -541,6 +553,9 @@ public:
 
 #if defined(NRF52_PLATFORM)
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, SPI);
+#elif defined(LILYGO_T3) || defined(HELTEC_LORA_V2)  // ESP32 with SX1276
+SPIClass spi;
+RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1, spi);
 #elif defined(P_LORA_SCLK)
 SPIClass spi;
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, spi);
@@ -559,19 +574,24 @@ void setup() {
   Serial.begin(115200);
 
   board.begin();
-#ifdef SX126X_DIO3_TCXO_VOLTAGE
-  float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
-#else
-  float tcxo = 1.6f;
-#endif
-
 #if defined(NRF52_PLATFORM)
   SPI.setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI);
   SPI.begin();
 #elif defined(P_LORA_SCLK)
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
 #endif
+
+#if defined(LILYGO_T3) || defined(HELTEC_LORA_V2)  // ESP32 with SX1276
+  int status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX127X_SYNC_WORD, LORA_TX_POWER);
+#else  // SX126X module
+  #ifdef SX126X_DIO3_TCXO_VOLTAGE
+    float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
+  #else
+    float tcxo = 1.6f;
+  #endif
   int status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8, tcxo);
+#endif
+
   if (status != RADIOLIB_ERR_NONE) {
     Serial.print("ERROR: radio init failed: ");
     Serial.println(status);
@@ -580,12 +600,14 @@ void setup() {
 
   radio.setCRC(0);
 
-#ifdef SX126X_CURRENT_LIMIT
-  radio.setCurrentLimit(SX126X_CURRENT_LIMIT);
-#endif
+#if !defined(LILYGO_T3) && !defined(HELTEC_LORA_V2)  // SX126X specific settings
+  #ifdef SX126X_CURRENT_LIMIT
+    radio.setCurrentLimit(SX126X_CURRENT_LIMIT);
+  #endif
 
-#ifdef SX126X_DIO2_AS_RF_SWITCH
-  radio.setDio2AsRfSwitch(SX126X_DIO2_AS_RF_SWITCH);
+  #ifdef SX126X_DIO2_AS_RF_SWITCH
+    radio.setDio2AsRfSwitch(SX126X_DIO2_AS_RF_SWITCH);
+  #endif
 #endif
 
   fast_rng.begin(radio.random(0x7FFFFFFF));
