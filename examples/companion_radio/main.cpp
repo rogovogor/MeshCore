@@ -84,6 +84,15 @@
   #error "need to provide a 'board' object"
 #endif
 
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SSD1306Display.h>
+
+  static DISPLAY_CLASS  display;
+
+  #include "UITask.h"
+  static UITask ui_task(display);
+#endif
+
 // Believe it or not, this std C function is busted on some platforms!
 static uint32_t _atoi(const char* sp) {
   uint32_t n = 0;
@@ -471,6 +480,9 @@ protected:
     } else {
       soundBuzzer();
     }
+  #ifdef DISPLAY_CLASS
+    ui_task.showMsgPreview(path_len, from.name, text);
+  #endif
   }
 
   void onMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
@@ -510,6 +522,9 @@ protected:
     } else {
       soundBuzzer();
     }
+  #ifdef DISPLAY_CLASS
+    ui_task.showMsgPreview(in_path_len < 0 ? 0xFF : in_path_len, "Public", text);
+  #endif
   }
 
   void onContactResponse(const ContactInfo& contact, const uint8_t* data, uint8_t len) override {
@@ -1077,6 +1092,10 @@ public:
     } else if (!_serial->isWriteBusy()) {
       checkConnections();
     }
+
+  #ifdef DISPLAY_CLASS
+    ui_task.loop();
+  #endif
   }
 };
 
@@ -1130,6 +1149,10 @@ void setup() {
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
 #else
   float tcxo = 1.6f;
+#endif
+
+#ifdef DISPLAY_CLASS
+  display.begin();
 #endif
 
 #if defined(NRF52_PLATFORM)
@@ -1189,6 +1212,10 @@ void setup() {
   the_mesh.startInterface(serial_interface);
 #else
   #error "need to define filesystem"
+#endif
+
+#ifdef DISPLAY_CLASS
+  ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE);
 #endif
 }
 
