@@ -6,7 +6,6 @@
 class SerialWifiInterface : public BaseSerialInterface {
   bool deviceConnected;
   bool _isEnabled;
-  uint32_t _pin_code;
   unsigned long _last_write;
   unsigned long adv_restart_time;
 
@@ -49,3 +48,12 @@ public:
   size_t writeFrame(const uint8_t src[], size_t len) override;
   size_t checkRecvFrame(uint8_t dest[]) override;
 };
+
+#if WIFI_DEBUG_LOGGING && ARDUINO
+  #include <Arduino.h>
+  #define WIFI_DEBUG_PRINT(F, ...) Serial.printf("WiFi: " F, ##__VA_ARGS__)
+  #define WIFI_DEBUG_PRINTLN(F, ...) Serial.printf("WiFi: " F "\n", ##__VA_ARGS__)
+#else
+  #define WIFI_DEBUG_PRINT(...) {}
+  #define WIFI_DEBUG_PRINTLN(...) {}
+#endif

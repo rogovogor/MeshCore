@@ -20,13 +20,13 @@ void SerialWifiInterface::disable() {
 
 size_t SerialWifiInterface::writeFrame(const uint8_t src[], size_t len) {
   if (len > MAX_FRAME_SIZE) {
-    Serial.printf("writeFrame(), frame too big, len=%d\n", len);
+    WIFI_DEBUG_PRINTLN("writeFrame(), frame too big, len=%d\n", len);
     return 0;
   }
 
   if (deviceConnected && len > 0) {
     if (send_queue_len >= FRAME_QUEUE_SIZE) {
-      Serial.println("writeFrame(), send_queue is full!");
+      WIFI_DEBUG_PRINTLN("writeFrame(), send_queue is full!");
       return 0;
     }
 
@@ -39,27 +39,22 @@ size_t SerialWifiInterface::writeFrame(const uint8_t src[], size_t len) {
   return 0;
 }
 
-#define  SER_WRITE_MIN_INTERVAL   0
-
 bool SerialWifiInterface::isWriteBusy() const {
-  return millis() < _last_write + SER_WRITE_MIN_INTERVAL;   // still too soon to start another write?
+  return false;
 }
 
 size_t SerialWifiInterface::checkRecvFrame(uint8_t dest[]) {
-  if (isWriteBusy())
-    return 0;
-
   if (!client) client = server.available();
 
   if (client.connected()) {
     if (!deviceConnected) {
-      Serial.println("Got connexion");
+      WIFI_DEBUG_PRINTLN("Got connection");
       deviceConnected = true;
     }
   } else {
     if (deviceConnected) {
       deviceConnected = false;
-      Serial.println("Disconnected");
+      WIFI_DEBUG_PRINTLN("Disconnected");
     }
   }
 
