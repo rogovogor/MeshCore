@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Mesh.h"
+#include <helpers/IdentityStore.h>
 
 struct NodePrefs {  // persisted to file
     float airtime_factor;
@@ -54,5 +55,7 @@ public:
   CommonCLI(mesh::MainBoard& board, mesh::Mesh* mesh, NodePrefs* prefs, CommonCLICallbacks* callbacks) 
       : _board(&board), _mesh(mesh), _prefs(prefs), _callbacks(callbacks) { }
 
+  void loadPrefs(FILESYSTEM* _fs);
+  void savePrefs(FILESYSTEM* _fs);
   void handleCommand(uint32_t sender_timestamp, const char* command, char* reply);
 };

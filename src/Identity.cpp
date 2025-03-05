@@ -3,7 +3,7 @@
 #define ED25519_NO_SEED  1
 #include <ed_25519.h>
 
-// For ESP32, we use libsodium for cryptographic operations to reduce stack usage
+// For weaker ESP32 boards, we use libsodium for cryptographic operations to reduce stack usage
 #ifdef USE_ESP32_ENCRYPTION
 #include <sodium.h>
 #endif
@@ -20,9 +20,6 @@ Identity::Identity(const char* pub_hex) {
 
 bool Identity::verify(const uint8_t* sig, const uint8_t* message, int msg_len) const {
   #ifdef USE_ESP32_ENCRYPTION
-    // Using libsodium for verification on ESP32 to reduce stack usage
-    // This function performs signature verification with much lower stack requirements
-    // than the default implementation
     return crypto_sign_ed25519_verify_detached(sig, message, msg_len, pub_key) == 0;
   #else
     return ed25519_verify(sig, message, msg_len, pub_key);
@@ -108,7 +105,6 @@ void LocalIdentity::readFrom(const uint8_t* src, size_t len) {
   #ifdef USE_ESP32_ENCRYPTION
       // In libsodium, the private key already contains the public key in its last 32 bytes
       // We can just extract it directly, avoiding the expensive derivation calculation
-      // This significantly reduces stack usage on ESP32
       memcpy(pub_key, prv_key + 32, 32);
   #else
       // now need to re-calculate the pub_key
@@ -119,8 +115,6 @@ void LocalIdentity::readFrom(const uint8_t* src, size_t len) {
 
 void LocalIdentity::sign(uint8_t* sig, const uint8_t* message, int msg_len) const {
   #ifdef USE_ESP32_ENCRYPTION
-    // Use libsodium for signing on ESP32 to reduce stack usage
-    // The libsodium implementation uses less stack space than the default ed25519 implementation
     crypto_sign_ed25519_detached(sig, NULL, message, msg_len, prv_key);
   #else
     ed25519_sign(sig, message, msg_len, pub_key, prv_key);
@@ -130,13 +124,11 @@ void LocalIdentity::sign(uint8_t* sig, const uint8_t* message, int msg_len) cons
 void LocalIdentity::calcSharedSecret(uint8_t* secret, const uint8_t* other_pub_key) {
   #ifdef USE_ESP32_ENCRYPTION
     // NOTE: To calculate a shared secret with Ed25519 keys and libsodium, we need to:
-    // 1. Convert the Ed25519 keys to Curve25519 (X25519) format
-    // 2. Perform the key exchange using the converted keys
+    // Convert the Ed25519 keys to Curve25519 (X25519) format
+    // Perform the key exchange using the converted keys
     //
     // The default implementation handles this conversion internally,
-    // but with libsodium we need to do these steps explicitly.
-    // This approach uses less stack space compared to the original implementation.
-    
+    // but with libsodium we need to do these steps explicitly.    
     unsigned char x25519_pk[crypto_scalarmult_curve25519_BYTES];
     unsigned char x25519_sk[crypto_scalarmult_curve25519_BYTES];
     

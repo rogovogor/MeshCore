@@ -104,7 +104,6 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
     // len can be > original length, but 'text' will be padded with zeroes
     data[len] = 0; // need to make a C string again, with null terminator
 
-    //if ( ! alreadyReceived timestamp ) {
     if (flags == TXT_TYPE_PLAIN) {
       onMessageRecv(from, packet->isRouteFlood() ? packet->path_len : 0xFF, timestamp, (const char *) &data[5]);  // let UI know
 
@@ -131,7 +130,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
       // NOTE: no ack expected for CLI_DATA replies
 
       if (packet->isRouteFlood()) {
-        // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
+        // let this sender know path TO here, so they can use sendDirect() (NOTE: no ACK as extra)
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len, 0, NULL, 0);
         if (path) sendFlood(path);
       }

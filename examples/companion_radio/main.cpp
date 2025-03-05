@@ -88,6 +88,15 @@
   #error "need to provide a 'board' object"
 #endif
 
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SSD1306Display.h>
+
+  static DISPLAY_CLASS  display;
+
+  #include "UITask.h"
+  static UITask ui_task(display);
+#endif
+
 // Believe it or not, this std C function is busted on some platforms!
 static uint32_t _atoi(const char* sp) {
   uint32_t n = 0;
@@ -182,6 +191,7 @@ struct NodePrefs {  // persisted to file
   uint8_t tx_power_dbm;
   uint8_t unused[3];
   float rx_delay_base;
+  uint32_t ble_pin;
 };
 
 class MyMesh : public BaseChatMesh {
@@ -214,6 +224,11 @@ class MyMesh : public BaseChatMesh {
     if (!_identity_store->load("_main", self_id)) {
       self_id = mesh::LocalIdentity(&trng);  // create new random identity
       saveMainIdentity(self_id);
+
+    #if defined(BLE_PIN_CODE) && defined(DISPLAY_CLASS)
+      // start with randomly assigned BLE pin
+      _prefs.ble_pin = trng.nextInt(100000, 999999);
+    #endif
     }
   }
 
@@ -475,6 +490,9 @@ protected:
     } else {
       soundBuzzer();
     }
+  #ifdef DISPLAY_CLASS
+    ui_task.showMsgPreview(path_len, from.name, text);
+  #endif
   }
 
   void onMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
@@ -514,6 +532,9 @@ protected:
     } else {
       soundBuzzer();
     }
+  #ifdef DISPLAY_CLASS
+    ui_task.showMsgPreview(in_path_len < 0 ? 0xFF : in_path_len, "Public", text);
+  #endif
   }
 
   void onContactResponse(const ContactInfo& contact, const uint8_t* data, uint8_t len) override {
@@ -600,6 +621,9 @@ public:
     _prefs.bw = LORA_BW;
     _prefs.cr = LORA_CR;
     _prefs.tx_power_dbm = LORA_TX_POWER;
+  #ifdef BLE_PIN_CODE
+    _prefs.ble_pin = BLE_PIN_CODE;
+  #endif
     //_prefs.rx_delay_base = 10.0f;  enable once new algo fixed
   }
 
@@ -620,7 +644,34 @@ public:
     if (_fs->exists("/node_prefs")) {
       File file = _fs->open("/node_prefs");
       if (file) {
-        file.read((uint8_t *) &_prefs, sizeof(_prefs));
+        uint8_t pad[8];
+
+        file.read((uint8_t *) &_prefs.airtime_factor, sizeof(float));  // 0
+        file.read((uint8_t *) _prefs.node_name, sizeof(_prefs.node_name));  // 4
+        file.read(pad, 4);   // 36
+        file.read((uint8_t *) &_prefs.node_lat, sizeof(_prefs.node_lat));  // 40
+        file.read((uint8_t *) &_prefs.node_lon, sizeof(_prefs.node_lon));  // 48
+        file.read((uint8_t *) &_prefs.freq, sizeof(_prefs.freq));   // 56
+        file.read((uint8_t *) &_prefs.sf, sizeof(_prefs.sf));  // 60
+        file.read((uint8_t *) &_prefs.cr, sizeof(_prefs.cr));  // 61
+        file.read((uint8_t *) &_prefs.reserved1, sizeof(_prefs.reserved1));  // 62
+        file.read((uint8_t *) &_prefs.reserved2, sizeof(_prefs.reserved2));  // 63
+        file.read((uint8_t *) &_prefs.bw, sizeof(_prefs.bw));  // 64
+        file.read((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
+        file.read((uint8_t *) _prefs.unused, sizeof(_prefs.unused));  // 69
+        file.read((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
+        file.read(pad, 4);   // 76
+        file.read((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
+
+        // sanitise bad pref values
+        _prefs.rx_delay_base = constrain(_prefs.rx_delay_base, 0, 20.0f);
+        _prefs.airtime_factor = constrain(_prefs.airtime_factor, 0, 9.0f);
+        _prefs.freq = constrain(_prefs.freq, 400.0f, 2500.0f);
+        _prefs.bw = constrain(_prefs.bw, 62.5f, 500.0f);
+        _prefs.sf = constrain(_prefs.sf, 7, 12);
+        _prefs.cr = constrain(_prefs.cr, 5, 8);
+        _prefs.tx_power_dbm = constrain(_prefs.tx_power_dbm, 1, MAX_LORA_TX_POWER);
+
         file.close();
       }
     }
@@ -639,6 +690,7 @@ public:
   }
 
   const char* getNodeName() { return _prefs.node_name; }
+  uint32_t getBLEPin() { return _prefs.ble_pin; }
 
   void startInterface(BaseSerialInterface& serial) {
     _serial = &serial;
@@ -653,7 +705,26 @@ public:
     File file = _fs->open("/node_prefs", "w", true);
 #endif
     if (file) {
-      file.write((const uint8_t *)&_prefs, sizeof(_prefs));
+      uint8_t pad[8];
+      memset(pad, 0, sizeof(pad));
+
+      file.write((uint8_t *) &_prefs.airtime_factor, sizeof(float));  // 0
+      file.write((uint8_t *) _prefs.node_name, sizeof(_prefs.node_name));  // 4
+      file.write(pad, 4);   // 36
+      file.write((uint8_t *) &_prefs.node_lat, sizeof(_prefs.node_lat));  // 40
+      file.write((uint8_t *) &_prefs.node_lon, sizeof(_prefs.node_lon));  // 48
+      file.write((uint8_t *) &_prefs.freq, sizeof(_prefs.freq));   // 56
+      file.write((uint8_t *) &_prefs.sf, sizeof(_prefs.sf));  // 60
+      file.write((uint8_t *) &_prefs.cr, sizeof(_prefs.cr));  // 61
+      file.write((uint8_t *) &_prefs.reserved1, sizeof(_prefs.reserved1));  // 62
+      file.write((uint8_t *) &_prefs.reserved2, sizeof(_prefs.reserved2));  // 63
+      file.write((uint8_t *) &_prefs.bw, sizeof(_prefs.bw));  // 64
+      file.write((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
+      file.write((uint8_t *) _prefs.unused, sizeof(_prefs.unused));  // 69
+      file.write((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
+      file.write(pad, 4);   // 76
+      file.write((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
+
       file.close();
     }
   }
@@ -1081,6 +1152,11 @@ public:
     } else if (!_serial->isWriteBusy()) {
       checkConnections();
     }
+
+  #ifdef DISPLAY_CLASS
+    ui_task.setHasConnection(_serial->isConnected());
+    ui_task.loop();
+  #endif
   }
 };
 
@@ -1112,7 +1188,7 @@ public:
 
 #if defined(NRF52_PLATFORM)
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, SPI);
-#elif defined(LILYGO_TLORA) || defined(HELTEC_LORA_V2)  // ESP32 with SX1276
+#elif defined(LILYGO_TLORA)
 SPIClass spi;
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1, spi);
 #elif defined(P_LORA_SCLK)
@@ -1137,6 +1213,10 @@ void setup() {
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
 #else
   float tcxo = 1.6f;
+#endif
+
+#ifdef DISPLAY_CLASS
+  display.begin();
 #endif
 
 #if defined(NRF52_PLATFORM)
@@ -1173,7 +1253,7 @@ void setup() {
 #ifdef BLE_PIN_CODE
   char dev_name[32+10];
   sprintf(dev_name, "MeshCore-%s", the_mesh.getNodeName());
-  serial_interface.begin(dev_name, BLE_PIN_CODE);
+  serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
   pinMode(WB_IO2, OUTPUT);
   serial_interface.begin(Serial);
@@ -1189,13 +1269,17 @@ void setup() {
 #elif defined(BLE_PIN_CODE)
   char dev_name[32+10];
   sprintf(dev_name, "MeshCore-%s", the_mesh.getNodeName());
-  serial_interface.begin(dev_name, BLE_PIN_CODE);
+  serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
   serial_interface.begin(Serial);
 #endif
   the_mesh.startInterface(serial_interface);
 #else
   #error "need to define filesystem"
+#endif
+
+#ifdef DISPLAY_CLASS
+  ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
 #endif
 }
 

@@ -76,7 +76,7 @@
   #include <helpers/CustomSX1262Wrapper.h>
   #include <helpers/CustomSX1268Wrapper.h>
   static XiaoC3Board board;
-#elif defined(SEEED_XIAO_S3) || defined(LILYGO_T3S3)
+#elif defined(SEEED_XIAO_S3)
   #include <helpers/ESP32Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static ESP32Board board;
@@ -90,6 +90,15 @@
   static RAK4631Board board;
 #else
   #error "need to provide a 'board' object"
+#endif
+
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SSD1306Display.h>
+
+  static DISPLAY_CLASS  display;
+
+  #include "UITask.h"
+  static UITask ui_task(display);
 #endif
 
 /* ------------------------------ Code -------------------------------- */
@@ -376,7 +385,8 @@ protected:
 
       if (!(flags == TXT_TYPE_PLAIN || flags == TXT_TYPE_CLI_DATA)) {
         MESH_DEBUG_PRINTLN("onPeerDataRecv: unsupported command flags received: flags=%02x", (uint32_t)flags);
-      } else if (sender_timestamp > client->last_timestamp) {  // prevent replay attacks 
+      } else if (sender_timestamp >= client->last_timestamp) {  // prevent replay attacks, but send Acks for retries
+        bool is_retry = (sender_timestamp == client->last_timestamp);
         client->last_timestamp = sender_timestamp;
 
         uint32_t now = getRTCClock()->getCurrentTimeUnique();
@@ -393,19 +403,26 @@ protected:
         bool send_ack;
         if (flags == TXT_TYPE_CLI_DATA) {
           if (client->is_admin) {
-            _cli.handleCommand(sender_timestamp, (const char *) &data[5], (char *) &temp[5]);
-            temp[4] = (TXT_TYPE_CLI_DATA << 2);  // attempt and flags,  (NOTE: legacy was: TXT_TYPE_PLAIN)
-            send_ack = true;
+            if (is_retry) {
+              temp[5] = 0;  // no reply
+            } else {
+              _cli.handleCommand(sender_timestamp, (const char *) &data[5], (char *) &temp[5]);
+              temp[4] = (TXT_TYPE_CLI_DATA << 2);  // attempt and flags,  (NOTE: legacy was: TXT_TYPE_PLAIN)
+            }
+            send_ack = false;
           } else {
             temp[5] = 0;  // no reply
             send_ack = false;  // and no ACK...  user shoudn't be sending these
           }
         } else {   // TXT_TYPE_PLAIN
-          addPost(client, (const char *) &data[5]);
+          if (!is_retry) {
+            addPost(client, (const char *) &data[5]);
+          }
           temp[5] = 0;  // no reply (ACK is enough)
           send_ack = true;
         }
 
+        uint32_t delay_millis;
         if (send_ack) {
           mesh::Packet* ack = createAck(ack_hash);
           if (ack) {
@@ -415,6 +432,9 @@ protected:
               sendDirect(ack, client->out_path, client->out_path_len);
             }
           }
+          delay_millis = REPLY_DELAY_MILLIS;
+        } else {
+          delay_millis = 0;
         }
 
         int text_len = strlen((char *) &temp[5]);
@@ -431,9 +451,9 @@ protected:
           auto reply = createDatagram(PAYLOAD_TYPE_TXT_MSG, client->id, secret, temp, 5 + text_len);
           if (reply) {
             if (client->out_path_len < 0) {
-              sendFlood(reply, REPLY_DELAY_MILLIS);
+              sendFlood(reply, delay_millis);
             } else {
-              sendDirect(reply, client->out_path, client->out_path_len, REPLY_DELAY_MILLIS);
+              sendDirect(reply, client->out_path, client->out_path_len, delay_millis);
             }
           }
         }
@@ -544,13 +564,7 @@ public:
     mesh::Mesh::begin();
     _fs = fs;
     // load persisted prefs
-    if (_fs->exists("/node_prefs")) {
-      File file = _fs->open("/node_prefs");
-      if (file) {
-        file.read((uint8_t *) &_prefs, sizeof(_prefs));
-        file.close();
-      }
-    }
+    _cli.loadPrefs(_fs);
 
     _phy->setFrequency(_prefs.freq);
     _phy->setSpreadingFactor(_prefs.sf);
@@ -563,18 +577,10 @@ public:
 
   const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
   const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
+  const char* getNodeName() { return _prefs.node_name; }
 
   void savePrefs() override {
-#if defined(NRF52_PLATFORM)
-    File file = _fs->open("/node_prefs", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
-#else
-    File file = _fs->open("/node_prefs", "w", true);
-#endif
-    if (file) {
-      file.write((const uint8_t *)&_prefs, sizeof(_prefs));
-      file.close();
-    }
+    _cli.savePrefs(_fs);
   }
 
   bool formatFileSystem() override {
@@ -657,13 +663,17 @@ public:
       updateAdvertTimer();   // schedule next local advert
     }
 
+  #ifdef DISPLAY_CLASS
+    ui_task.loop();
+  #endif
+
     // TODO: periodically check for OLD/inactive entries in known_clients[], and evict
   }
 };
 
 #if defined(NRF52_PLATFORM)
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, SPI);
-#elif defined(LILYGO_TLORA) || defined(HELTEC_LORA_V2)  // ESP32 with SX1276
+#elif defined(LILYGO_TLORA)
 SPIClass spi;
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1, spi);
 #elif defined(P_LORA_SCLK)
@@ -704,6 +714,10 @@ void setup() {
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
 #else
   float tcxo = 1.6f;
+#endif
+
+#ifdef DISPLAY_CLASS
+  display.begin();
 #endif
 
 #if defined(NRF52_PLATFORM)
@@ -756,6 +770,10 @@ void setup() {
   command[0] = 0;
 
   the_mesh.begin(fs);
+
+#ifdef DISPLAY_CLASS
+  ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE);
+#endif
 
   // send out initial Advertisement to the mesh
   the_mesh.sendSelfAdvertisement(2000);
