@@ -78,7 +78,7 @@ void UITask::renderCurrScreen() {
     if (_connected) {
       //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
       //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
-    } else {
+    } else if (_pin_code != 0) {
       _display->setTextSize(2);
       _display->setCursor(0, 43);
       sprintf(tmp, "Pin:%d", _pin_code);

@@ -204,6 +204,7 @@ class MyMesh : public BaseChatMesh {
   ContactsIterator _iter;
   uint32_t _iter_filter_since;
   uint32_t _most_recent_lastmod;
+  uint32_t _active_ble_pin;
   bool  _iter_started;
   uint8_t app_target_ver;
   uint8_t cmd_frame[MAX_FRAME_SIZE+1];
@@ -220,11 +221,6 @@ class MyMesh : public BaseChatMesh {
     if (!_identity_store->load("_main", self_id)) {
       self_id = mesh::LocalIdentity(&trng);  // create new random identity
       saveMainIdentity(self_id);
-
-    #if defined(BLE_PIN_CODE) && defined(DISPLAY_CLASS)
-      // start with randomly assigned BLE pin
-      _prefs.ble_pin = trng.nextInt(100000, 999999);
-    #endif
     }
   }
 
@@ -617,9 +613,6 @@ public:
     _prefs.bw = LORA_BW;
     _prefs.cr = LORA_CR;
     _prefs.tx_power_dbm = LORA_TX_POWER;
-  #ifdef BLE_PIN_CODE
-    _prefs.ble_pin = BLE_PIN_CODE;
-  #endif
     //_prefs.rx_delay_base = 10.0f;  enable once new algo fixed
   }
 
@@ -672,6 +665,20 @@ public:
       }
     }
 
+  #ifdef BLE_PIN_CODE
+    if (_prefs.ble_pin == 0) {
+    #ifdef DISPLAY_CLASS
+      _active_ble_pin = trng.nextInt(100000, 999999);  // random pin each session
+    #else
+      _active_ble_pin = BLE_PIN_CODE;  // otherwise static pin
+    #endif
+    } else {
+      _active_ble_pin = _prefs.ble_pin;
+    }
+  #else
+    _active_ble_pin = 0;
+  #endif
+
     // init 'blob store' support
     _fs->mkdir("/bl");
 
@@ -686,7 +693,7 @@ public:
   }
 
   const char* getNodeName() { return _prefs.node_name; }
-  uint32_t getBLEPin() { return _prefs.ble_pin; }
+  uint32_t getBLEPin() { return _active_ble_pin; }
 
   void startInterface(BaseSerialInterface& serial) {
     _serial = &serial;
