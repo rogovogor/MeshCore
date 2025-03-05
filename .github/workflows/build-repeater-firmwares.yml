@@ -1,5 +1,8 @@
 name: Build Repeater Firmwares
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   push:
