@@ -519,13 +519,7 @@ public:
     mesh::Mesh::begin();
     _fs = fs;
     // load persisted prefs
-    if (_fs->exists("/node_prefs")) {
-      File file = _fs->open("/node_prefs");
-      if (file) {
-        file.read((uint8_t *) &_prefs, sizeof(_prefs));
-        file.close();
-      }
-    }
+    _cli.loadPrefs(_fs);
 
     _phy->setFrequency(_prefs.freq);
     _phy->setSpreadingFactor(_prefs.sf);
@@ -541,16 +535,7 @@ public:
   const char* getNodeName() { return _prefs.node_name; }
 
   void savePrefs() override {
-#if defined(NRF52_PLATFORM)
-    File file = _fs->open("/node_prefs", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
-#else
-    File file = _fs->open("/node_prefs", "w", true);
-#endif
-    if (file) {
-      file.write((const uint8_t *)&_prefs, sizeof(_prefs));
-      file.close();
-    }
+    _cli.savePrefs(_fs);
   }
 
   bool formatFileSystem() override {

@@ -13,6 +13,89 @@ static uint32_t _atoi(const char* sp) {
   return n;
 }
 
+void CommonCLI::loadPrefs(FILESYSTEM* fs) {
+  if (fs->exists("/node_prefs")) {
+    File file = fs->open("/node_prefs");
+    if (file) {
+      uint8_t pad[8];
+
+      file.read((uint8_t *) &_prefs->airtime_factor, sizeof(_prefs->airtime_factor));  // 0
+      file.read((uint8_t *) &_prefs->node_name, sizeof(_prefs->node_name));  // 4
+      file.read(pad, 4);   // 36
+      file.read((uint8_t *) &_prefs->node_lat, sizeof(_prefs->node_lat));  // 40
+      file.read((uint8_t *) &_prefs->node_lon, sizeof(_prefs->node_lon));  // 48
+      file.read((uint8_t *) &_prefs->password[0], sizeof(_prefs->password));  // 56
+      file.read((uint8_t *) &_prefs->freq, sizeof(_prefs->freq));   // 72
+      file.read((uint8_t *) &_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));  // 76
+      file.read((uint8_t *) &_prefs->disable_fwd, sizeof(_prefs->disable_fwd));  // 77
+      file.read((uint8_t *) &_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
+      file.read((uint8_t *) &_prefs->unused, sizeof(_prefs->unused));  // 79
+      file.read((uint8_t *) &_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));  // 80
+      file.read((uint8_t *) &_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
+      file.read((uint8_t *) &_prefs->guest_password[0], sizeof(_prefs->guest_password));  // 88
+      file.read((uint8_t *) &_prefs->direct_tx_delay_factor, sizeof(_prefs->direct_tx_delay_factor));  // 104
+      file.read(pad, 4);   // 108
+      file.read((uint8_t *) &_prefs->sf, sizeof(_prefs->sf));  // 112
+      file.read((uint8_t *) &_prefs->cr, sizeof(_prefs->cr));  // 113
+      file.read((uint8_t *) &_prefs->reserved1, sizeof(_prefs->reserved1));  // 114
+      file.read((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
+      file.read((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
+      file.read(pad, 4);   // 120
+
+      // sanitise bad pref values
+      _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
+      _prefs->tx_delay_factor = constrain(_prefs->tx_delay_factor, 0, 2.0f);
+      _prefs->direct_tx_delay_factor = constrain(_prefs->direct_tx_delay_factor, 0, 2.0f);
+      _prefs->airtime_factor = constrain(_prefs->airtime_factor, 0, 9.0f);
+      _prefs->freq = constrain(_prefs->freq, 400.0f, 2500.0f);
+      _prefs->bw = constrain(_prefs->bw, 62.5f, 500.0f);
+      _prefs->sf = constrain(_prefs->sf, 7, 12);
+      _prefs->cr = constrain(_prefs->cr, 5, 8);
+      _prefs->tx_power_dbm = constrain(_prefs->tx_power_dbm, 1, 30);
+
+      file.close();
+    }
+  }
+}
+
+void CommonCLI::savePrefs(FILESYSTEM* fs) {
+#if defined(NRF52_PLATFORM)
+  File file = fs->open("/node_prefs", FILE_O_WRITE);
+  if (file) { file.seek(0); file.truncate(); }
+#else
+  File file = fs->open("/node_prefs", "w", true);
+#endif
+  if (file) {
+    uint8_t pad[8];
+    memset(pad, 0, sizeof(pad));
+
+    file.write((uint8_t *) &_prefs->airtime_factor, sizeof(_prefs->airtime_factor));  // 0
+    file.write((uint8_t *) &_prefs->node_name, sizeof(_prefs->node_name));  // 4
+    file.write(pad, 4);   // 36
+    file.write((uint8_t *) &_prefs->node_lat, sizeof(_prefs->node_lat));  // 40
+    file.write((uint8_t *) &_prefs->node_lon, sizeof(_prefs->node_lon));  // 48
+    file.write((uint8_t *) &_prefs->password[0], sizeof(_prefs->password));  // 56
+    file.write((uint8_t *) &_prefs->freq, sizeof(_prefs->freq));   // 72
+    file.write((uint8_t *) &_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));  // 76
+    file.write((uint8_t *) &_prefs->disable_fwd, sizeof(_prefs->disable_fwd));  // 77
+    file.write((uint8_t *) &_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
+    file.write((uint8_t *) &_prefs->unused, sizeof(_prefs->unused));  // 79
+    file.write((uint8_t *) &_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));  // 80
+    file.write((uint8_t *) &_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
+    file.write((uint8_t *) &_prefs->guest_password[0], sizeof(_prefs->guest_password));  // 88
+    file.write((uint8_t *) &_prefs->direct_tx_delay_factor, sizeof(_prefs->direct_tx_delay_factor));  // 104
+    file.write(pad, 4);   // 108
+    file.write((uint8_t *) &_prefs->sf, sizeof(_prefs->sf));  // 112
+    file.write((uint8_t *) &_prefs->cr, sizeof(_prefs->cr));  // 113
+    file.write((uint8_t *) &_prefs->reserved1, sizeof(_prefs->reserved1));  // 114
+    file.write((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
+    file.write((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
+    file.write(pad, 4);   // 120
+
+    file.close();
+  }
+}
+
 #define MIN_LOCAL_ADVERT_INTERVAL   60
 
 void CommonCLI::checkAdvertInterval() {
