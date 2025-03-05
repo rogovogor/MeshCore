@@ -84,6 +84,15 @@
   #error "need to provide a 'board' object"
 #endif
 
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SSD1306Display.h>
+
+  static DISPLAY_CLASS  display;
+
+  #include "UITask.h"
+  static UITask ui_task(display);
+#endif
+
 #define PACKET_LOG_FILE  "/packet_log"
 
 /* ------------------------------ Code -------------------------------- */
@@ -529,6 +538,7 @@ public:
 
   const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
   const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
+  const char* getNodeName() { return _prefs.node_name; }
 
   void savePrefs() override {
 #if defined(NRF52_PLATFORM)
@@ -604,6 +614,9 @@ public:
 
       updateAdvertTimer();   // schedule next local advert
     }
+  #ifdef DISPLAY_CLASS
+    ui_task.loop();
+  #endif
   }
 };
 
@@ -649,6 +662,10 @@ void setup() {
   float tcxo = 1.6f;
 #endif
   
+#ifdef DISPLAY_CLASS
+  display.begin();
+#endif
+
 #if defined(NRF52_PLATFORM)
   SPI.setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI);
   SPI.begin();
@@ -700,6 +717,10 @@ void setup() {
   command[0] = 0;
 
   the_mesh.begin(fs);
+
+#ifdef DISPLAY_CLASS
+  ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE);
+#endif
 
   // send out initial Advertisement to the mesh
   the_mesh.sendSelfAdvertisement(2000);
