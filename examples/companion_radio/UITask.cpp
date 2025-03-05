@@ -21,12 +21,13 @@ static const uint8_t meshcore_logo [] PROGMEM = {
     0xe3, 0xe3, 0x8f, 0xff, 0x1f, 0xfc, 0x3c, 0x0e, 0x1f, 0xf8, 0xff, 0xf8, 0x70, 0x3c, 0x7f, 0xf8, 
 };
 
-void UITask::begin(const char* node_name, const char* build_date) {
+void UITask::begin(const char* node_name, const char* build_date, uint32_t pin_code) {
   _prevBtnState = HIGH;
   _auto_off = millis() + AUTO_OFF_MILLIS;
   clearMsgPreview();
   _node_name = node_name;
   _build_date = build_date;
+  _pin_code = pin_code;
   _display->turnOn();
 }
 
@@ -73,8 +74,16 @@ void UITask::renderCurrScreen() {
     sprintf(tmp, "Build: %s", _build_date);
     _display->setCursor(0, 32);
     _display->print(tmp);
-    //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
-    //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
+
+    if (_connected) {
+      //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
+      //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
+    } else {
+      _display->setTextSize(2);
+      _display->setCursor(0, 43);
+      sprintf(tmp, "Pin:%d", _pin_code);
+      _display->print(tmp);
+    }
   }
 }
 
