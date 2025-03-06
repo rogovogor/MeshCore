@@ -213,7 +213,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     memcpy(&reply_data[len], post.text, text_len); len += text_len;
 
     // calc expected ACK reply
-    mesh::Utils::sha256((uint8_t *)&client->pending_ack, 4, reply_data, len, self_id.pub_key, PUB_KEY_SIZE);
+    mesh::Utils::sha256((uint8_t *)&client->pending_ack, 4, reply_data, len, client->id.pub_key, PUB_KEY_SIZE);
     client->push_post_timestamp = post.post_timestamp;
 
     auto reply = createDatagram(PAYLOAD_TYPE_TXT_MSG, client->id, client->secret, reply_data, len);
