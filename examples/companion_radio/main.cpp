@@ -84,6 +84,10 @@
   #include <helpers/nrf52/T1000eBoard.h>
   #include <helpers/CustomLR1110Wrapper.h>
   static T1000eBoard board;
+#elif defined(HELTEC_T114)
+  #include <helpers/nrf52/T114Board.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static T114Board board;
 #else
   #error "need to provide a 'board' object"
 #endif
@@ -300,11 +304,11 @@ class MyMesh : public BaseChatMesh {
   int  getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) override {
     char path[64];
     char fname[18];
-  
+
     if (key_len > 8) key_len = 8;   // just use first 8 bytes (prefix)
     mesh::Utils::toHex(fname, key, key_len);
     sprintf(path, "/bl/%s", fname);
-  
+
     if (_fs->exists(path)) {
       File f = _fs->open(path);
       if (f) {
@@ -319,11 +323,11 @@ class MyMesh : public BaseChatMesh {
   bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len) override {
     char path[64];
     char fname[18];
-  
+
     if (key_len > 8) key_len = 8;   // just use first 8 bytes (prefix)
     mesh::Utils::toHex(fname, key, key_len);
     sprintf(path, "/bl/%s", fname);
-  
+
   #if defined(NRF52_PLATFORM)
     File f = _fs->open(path, FILE_O_WRITE);
     if (f) { f.seek(0); f.truncate(); }
@@ -334,7 +338,7 @@ class MyMesh : public BaseChatMesh {
       int n = f.write(src_buf, len);
       f.close();
       if (n == len) return true;  // success!
-  
+
       _fs->remove(path);   // blob was only partially written!
     }
     return false;  // error
@@ -590,7 +594,7 @@ protected:
     return SEND_TIMEOUT_BASE_MILLIS + (FLOOD_SEND_TIMEOUT_FACTOR * pkt_airtime_millis);
   }
   uint32_t calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t path_len) const override {
-    return SEND_TIMEOUT_BASE_MILLIS + 
+    return SEND_TIMEOUT_BASE_MILLIS +
          ( (pkt_airtime_millis*DIRECT_SEND_PERHOP_FACTOR + DIRECT_SEND_PERHOP_EXTRA_MILLIS) * (path_len + 1));
   }
 
@@ -769,7 +773,7 @@ public:
       memcpy(&out_frame[i], &lat, 4); i += 4;
       memcpy(&out_frame[i], &lon, 4); i += 4;
       memcpy(&out_frame[i], &alt, 4); i += 4;
-      
+
       uint32_t freq = _prefs.freq * 1000;
       memcpy(&out_frame[i], &freq, 4); i += 4;
       uint32_t bw = _prefs.bw*1000;
@@ -1018,7 +1022,7 @@ public:
         _prefs.tx_power_dbm = cmd_frame[1];
         savePrefs();
         _phy->setOutputPower(_prefs.tx_power_dbm);
-        writeOKFrame(); 
+        writeOKFrame();
       }
     } else if (cmd_frame[0] == CMD_SET_TUNING_PARAMS) {
       int i = 1;
