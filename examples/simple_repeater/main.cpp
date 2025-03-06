@@ -84,6 +84,14 @@
   #include <helpers/nrf52/RAK4631Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static RAK4631Board board;
+#elif defined(HELTEC_T114)
+  #include <helpers/nrf52/T114Board.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static T114Board board;
+#elif defined(LILYGO_TECHO)
+  #include <helpers/nrf52/TechoBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static TechoBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif
@@ -165,7 +173,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     return oldest;
   }
 
-  int handleRequest(ClientInfo* sender, uint8_t* payload, size_t payload_len) { 
+  int handleRequest(ClientInfo* sender, uint8_t* payload, size_t payload_len) {
     uint32_t now = getRTCClock()->getCurrentTimeUnique();
     memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
 
@@ -226,7 +234,7 @@ protected:
     return !_prefs.disable_fwd;
   }
 
-  const char* getLogDateTime() override { 
+  const char* getLogDateTime() override {
     static char tmp[32];
     uint32_t now = getRTCClock()->getCurrentTime();
     DateTime dt = DateTime(now);
@@ -258,7 +266,7 @@ protected:
       File f = openAppend(PACKET_LOG_FILE);
       if (f) {
         f.print(getLogDateTime());
-        f.printf(": TX, len=%d (type=%d, route=%s, payload_len=%d)", 
+        f.printf(": TX, len=%d (type=%d, route=%s, payload_len=%d)",
           len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len);
 
         if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
@@ -276,7 +284,7 @@ protected:
       File f = openAppend(PACKET_LOG_FILE);
       if (f) {
         f.print(getLogDateTime());
-        f.printf(": TX FAIL!, len=%d (type=%d, route=%s, payload_len=%d)\n", 
+        f.printf(": TX FAIL!, len=%d (type=%d, route=%s, payload_len=%d)\n",
           len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len);
         f.close();
       }
@@ -318,7 +326,7 @@ protected:
       auto client = putClient(sender);  // add to known clients (if not already known)
       if (timestamp <= client->last_timestamp) {
         MESH_DEBUG_PRINTLN("Possible login replay attack!");
-        return;  // FATAL: client table is full -OR- replay attack 
+        return;  // FATAL: client table is full -OR- replay attack
       }
 
       MESH_DEBUG_PRINTLN("Login success!");
@@ -389,7 +397,7 @@ protected:
       uint32_t timestamp;
       memcpy(&timestamp, data, 4);
 
-      if (timestamp > client->last_timestamp) {  // prevent replay attacks 
+      if (timestamp > client->last_timestamp) {  // prevent replay attacks
         int reply_len = handleRequest(client, &data[4], len - 4);
         if (reply_len == 0) return;  // invalid command
 
@@ -421,7 +429,7 @@ protected:
 
       if (!(flags == TXT_TYPE_PLAIN || flags == TXT_TYPE_CLI_DATA)) {
         MESH_DEBUG_PRINTLN("onPeerDataRecv: unsupported text type received: flags=%02x", (uint32_t)flags);
-      } else if (sender_timestamp >= client->last_timestamp) {  // prevent replay attacks 
+      } else if (sender_timestamp >= client->last_timestamp) {  // prevent replay attacks
         bool is_retry = (sender_timestamp == client->last_timestamp);
         client->last_timestamp = sender_timestamp;
         client->last_activity = getRTCClock()->getCurrentTime();
@@ -626,7 +634,7 @@ SimpleMeshTables tables;
 #ifdef ESP32
 ESP32RTCClock fallback_clock;
 #else
-VolatileRTCClock fallback_clock; 
+VolatileRTCClock fallback_clock;
 #endif
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 
@@ -653,7 +661,7 @@ void setup() {
 #else
   float tcxo = 1.6f;
 #endif
-  
+
 #ifdef DISPLAY_CLASS
   display.begin();
 #endif
@@ -722,7 +730,7 @@ void loop() {
   int len = strlen(command);
   while (Serial.available() && len < sizeof(command)-1) {
     char c = Serial.read();
-    if (c != '\n') { 
+    if (c != '\n') {
       command[len++] = c;
       command[len] = 0;
     }
