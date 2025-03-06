@@ -66,6 +66,10 @@
   #include <helpers/ESP32Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static ESP32Board board;
+#elif defined(LILYGO_TLORA)
+  #include <helpers/LilyGoTLoraBoard.h>
+  #include <helpers/CustomSX1276Wrapper.h>
+  static LilyGoTLoraBoard board;
 #elif defined(RAK_4631)
   #include <helpers/nrf52/RAK4631Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
@@ -541,6 +545,9 @@ public:
 
 #if defined(NRF52_PLATFORM)
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, SPI);
+#elif defined(LILYGO_TLORA)
+SPIClass spi;
+RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1, spi);
 #elif defined(P_LORA_SCLK)
 SPIClass spi;
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, spi);
