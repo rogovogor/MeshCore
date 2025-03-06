@@ -88,6 +88,10 @@
   #include <helpers/nrf52/T114Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static T114Board board;
+#elif defined(LILYGO_TECHO)
+  #include <helpers/nrf52/TechoBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static TechoBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif
