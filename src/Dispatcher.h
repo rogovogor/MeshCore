@@ -116,9 +116,15 @@ protected:
   }
 
   virtual DispatcherAction onRecvPacket(Packet* pkt) = 0;
-  virtual void onPacketSent(Packet* packet);
+
+  virtual void logRx(Packet* packet, int len, float score) { }   // hooks for custom logging
+  virtual void logTx(Packet* packet, int len) { }
+  virtual void logTxFail(Packet* packet, int len) { }
+  virtual const char* getLogDateTime() { return ""; }
+
   virtual float getAirtimeBudgetFactor() const;
   virtual int calcRxDelay(float score, uint32_t air_time) const;
+  virtual uint32_t getCADFailRetryDelay() const;
 
 public:
   void begin();
