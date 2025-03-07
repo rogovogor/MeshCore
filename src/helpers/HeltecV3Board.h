@@ -29,7 +29,8 @@ public:
     ESP32Board::begin();
 
     pinMode(PIN_ADC_CTRL, OUTPUT);
-    //pinMode(PIN_VEXT_EN, OUTPUT);
+    pinMode(PIN_VEXT_EN, OUTPUT);
+    digitalWrite(PIN_VEXT_EN, LOW);  // for V3.2 boards
 
     esp_reset_reason_t reason = esp_reset_reason();
     if (reason == ESP_RST_DEEPSLEEP) {

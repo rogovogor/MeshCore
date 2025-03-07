@@ -11,6 +11,4 @@ const uint32_t g_ADigitalPinMap[] = {
 
 void initVariant()
 {
-  pinMode(LED_BUILTIN, OUTPUT);
-  ledOff(LED_BUILTIN);
 }

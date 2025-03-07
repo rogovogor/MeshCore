@@ -28,6 +28,15 @@ public:
   void begin();
   uint8_t getStartupReason() const override { return startup_reason; }
 
+#if defined(P_LORA_TX_LED)
+  void onBeforeTransmit() override {
+    digitalWrite(P_LORA_TX_LED, LOW);   // turn TX LED on
+  }
+  void onAfterTransmit() override {
+    digitalWrite(P_LORA_TX_LED, HIGH);   // turn TX LED off
+  }
+#endif
+
   #define BATTERY_SAMPLES 8
 
   uint16_t getBattMilliVolts() override {
