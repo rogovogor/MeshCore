@@ -26,7 +26,7 @@
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.2.0"
+  #define FIRMWARE_VERSION   "v1.2.1"
 #endif
 
 #ifndef LORA_FREQ

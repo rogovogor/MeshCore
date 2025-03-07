@@ -124,7 +124,7 @@ static uint32_t _atoi(const char* sp) {
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.2.0"
+  #define FIRMWARE_VERSION   "v1.2.1"
 #endif
 
 #define CMD_APP_START              1
