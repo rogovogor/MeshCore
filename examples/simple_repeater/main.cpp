@@ -76,10 +76,14 @@
   #include <helpers/ESP32Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static ESP32Board board;
-  #elif defined(LILYGO_TLORA)
+#elif defined(LILYGO_TLORA)
   #include <helpers/LilyGoTLoraBoard.h>
   #include <helpers/CustomSX1276Wrapper.h>
   static LilyGoTLoraBoard board;
+#elif defined(STATION_G2)
+  #include <helpers/StationG2Board.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static StationG2Board board;
 #elif defined(RAK_4631)
   #include <helpers/nrf52/RAK4631Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
