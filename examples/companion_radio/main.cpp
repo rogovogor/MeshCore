@@ -120,11 +120,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    2
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "3 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.0.0"
+  #define FIRMWARE_VERSION   "v1.2.0"
 #endif
 
 #define CMD_APP_START              1
@@ -1239,10 +1239,6 @@ void setup() {
   float tcxo = 1.6f;
 #endif
 
-#ifdef DISPLAY_CLASS
-  display.begin();
-#endif
-
 #if defined(NRF52_PLATFORM)
   SPI.setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI);
   SPI.begin();
@@ -1303,6 +1299,7 @@ void setup() {
 #endif
 
 #ifdef DISPLAY_CLASS
+  display.begin();
   ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
 #endif
 }
