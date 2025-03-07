@@ -210,12 +210,10 @@ class MyMesh : public BaseChatMesh {
   RADIO_CLASS* _phy;
   IdentityStore* _identity_store;
   NodePrefs _prefs;
-  uint32_t expected_ack_crc;  // TODO: keep table of expected ACKs
   uint32_t pending_login;
   uint32_t pending_status;
   mesh::GroupChannel* _public;
   BaseSerialInterface* _serial;
-  unsigned long last_msg_sent;
   ContactsIterator _iter;
   uint32_t _iter_filter_since;
   uint32_t _most_recent_lastmod;
@@ -231,6 +229,14 @@ class MyMesh : public BaseChatMesh {
   };
   int offline_queue_len;
   Frame offline_queue[OFFLINE_QUEUE_SIZE];
+
+  struct AckTableEntry {
+    unsigned long msg_sent;
+    uint32_t ack;
+  };
+  #define EXPECTED_ACK_TABLE_SIZE   8
+  AckTableEntry  expected_ack_table[EXPECTED_ACK_TABLE_SIZE];  // circular table
+  int next_ack_idx;
 
   void loadMainIdentity(mesh::RNG& trng) {
     if (!_identity_store->load("_main", self_id)) {
@@ -458,17 +464,19 @@ protected:
   }
 
   bool processAck(const uint8_t *data) override {
-    // TODO: see if matches any in a table
-    if (memcmp(data, &expected_ack_crc, 4) == 0) {     // got an ACK from recipient
-      out_frame[0] = PUSH_CODE_SEND_CONFIRMED;
-      memcpy(&out_frame[1], data, 4);
-      uint32_t trip_time = _ms->getMillis() - last_msg_sent;
-      memcpy(&out_frame[5], &trip_time, 4);
-      _serial->writeFrame(out_frame, 9);
+    // see if matches any in a table
+    for (int i = 0; i < EXPECTED_ACK_TABLE_SIZE; i++) {
+      if (memcmp(data, &expected_ack_table[i].ack, 4) == 0) {     // got an ACK from recipient
+        out_frame[0] = PUSH_CODE_SEND_CONFIRMED;
+        memcpy(&out_frame[1], data, 4);
+        uint32_t trip_time = _ms->getMillis() - expected_ack_table[i].msg_sent;
+        memcpy(&out_frame[5], &trip_time, 4);
+        _serial->writeFrame(out_frame, 9);
 
-      // NOTE: the same ACK can be received multiple times!
-      expected_ack_crc = 0;  // reset our expected hash, now that we have received ACK
-      return true;
+        // NOTE: the same ACK can be received multiple times!
+        expected_ack_table[i].ack = 0;  // clear expected hash, now that we have received ACK
+        return true;
+      }
     }
     return checkConnectionsAck(data);
   }
@@ -637,6 +645,7 @@ public:
     app_target_ver = 0;
     _identity_store = NULL;
     pending_login = pending_status = 0;
+    next_ack_idx = 0;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -824,21 +833,26 @@ public:
         uint32_t est_timeout;
         text[tlen] = 0;  // ensure null
         int result;
+        uint32_t expected_ack;
         if (txt_type == TXT_TYPE_CLI_DATA) {
           result = sendCommandData(*recipient, msg_timestamp, attempt, text, est_timeout);
-          expected_ack_crc = 0;  // no Ack expected
+          expected_ack = 0;  // no Ack expected
         } else {
-          result = sendMessage(*recipient, msg_timestamp, attempt, text, expected_ack_crc, est_timeout);
+          result = sendMessage(*recipient, msg_timestamp, attempt, text, expected_ack, est_timeout);
         }
         // TODO: add expected ACK to table
         if (result == MSG_SEND_FAILED) {
           writeErrFrame();
         } else {
-          last_msg_sent = _ms->getMillis();
+          if (expected_ack) {
+            expected_ack_table[next_ack_idx].msg_sent = _ms->getMillis();  // add to circular table
+            expected_ack_table[next_ack_idx].ack = expected_ack;
+            next_ack_idx = (next_ack_idx + 1) % EXPECTED_ACK_TABLE_SIZE;
+          }
 
           out_frame[0] = RESP_CODE_SENT;
           out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
-          memcpy(&out_frame[2], &expected_ack_crc, 4);
+          memcpy(&out_frame[2], &expected_ack, 4);
           memcpy(&out_frame[6], &est_timeout, 4);
           _serial->writeFrame(out_frame, 10);
         }
