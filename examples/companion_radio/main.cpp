@@ -156,6 +156,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SEND_STATUS_REQ       27
 #define CMD_HAS_CONNECTION        28
 #define CMD_LOGOUT                29   // 'Disconnect'
+#define CMD_GET_CONTACT_BY_KEY    30
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -954,6 +955,14 @@ public:
         writeOKFrame();
       } else {
         writeErrFrame();  // not found, or unable to send
+      }
+    } else if (cmd_frame[0] == CMD_GET_CONTACT_BY_KEY) {
+      uint8_t* pub_key = &cmd_frame[1];
+      ContactInfo* contact = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+      if (contact) {
+        writeContactRespFrame(RESP_CODE_CONTACT, *contact);
+      } else {
+        writeErrFrame();  // not found
       }
     } else if (cmd_frame[0] == CMD_EXPORT_CONTACT) {
       if (len < 1 + PUB_KEY_SIZE) {
