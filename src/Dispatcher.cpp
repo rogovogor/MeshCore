@@ -108,7 +108,7 @@ void Dispatcher::checkRecv() {
           pkt->payload_len = len - i;  // payload is remainder
           memcpy(pkt->payload, &raw[i], pkt->payload_len);
 
-          score = _radio->packetScore(pkt->_snr = _radio->getLastSNR(), len);
+          score = _radio->packetScore(pkt->_snr = (_radio->getLastSNR() * 4.0f), len);
           air_time = _radio->getEstAirtimeFor(len);
         }
       }

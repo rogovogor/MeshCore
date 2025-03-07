@@ -45,7 +45,7 @@ public:
   uint16_t payload_len, path_len;
   uint8_t path[MAX_PATH_SIZE];
   uint8_t payload[MAX_PACKET_PAYLOAD];
-  float _snr;
+  int8_t _snr;
 
   /**
    * \brief calculate the hash of payload + type
@@ -74,7 +74,7 @@ public:
   void markDoNotRetransmit() { header = 0xFF; }
   bool isMarkedDoNotRetransmit() const { return header == 0xFF; }
 
-  float getSNR() const { return _snr; }
+  float getSNR() const { return ((float)_snr) / 4.0f; }
 
   /**
    * \brief  save entire packet as a blob
