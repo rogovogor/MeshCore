@@ -1,7 +1,7 @@
 #include "SSD1306Display.h"
 
 bool SSD1306Display::begin() {
-  return display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDRESS);
+  return display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDRESS, true, false);
 }
 
 void SSD1306Display::turnOn() {

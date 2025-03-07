@@ -120,11 +120,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    2
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "3 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.0.0"
+  #define FIRMWARE_VERSION   "v1.2.1"
 #endif
 
 #define CMD_APP_START              1
@@ -156,6 +156,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SEND_STATUS_REQ       27
 #define CMD_HAS_CONNECTION        28
 #define CMD_LOGOUT                29   // 'Disconnect'
+#define CMD_GET_CONTACT_BY_KEY    30
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -955,6 +956,14 @@ public:
       } else {
         writeErrFrame();  // not found, or unable to send
       }
+    } else if (cmd_frame[0] == CMD_GET_CONTACT_BY_KEY) {
+      uint8_t* pub_key = &cmd_frame[1];
+      ContactInfo* contact = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+      if (contact) {
+        writeContactRespFrame(RESP_CODE_CONTACT, *contact);
+      } else {
+        writeErrFrame();  // not found
+      }
     } else if (cmd_frame[0] == CMD_EXPORT_CONTACT) {
       if (len < 1 + PUB_KEY_SIZE) {
         // export SELF
@@ -1230,10 +1239,6 @@ void setup() {
   float tcxo = 1.6f;
 #endif
 
-#ifdef DISPLAY_CLASS
-  display.begin();
-#endif
-
 #if defined(NRF52_PLATFORM)
   SPI.setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI);
   SPI.begin();
@@ -1294,6 +1299,7 @@ void setup() {
 #endif
 
 #ifdef DISPLAY_CLASS
+  display.begin();
   ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
 #endif
 }

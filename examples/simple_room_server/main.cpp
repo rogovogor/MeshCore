@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "6 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.1.0"
+  #define FIRMWARE_VERSION   "v1.2.1"
 #endif
 
 #ifndef LORA_FREQ
@@ -716,10 +716,6 @@ void setup() {
   float tcxo = 1.6f;
 #endif
 
-#ifdef DISPLAY_CLASS
-  display.begin();
-#endif
-
 #if defined(NRF52_PLATFORM)
   SPI.setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI);
   SPI.begin();
@@ -772,6 +768,7 @@ void setup() {
   the_mesh.begin(fs);
 
 #ifdef DISPLAY_CLASS
+  display.begin();
   ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE);
 #endif
 
