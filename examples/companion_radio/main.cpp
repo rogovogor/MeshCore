@@ -117,7 +117,7 @@ static uint32_t _atoi(const char* sp) {
 
 /*------------ Frame Protocol --------------*/
 
-#define FIRMWARE_VER_CODE    2
+#define FIRMWARE_VER_CODE    3
 
 #ifndef FIRMWARE_BUILD_DATE
   #define FIRMWARE_BUILD_DATE   "3 Mar 2025"
@@ -165,8 +165,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_END_OF_CONTACTS   4   // last reply to CMD_GET_CONTACTS
 #define RESP_CODE_SELF_INFO         5   // reply to CMD_APP_START
 #define RESP_CODE_SENT              6   // reply to CMD_SEND_TXT_MSG
-#define RESP_CODE_CONTACT_MSG_RECV  7   // a reply to CMD_SYNC_NEXT_MESSAGE
-#define RESP_CODE_CHANNEL_MSG_RECV  8   // a reply to CMD_SYNC_NEXT_MESSAGE
+#define RESP_CODE_CONTACT_MSG_RECV  7   // a reply to CMD_SYNC_NEXT_MESSAGE (ver < 3)
+#define RESP_CODE_CHANNEL_MSG_RECV  8   // a reply to CMD_SYNC_NEXT_MESSAGE (ver < 3)
 #define RESP_CODE_CURR_TIME         9   // a reply to CMD_GET_DEVICE_TIME
 #define RESP_CODE_NO_MORE_MESSAGES 10   // a reply to CMD_SYNC_NEXT_MESSAGE
 #define RESP_CODE_EXPORT_CONTACT   11
@@ -174,6 +174,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_DEVICE_INFO      13   // a reply to CMD_DEVICE_QEURY
 #define RESP_CODE_PRIVATE_KEY      14   // a reply to CMD_EXPORT_PRIVATE_KEY
 #define RESP_CODE_DISABLED         15
+#define RESP_CODE_CONTACT_MSG_RECV_V3  16   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
+#define RESP_CODE_CHANNEL_MSG_RECV_V3  17   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -471,11 +473,18 @@ protected:
     return checkConnectionsAck(data);
   }
 
-  void queueMessage(const ContactInfo& from, uint8_t txt_type, uint8_t path_len, uint32_t sender_timestamp, const uint8_t* extra, int extra_len, const char *text) {
+  void queueMessage(const ContactInfo& from, uint8_t txt_type, mesh::Packet* pkt, uint32_t sender_timestamp, const uint8_t* extra, int extra_len, const char *text) {
     int i = 0;
-    out_frame[i++] = RESP_CODE_CONTACT_MSG_RECV;
+    if (app_target_ver >= 3) {
+      out_frame[i++] = RESP_CODE_CONTACT_MSG_RECV_V3;
+      out_frame[i++] = (int8_t)(pkt->getSNR() * 4);
+      out_frame[i++] = 0;  // reserved1
+      out_frame[i++] = 0;  // reserved2
+    } else {
+      out_frame[i++] = RESP_CODE_CONTACT_MSG_RECV;
+    }
     memcpy(&out_frame[i], from.id.pub_key, 6); i += 6;  // just 6-byte prefix
-    out_frame[i++] = path_len;
+    uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
     out_frame[i++] = txt_type;
     memcpy(&out_frame[i], &sender_timestamp, 4); i += 4;
     if (extra_len > 0) {
@@ -500,27 +509,35 @@ protected:
   #endif
   }
 
-  void onMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
+  void onMessageRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const char *text) override {
     markConnectionActive(from);   // in case this is from a server, and we have a connection
-    queueMessage(from, TXT_TYPE_PLAIN, path_len, sender_timestamp, NULL, 0, text);
+    queueMessage(from, TXT_TYPE_PLAIN, pkt, sender_timestamp, NULL, 0, text);
   }
 
-  void onCommandDataRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
+  void onCommandDataRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const char *text) override {
     markConnectionActive(from);   // in case this is from a server, and we have a connection
-    queueMessage(from, TXT_TYPE_CLI_DATA, path_len, sender_timestamp, NULL, 0, text);
+    queueMessage(from, TXT_TYPE_CLI_DATA, pkt, sender_timestamp, NULL, 0, text);
   }
 
-  void onSignedMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const uint8_t *sender_prefix, const char *text) override {
+  void onSignedMessageRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const uint8_t *sender_prefix, const char *text) override {
     markConnectionActive(from);
     saveContacts();   // from.sync_since change needs to be persisted
-    queueMessage(from, TXT_TYPE_SIGNED_PLAIN, path_len, sender_timestamp, sender_prefix, 4, text);
+    queueMessage(from, TXT_TYPE_SIGNED_PLAIN, pkt, sender_timestamp, sender_prefix, 4, text);
   }
 
-  void onChannelMessageRecv(const mesh::GroupChannel& channel, int in_path_len, uint32_t timestamp, const char *text) override {
+  void onChannelMessageRecv(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t timestamp, const char *text) override {
     int i = 0;
-    out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV;
+    if (app_target_ver >= 3) {
+      out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV_V3;
+      out_frame[i++] = (int8_t)(pkt->getSNR() * 4);
+      out_frame[i++] = 0;  // reserved1
+      out_frame[i++] = 0;  // reserved2
+    } else {
+      out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV;
+    }
+
     out_frame[i++] = 0;  // FUTURE: channel_idx (will just be 'public' for now)
-    out_frame[i++] = in_path_len < 0 ? 0xFF : in_path_len;
+    uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
     out_frame[i++] = TXT_TYPE_PLAIN;
     memcpy(&out_frame[i], &timestamp, 4); i += 4;
     int tlen = strlen(text);   // TODO: UTF-8 ??
@@ -538,7 +555,7 @@ protected:
       soundBuzzer();
     }
   #ifdef DISPLAY_CLASS
-    ui_task.showMsgPreview(in_path_len < 0 ? 0xFF : in_path_len, "Public", text);
+    ui_task.showMsgPreview(path_len, "Public", text);
   #endif
   }
 
