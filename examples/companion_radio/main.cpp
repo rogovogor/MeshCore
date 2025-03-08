@@ -1257,9 +1257,11 @@ void setup() {
 #ifdef SX126X_CURRENT_LIMIT
   radio.setCurrentLimit(SX126X_CURRENT_LIMIT);
 #endif
-
 #ifdef SX126X_DIO2_AS_RF_SWITCH
   radio.setDio2AsRfSwitch(SX126X_DIO2_AS_RF_SWITCH);
+#endif
+#ifdef SX126X_RX_BOOSTED_GAIN
+  radio.setRxBoostedGainMode(SX126X_RX_BOOSTED_GAIN);
 #endif
 
   fast_rng.begin(radio.random(0x7FFFFFFF));
