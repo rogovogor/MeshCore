@@ -106,10 +106,16 @@ void Dispatcher::checkRecv() {
           memcpy(pkt->path, &raw[i], pkt->path_len); i += pkt->path_len;
 
           pkt->payload_len = len - i;  // payload is remainder
-          memcpy(pkt->payload, &raw[i], pkt->payload_len);
+          if (pkt->payload_len > sizeof(pkt->payload)) {
+            MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): packet payload too big, payload_len=%d", getLogDateTime(), (uint32_t)pkt->payload_len);
+            _mgr->free(pkt);  // put back into pool
+            pkt = NULL;  
+          } else {
+            memcpy(pkt->payload, &raw[i], pkt->payload_len);
 
-          score = _radio->packetScore(_radio->getLastSNR(), len);
-          air_time = _radio->getEstAirtimeFor(len);
+            score = _radio->packetScore(_radio->getLastSNR(), len);
+            air_time = _radio->getEstAirtimeFor(len);
+          }
         }
       }
     } else {
