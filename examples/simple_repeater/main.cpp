@@ -246,6 +246,15 @@ protected:
     return tmp;
   }
 
+  void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override {
+  #if MESH_PACKET_LOGGING
+    Serial.print(getLogDateTime());
+    Serial.print(" RAW: ");
+    mesh::Utils::printHex(Serial, raw, len);
+    Serial.println();
+  #endif
+  }
+
   void logRx(mesh::Packet* pkt, int len, float score) override {
     if (_logging) {
       File f = openAppend(PACKET_LOG_FILE);

@@ -264,6 +264,15 @@ protected:
     return _prefs.airtime_factor;
   }
 
+  void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override {
+    #if MESH_PACKET_LOGGING
+      Serial.print(getLogDateTime());
+      Serial.print(" RAW: ");
+      mesh::Utils::printHex(Serial, raw, len);
+      Serial.println();
+    #endif
+  }
+
   int calcRxDelay(float score, uint32_t air_time) const override {
     if (_prefs.rx_delay_base <= 0.0f) return 0;
     return (int) ((pow(_prefs.rx_delay_base, 0.85f - score) - 1.0) * air_time);
