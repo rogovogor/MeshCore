@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "7 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "9 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.2.1"
+  #define FIRMWARE_VERSION   "v1.2.2"
 #endif
 
 #ifndef LORA_FREQ
@@ -270,6 +270,15 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 protected:
   float getAirtimeBudgetFactor() const override {
     return _prefs.airtime_factor;
+  }
+
+  void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override {
+    #if MESH_PACKET_LOGGING
+      Serial.print(getLogDateTime());
+      Serial.print(" RAW: ");
+      mesh::Utils::printHex(Serial, raw, len);
+      Serial.println();
+    #endif
   }
 
   int calcRxDelay(float score, uint32_t air_time) const override {
@@ -742,7 +751,7 @@ void setup() {
     halt();
   }
 
-  radio.setCRC(0);
+  radio.setCRC(1);
 
 #ifdef SX126X_CURRENT_LIMIT
   radio.setCurrentLimit(SX126X_CURRENT_LIMIT);

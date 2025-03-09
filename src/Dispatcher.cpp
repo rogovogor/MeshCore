@@ -130,6 +130,12 @@ void Dispatcher::checkRecv() {
     Serial.printf(": RX, len=%d (type=%d, route=%s, payload_len=%d) SNR=%d RSSI=%d score=%d", 
             2 + pkt->path_len + pkt->payload_len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len,
             (int)_radio->getLastSNR(), (int)_radio->getLastRSSI(), (int)(score*1000));
+
+    static uint8_t packet_hash[MAX_HASH_SIZE];
+    pkt->calculatePacketHash(packet_hash);
+    Serial.print(" hash=");
+    mesh::Utils::printHex(Serial, packet_hash, MAX_HASH_SIZE);
+
     if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
         || pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
       Serial.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
