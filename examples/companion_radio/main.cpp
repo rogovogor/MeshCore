@@ -184,6 +184,7 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOGIN_SUCCESS     0x85
 #define PUSH_CODE_LOGIN_FAIL        0x86
 #define PUSH_CODE_STATUS_RESPONSE   0x87
+#define PUSH_CODE_LOG_RX_DATA       0x88
 
 /* -------------------------------------------------------------------------------------- */
 
@@ -433,6 +434,24 @@ protected:
   int calcRxDelay(float score, uint32_t air_time) const override {
     if (_prefs.rx_delay_base <= 0.0f) return 0;
     return (int) ((pow(_prefs.rx_delay_base, 0.85f - score) - 1.0) * air_time);
+  }
+
+  void logRx(mesh::Packet* pkt, int len, float score) override {
+    if (_serial->isConnected()) {
+      int i = 0;
+      out_frame[i++] = PUSH_CODE_LOG_RX_DATA;
+      out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);
+      out_frame[i++] = (int8_t)(_radio->getLastRSSI());
+      if (pkt->isRouteFlood()) {
+        out_frame[i++] = pkt->path_len;
+        memcpy(&out_frame[i], pkt->path, pkt->path_len); i += pkt->path_len;
+      } else {
+        out_frame[i++] = 0xFF;
+      }
+      memcpy(&out_frame[i], pkt->payload, pkt->payload_len); i += pkt->payload_len;
+
+      _serial->writeFrame(out_frame, i);
+    }
   }
 
   void onDiscoveredContact(ContactInfo& contact, bool is_new) override {
