@@ -436,19 +436,13 @@ protected:
     return (int) ((pow(_prefs.rx_delay_base, 0.85f - score) - 1.0) * air_time);
   }
 
-  void logRx(mesh::Packet* pkt, int len, float score) override {
+  void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override {
     if (_serial->isConnected()) {
       int i = 0;
       out_frame[i++] = PUSH_CODE_LOG_RX_DATA;
-      out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);
-      out_frame[i++] = (int8_t)(_radio->getLastRSSI());
-      if (pkt->isRouteFlood()) {
-        out_frame[i++] = pkt->path_len;
-        memcpy(&out_frame[i], pkt->path, pkt->path_len); i += pkt->path_len;
-      } else {
-        out_frame[i++] = 0xFF;
-      }
-      memcpy(&out_frame[i], pkt->payload, pkt->payload_len); i += pkt->payload_len;
+      out_frame[i++] = (int8_t)(snr * 4);
+      out_frame[i++] = (int8_t)(rssi);
+      memcpy(&out_frame[i], raw, len); i += len;
 
       _serial->writeFrame(out_frame, i);
     }

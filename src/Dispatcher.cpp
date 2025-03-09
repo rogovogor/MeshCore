@@ -78,9 +78,11 @@ void Dispatcher::checkRecv() {
   float score;
   uint32_t air_time;
   {
-    uint8_t raw[MAX_TRANS_UNIT];
+    uint8_t raw[MAX_TRANS_UNIT+1];
     int len = _radio->recvRaw(raw, MAX_TRANS_UNIT);
     if (len > 0) {
+      logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
+
       pkt = _mgr->allocNew();
       if (pkt == NULL) {
         MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): WARNING: received data, no unused packets available!", getLogDateTime());
