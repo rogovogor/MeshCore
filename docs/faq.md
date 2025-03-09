@@ -26,6 +26,7 @@ Anyone is able to build anything they like on top of MeshCore without paying any
  Phone Client Applications: https://meshcore.co.uk/apps.html
  MeshCore Fimrware Github: https://github.com/ripplebiz/MeshCore
  
+ NOTE: Andy Kirby has a very useful [intro video](https://www.youtube.com/watch?v=t1qne8uJBAc) for beginners.
 
  You need LoRa hardware devices to run MeshCore firmware as clients or server (repeater and room server).
 
