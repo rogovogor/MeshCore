@@ -61,6 +61,11 @@ struct ConnectionInfo {
   uint32_t expected_ack;
 };
 
+struct ChannelDetails {
+  mesh::GroupChannel channel;
+  char name[32];
+};
+
 /**
  *  \brief  abstract Mesh class for common 'chat' client
  */
@@ -74,7 +79,7 @@ class BaseChatMesh : public mesh::Mesh {
   int matching_peer_indexes[MAX_SEARCH_RESULTS];
   unsigned long txt_send_timeout;
 #ifdef MAX_GROUP_CHANNELS
-  mesh::GroupChannel channels[MAX_GROUP_CHANNELS];
+  ChannelDetails channels[MAX_GROUP_CHANNELS];
   int num_channels;  // only for addChannel()
 #endif
   mesh::Packet* _pendingLoopback;
@@ -152,9 +157,9 @@ public:
   bool  addContact(const ContactInfo& contact);
   int getNumContacts() const { return num_contacts; }
   ContactsIterator startContactsIterator();
-  mesh::GroupChannel* addChannel(const char* psk_base64);
-  bool getChannel(int idx, mesh::GroupChannel& dest);
-  bool setChannel(int idx, const mesh::GroupChannel& src);
+  ChannelDetails* addChannel(const char* name, const char* psk_base64);
+  bool getChannel(int idx, ChannelDetails& dest);
+  bool setChannel(int idx, const ChannelDetails& src);
   int findChannelIdx(const mesh::GroupChannel& ch);
 
   void loop();

@@ -315,17 +315,18 @@ class MyMesh : public BaseChatMesh {
   }
 
   void loadChannels() {
-    if (_fs->exists("/channels")) {
-      File file = _fs->open("/channels");
+    if (_fs->exists("/channels2")) {
+      File file = _fs->open("/channels2");
       if (file) {
         bool full = false;
         uint8_t channel_idx = 0;
         while (!full) {
-          mesh::GroupChannel ch;
+          ChannelDetails ch;
           uint8_t unused[4];
 
           bool success = (file.read(unused, 4) == 4);
-          success = success && (file.read((uint8_t *) ch.secret, 32) == 32);
+          success = success && (file.read((uint8_t *) ch.name, 32) == 32);
+          success = success && (file.read((uint8_t *) ch.channel.secret, 32) == 32);
 
           if (!success) break;  // EOF
 
@@ -342,20 +343,21 @@ class MyMesh : public BaseChatMesh {
 
   void saveChannels() {
   #if defined(NRF52_PLATFORM)
-    File file = _fs->open("/channels", FILE_O_WRITE);
+    File file = _fs->open("/channels2", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
   #else
-    File file = _fs->open("/channels", "w", true);
+    File file = _fs->open("/channels2", "w", true);
   #endif
     if (file) {
       uint8_t channel_idx = 0;
-      mesh::GroupChannel ch;
+      ChannelDetails ch;
       uint8_t unused[4];
       memset(unused, 0, 4);
     
       while (getChannel(channel_idx, ch)) {
         bool success = (file.write(unused, 4) == 4);
-        success = success && (file.write((uint8_t *) ch.secret, 32) == 32);
+        success = success && (file.write((uint8_t *) ch.name, 32) == 32);
+        success = success && (file.write((uint8_t *) ch.channel.secret, 32) == 32);
     
         if (!success) break;  // write failed
         channel_idx++;
@@ -766,7 +768,7 @@ public:
     _fs->mkdir("/bl");
 
     loadContacts();
-    addChannel(PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
+    addChannel("Public", PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
     loadChannels();
 
     _phy->setFrequency(_prefs.freq);
@@ -905,9 +907,9 @@ public:
       memcpy(&msg_timestamp, &cmd_frame[i], 4); i += 4;
       const char *text = (char *) &cmd_frame[i];
 
-      mesh::GroupChannel channel;
+      ChannelDetails channel;
       bool success = getChannel(channel_idx, channel);
-      if (success && txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, channel, _prefs.node_name, text, len - i)) {
+      if (success && txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, channel.channel, _prefs.node_name, text, len - i)) {
         writeOKFrame();
       } else {
         writeErrFrame();
@@ -1221,22 +1223,25 @@ public:
       writeOKFrame();
     } else if (cmd_frame[0] == CMD_GET_CHANNEL && len >= 2) {
       uint8_t channel_idx = cmd_frame[1];
-      mesh::GroupChannel channel;
+      ChannelDetails channel;
       if (getChannel(channel_idx, channel)) {
-        out_frame[0] = RESP_CODE_CHANNEL_INFO;
-        out_frame[1] = channel_idx;
-        memcpy(&out_frame[2], channel.secret, 16);   // NOTE: only 128-bit supported
-        _serial->writeFrame(out_frame, 2 + 16);
+        int i = 0;
+        out_frame[i++] = RESP_CODE_CHANNEL_INFO;
+        out_frame[i++] = channel_idx;
+        strcpy((char *)&out_frame[i], channel.name); i += 32;
+        memcpy(&out_frame[i], channel.channel.secret, 16); i += 16;   // NOTE: only 128-bit supported
+        _serial->writeFrame(out_frame, i);
       } else {
         writeErrFrame();
       }
-    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 3+32) {
+    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+32) {
       writeErrFrame();  // not supported (yet)
-    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 3+16) {
+    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+16) {
       uint8_t channel_idx = cmd_frame[1];
-      mesh::GroupChannel channel;
-      memset(channel.secret, 0, sizeof(channel.secret));
-      memcpy(channel.secret, &cmd_frame[2], 16);   // NOTE: only 128-bit supported
+      ChannelDetails channel;
+      StrHelper::strncpy(channel.name, (char *) &cmd_frame[2], 32);
+      memset(channel.channel.secret, 0, sizeof(channel.channel.secret));
+      memcpy(channel.channel.secret, &cmd_frame[2+32], 16);   // NOTE: only 128-bit supported
       if (setChannel(channel_idx, channel)) {
         saveChannels();
         writeOKFrame();
