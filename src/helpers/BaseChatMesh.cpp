@@ -203,7 +203,7 @@ void BaseChatMesh::onAckRecv(mesh::Packet* packet, uint32_t ack_crc) {
 #ifdef MAX_GROUP_CHANNELS
 int BaseChatMesh::searchChannelsByHash(const uint8_t* hash, mesh::GroupChannel dest[], int max_matches) {
   int n = 0;
-  for (int i = 0; i < num_channels && n < max_matches; i++) {
+  for (int i = 0; i < MAX_GROUP_CHANNELS && n < max_matches; i++) {
     if (channels[i].hash[0] == hash[0]) {
       dest[n++] = channels[i];
     }
@@ -602,9 +602,45 @@ mesh::GroupChannel* BaseChatMesh::addChannel(const char* psk_base64) {
   }
   return NULL;
 }
+bool BaseChatMesh::getChannel(int idx, mesh::GroupChannel& dest) {
+  if (idx >= 0 && idx < MAX_GROUP_CHANNELS) {
+    dest = channels[idx];
+    return true;
+  }
+  return false;
+}
+bool BaseChatMesh::setChannel(int idx, const mesh::GroupChannel& src) {
+  static uint8_t zeroes[] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+
+  if (idx >= 0 && idx < MAX_GROUP_CHANNELS) {
+    channels[idx] = src;
+    if (memcmp(&src.secret[16], zeroes, 16) == 0) {
+      mesh::Utils::sha256(channels[idx].hash, sizeof(channels[idx].hash), src.secret, 16);  // 128-bit key
+    } else {
+      mesh::Utils::sha256(channels[idx].hash, sizeof(channels[idx].hash), src.secret, 32);  // 256-bit key
+    }
+    return true;
+  }
+  return false;
+}
+int BaseChatMesh::findChannelIdx(const mesh::GroupChannel& ch) {
+  for (int i = 0; i < MAX_GROUP_CHANNELS; i++) {
+    if (memcmp(ch.secret, channels[i].secret, sizeof(ch.secret)) == 0) return i;
+  }
+  return -1;  // not found
+}
 #else
 mesh::GroupChannel* BaseChatMesh::addChannel(const char* psk_base64) {
   return NULL;  // not supported
+}
+bool BaseChatMesh::getChannel(int idx, mesh::GroupChannel& dest) {
+  return false;
+}
+bool BaseChatMesh::setChannel(int idx, const mesh::GroupChannel& src) {
+  return false;
+}
+int BaseChatMesh::findChannelIdx(const mesh::GroupChannel& ch) {
+  return -1;  // not found
 }
 #endif
 

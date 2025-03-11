@@ -161,6 +161,8 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_HAS_CONNECTION        28
 #define CMD_LOGOUT                29   // 'Disconnect'
 #define CMD_GET_CONTACT_BY_KEY    30
+#define CMD_GET_CHANNEL           31
+#define CMD_SET_CHANNEL           32
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -178,6 +180,7 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_DEVICE_INFO      13   // a reply to CMD_DEVICE_QEURY
 #define RESP_CODE_PRIVATE_KEY      14   // a reply to CMD_EXPORT_PRIVATE_KEY
 #define RESP_CODE_DISABLED         15
+#define RESP_CODE_CHANNEL_INFO     16   // a reply to CMD_GET_CHANNEL
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -216,7 +219,6 @@ class MyMesh : public BaseChatMesh {
   uint32_t expected_ack_crc;  // TODO: keep table of expected ACKs
   uint32_t pending_login;
   uint32_t pending_status;
-  mesh::GroupChannel* _public;
   BaseSerialInterface* _serial;
   unsigned long last_msg_sent;
   ContactsIterator _iter;
@@ -536,7 +538,7 @@ protected:
   void onChannelMessageRecv(const mesh::GroupChannel& channel, int in_path_len, uint32_t timestamp, const char *text) override {
     int i = 0;
     out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV;
-    out_frame[i++] = 0;  // FUTURE: channel_idx (will just be 'public' for now)
+    out_frame[i++] = findChannelIdx(channel);
     out_frame[i++] = in_path_len < 0 ? 0xFF : in_path_len;
     out_frame[i++] = TXT_TYPE_PLAIN;
     memcpy(&out_frame[i], &timestamp, 4); i += 4;
@@ -713,7 +715,7 @@ public:
     _fs->mkdir("/bl");
 
     loadContacts();
-    _public = addChannel(PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
+    addChannel(PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
 
     _phy->setFrequency(_prefs.freq);
     _phy->setSpreadingFactor(_prefs.sf);
@@ -844,12 +846,14 @@ public:
     } else if (cmd_frame[0] == CMD_SEND_CHANNEL_TXT_MSG) {  // send GroupChannel msg
       int i = 1;
       uint8_t txt_type = cmd_frame[i++];  // should be TXT_TYPE_PLAIN
-      uint8_t channel_idx = cmd_frame[i++];   // reserved future
+      uint8_t channel_idx = cmd_frame[i++];
       uint32_t msg_timestamp;
       memcpy(&msg_timestamp, &cmd_frame[i], 4); i += 4;
       const char *text = (char *) &cmd_frame[i];
 
-      if (txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, *_public, _prefs.node_name, text, len - i)) {   // hard-coded to 'public' channel for now
+      mesh::GroupChannel channel;
+      bool success = getChannel(channel_idx, channel);
+      if (success && txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, channel, _prefs.node_name, text, len - i)) {
         writeOKFrame();
       } else {
         writeErrFrame();
@@ -1161,6 +1165,29 @@ public:
       uint8_t* pub_key = &cmd_frame[1];
       stopConnection(pub_key);
       writeOKFrame();
+    } else if (cmd_frame[0] == CMD_GET_CHANNEL && len >= 2) {
+      uint8_t channel_idx = cmd_frame[1];
+      mesh::GroupChannel channel;
+      if (getChannel(channel_idx, channel)) {
+        out_frame[0] = RESP_CODE_CHANNEL_INFO;
+        out_frame[1] = channel_idx;
+        memcpy(&out_frame[2], channel.secret, 16);   // NOTE: only 128-bit supported
+        _serial->writeFrame(out_frame, 2 + 16);
+      } else {
+        writeErrFrame();
+      }
+    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 3+32) {
+      writeErrFrame();  // not supported (yet)
+    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 3+16) {
+      uint8_t channel_idx = cmd_frame[1];
+      mesh::GroupChannel channel;
+      memset(channel.secret, 0, sizeof(channel.secret));
+      memcpy(channel.secret, &cmd_frame[2], 16);   // NOTE: only 128-bit supported
+      if (setChannel(channel_idx, channel)) {
+        writeOKFrame();
+      } else {
+        writeErrFrame();
+      }
     } else {
       writeErrFrame();
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);

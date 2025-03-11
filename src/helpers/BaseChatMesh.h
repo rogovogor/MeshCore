@@ -75,7 +75,7 @@ class BaseChatMesh : public mesh::Mesh {
   unsigned long txt_send_timeout;
 #ifdef MAX_GROUP_CHANNELS
   mesh::GroupChannel channels[MAX_GROUP_CHANNELS];
-  int num_channels;
+  int num_channels;  // only for addChannel()
 #endif
   mesh::Packet* _pendingLoopback;
   uint8_t temp_buf[MAX_TRANS_UNIT];
@@ -89,6 +89,7 @@ protected:
   { 
     num_contacts = 0;
   #ifdef MAX_GROUP_CHANNELS
+    memset(channels, 0, sizeof(channels));
     num_channels = 0;
   #endif
     txt_send_timeout = 0;
@@ -152,6 +153,9 @@ public:
   int getNumContacts() const { return num_contacts; }
   ContactsIterator startContactsIterator();
   mesh::GroupChannel* addChannel(const char* psk_base64);
+  bool getChannel(int idx, mesh::GroupChannel& dest);
+  bool setChannel(int idx, const mesh::GroupChannel& src);
+  int findChannelIdx(const mesh::GroupChannel& ch);
 
   void loop();
 };
