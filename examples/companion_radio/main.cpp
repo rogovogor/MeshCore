@@ -46,6 +46,10 @@
   #define OFFLINE_QUEUE_SIZE  16
 #endif
 
+#ifndef BLE_NAME_PREFIX
+  #define BLE_NAME_PREFIX  "MeshCore-"
+#endif
+
 #include <helpers/BaseChatMesh.h>
 
 #define SEND_TIMEOUT_BASE_MILLIS          500
@@ -1286,14 +1290,8 @@ void setup() {
   the_mesh.begin(InternalFS, trng);
 
 #ifdef BLE_PIN_CODE
-  char dev_name[32+10];
-  const char* prefix = 
-  #ifdef BLE_NAME_PREFIX
-      BLE_NAME_PREFIX;
-  #else
-      "MeshCore-";
-  #endif
-  sprintf(dev_name, "%s%s", prefix, the_mesh.getNodeName());
+  char dev_name[32+16];
+  sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
   pinMode(WB_IO2, OUTPUT);
@@ -1308,14 +1306,8 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PWD);
   serial_interface.begin(TCP_PORT);
 #elif defined(BLE_PIN_CODE)
-  char dev_name[32+10];
-  const char* prefix = 
-  #ifdef BLE_NAME_PREFIX
-      BLE_NAME_PREFIX;
-  #else
-      "MeshCore-";
-  #endif
-  sprintf(dev_name, "%s%s", prefix, the_mesh.getNodeName());
+  char dev_name[32+16];
+  sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
   serial_interface.begin(Serial);
