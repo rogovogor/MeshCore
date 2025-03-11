@@ -180,7 +180,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_DEVICE_INFO      13   // a reply to CMD_DEVICE_QEURY
 #define RESP_CODE_PRIVATE_KEY      14   // a reply to CMD_EXPORT_PRIVATE_KEY
 #define RESP_CODE_DISABLED         15
-#define RESP_CODE_CHANNEL_INFO     16   // a reply to CMD_GET_CHANNEL
+//  ... _V3 stuff in here
+#define RESP_CODE_CHANNEL_INFO     18   // a reply to CMD_GET_CHANNEL
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -313,6 +314,56 @@ class MyMesh : public BaseChatMesh {
     }
   }
 
+  void loadChannels() {
+    if (_fs->exists("/channels")) {
+      File file = _fs->open("/channels");
+      if (file) {
+        bool full = false;
+        uint8_t channel_idx = 0;
+        while (!full) {
+          mesh::GroupChannel ch;
+          uint8_t unused[4];
+
+          bool success = (file.read(unused, 4) == 4);
+          success = success && (file.read((uint8_t *) ch.secret, 32) == 32);
+
+          if (!success) break;  // EOF
+
+          if (setChannel(channel_idx, ch)) {
+            channel_idx++;
+          } else {
+            full = true;
+          }
+        }
+        file.close();
+      }
+    }
+  }
+
+  void saveChannels() {
+  #if defined(NRF52_PLATFORM)
+    File file = _fs->open("/channels", FILE_O_WRITE);
+    if (file) { file.seek(0); file.truncate(); }
+  #else
+    File file = _fs->open("/channels", "w", true);
+  #endif
+    if (file) {
+      uint8_t channel_idx = 0;
+      mesh::GroupChannel ch;
+      uint8_t unused[4];
+      memset(unused, 0, 4);
+    
+      while (getChannel(channel_idx, ch)) {
+        bool success = (file.write(unused, 4) == 4);
+        success = success && (file.write((uint8_t *) ch.secret, 32) == 32);
+    
+        if (!success) break;  // write failed
+        channel_idx++;
+      }
+      file.close();
+    }
+  }
+    
   int  getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) override {
     char path[64];
     char fname[18];
@@ -716,6 +767,7 @@ public:
 
     loadContacts();
     addChannel(PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
+    loadChannels();
 
     _phy->setFrequency(_prefs.freq);
     _phy->setSpreadingFactor(_prefs.sf);
@@ -771,7 +823,9 @@ public:
       int i = 0;
       out_frame[i++] = RESP_CODE_DEVICE_INFO;
       out_frame[i++] = FIRMWARE_VER_CODE;
-      memset(&out_frame[i], 0, 6); i += 6;  // reserved
+      out_frame[i++] = MAX_CONTACTS / 2;        // v3+
+      out_frame[i++] = MAX_GROUP_CHANNELS;      // v3+
+      memset(&out_frame[i], 0, 4); i += 4;  // reserved
       memset(&out_frame[i], 0, 12);
       strcpy((char *) &out_frame[i], FIRMWARE_BUILD_DATE); i += 12;
       StrHelper::strzcpy((char *) &out_frame[i], board.getManufacturerName(), 40); i += 40;
@@ -1184,6 +1238,7 @@ public:
       memset(channel.secret, 0, sizeof(channel.secret));
       memcpy(channel.secret, &cmd_frame[2], 16);   // NOTE: only 128-bit supported
       if (setChannel(channel_idx, channel)) {
+        saveChannels();
         writeOKFrame();
       } else {
         writeErrFrame();
