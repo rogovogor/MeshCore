@@ -631,7 +631,7 @@ int BaseChatMesh::findChannelIdx(const mesh::GroupChannel& ch) {
   return -1;  // not found
 }
 #else
-ChannelDetails* BaseChatMesh::addChannel(const char* psk_base64) {
+ChannelDetails* BaseChatMesh::addChannel(const char* name, const char* psk_base64) {
   return NULL;  // not supported
 }
 bool BaseChatMesh::getChannel(int idx, ChannelDetails& dest) {
