@@ -19,18 +19,12 @@
 #define CONFIG_PMU_IRQ 35
 #endif
 
-bool  pmu_flag = 0;
+
 XPowersPMU power;
 
 const uint8_t i2c_sda = CONFIG_PMU_SDA;
 const uint8_t i2c_scl = CONFIG_PMU_SCL;
 const uint8_t pmu_irq_pin = CONFIG_PMU_IRQ;
-
-void setFlag(void)
-{
-    pmu_flag = true;
-}
-
 
 
 // LoRa radio module pins for TBeam
