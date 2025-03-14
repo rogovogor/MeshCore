@@ -7,19 +7,6 @@
 #include <Arduino.h>
 #include "XPowersLib.h"
 
-#ifndef CONFIG_PMU_SDA
-#define CONFIG_PMU_SDA 21
-#endif
-
-#ifndef CONFIG_PMU_SCL
-#define CONFIG_PMU_SCL 22
-#endif
-
-#ifndef CONFIG_PMU_IRQ
-#define CONFIG_PMU_IRQ 35
-#endif
-
-
 XPowersPMU power;
 
 // LoRa radio module pins for TBeam
@@ -45,6 +32,7 @@ class TBeamBoard : public ESP32Board {
 public:
   void begin() {
     ESP32Board::begin();
+    
     power.setALDO2Voltage(3300);
     power.enableALDO2();
 
