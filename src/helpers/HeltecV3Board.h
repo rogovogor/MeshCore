@@ -68,7 +68,8 @@ public:
   }
 
   void powerOff() override {
-    enterDeepSleep(0);
+    // TODO: re-enable this when there is a definite wake-up source pin:
+    //  enterDeepSleep(0);
   }
 
   uint16_t getBattMilliVolts() override {

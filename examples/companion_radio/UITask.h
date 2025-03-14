@@ -7,7 +7,6 @@ class UITask {
   DisplayDriver* _display;
   mesh::MainBoard* _board;
   unsigned long _next_refresh, _auto_off;
-  int _prevBtnState;
   bool _connected;
   uint32_t _pin_code;
   const char* _node_name;

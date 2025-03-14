@@ -26,7 +26,6 @@ static const uint8_t meshcore_logo [] PROGMEM = {
 };
 
 void UITask::begin(const char* node_name, const char* build_date, uint32_t pin_code) {
-  _prevBtnState = HIGH;
   _auto_off = millis() + AUTO_OFF_MILLIS;
   clearMsgPreview();
   _node_name = node_name;
@@ -66,43 +65,43 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
 }
 
 void UITask::renderCurrScreen() {
-  if (_display != NULL) {
-    char tmp[80];
-    if (_origin[0] && _msg[0]) {
-      // render message preview
-      _display->setCursor(0, 0);
-      _display->setTextSize(1);
-      _display->print(_node_name);
+  if (_display == NULL) return;  // assert() ??
 
-      _display->setCursor(0, 12);
-      _display->print(_origin);
-      _display->setCursor(0, 24);
-      _display->print(_msg);
+  char tmp[80];
+  if (_origin[0] && _msg[0]) {
+    // render message preview
+    _display->setCursor(0, 0);
+    _display->setTextSize(1);
+    _display->print(_node_name);
 
-      _display->setCursor(100, 9);
+    _display->setCursor(0, 12);
+    _display->print(_origin);
+    _display->setCursor(0, 24);
+    _display->print(_msg);
+
+    _display->setCursor(100, 9);
+    _display->setTextSize(2);
+    sprintf(tmp, "%d", _msgcount);
+    _display->print(tmp);
+  } else {
+    // render 'home' screen
+    _display->drawXbm(0, 0, meshcore_logo, 128, 13);
+    _display->setCursor(0, 20);
+    _display->setTextSize(1);
+    _display->print(_node_name);
+
+    sprintf(tmp, "Build: %s", _build_date);
+    _display->setCursor(0, 32);
+    _display->print(tmp);
+
+    if (_connected) {
+      //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
+      //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
+    } else if (_pin_code != 0) {
       _display->setTextSize(2);
-      sprintf(tmp, "%d", _msgcount);
+      _display->setCursor(0, 43);
+      sprintf(tmp, "Pin:%d", _pin_code);
       _display->print(tmp);
-    } else {
-      // render 'home' screen
-      _display->drawXbm(0, 0, meshcore_logo, 128, 13);
-      _display->setCursor(0, 20);
-      _display->setTextSize(1);
-      _display->print(_node_name);
-
-      sprintf(tmp, "Build: %s", _build_date);
-      _display->setCursor(0, 32);
-      _display->print(tmp);
-
-      if (_connected) {
-        //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
-        //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
-      } else if (_pin_code != 0) {
-        _display->setTextSize(2);
-        _display->setCursor(0, 43);
-        sprintf(tmp, "Pin:%d", _pin_code);
-        _display->print(tmp);
-      }
     }
   }
 }
@@ -135,7 +134,7 @@ void UITask::userLedHandler() {
 
 void UITask::buttonHandler() {
 #ifdef PIN_USER_BTN
-  static int prev_btn_state = HIGH;
+  static int prev_btn_state = !USER_BTN_PRESSED;
   static unsigned long btn_state_change_time = 0;
   static unsigned long next_read = 0;
   int cur_time = millis();
@@ -153,11 +152,10 @@ void UITask::buttonHandler() {
         }
       } else { // unpressed ? check pressed time ...
         if ((cur_time - btn_state_change_time) > 5000) {
-          Serial.println("power off");
-          #ifdef PIN_STATUS_LED
+        #ifdef PIN_STATUS_LED
           digitalWrite(PIN_STATUS_LED, LOW);
           delay(10);
-          #endif
+        #endif
           _board->powerOff();
         }
       }
