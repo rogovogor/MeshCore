@@ -1,12 +1,12 @@
 #pragma once
 
-// Defined using AXP2102
-#define XPOWERS_CHIP_AXP2101
 
 #include <Wire.h>
 #include <Arduino.h>
 #include "XPowersLib.h"
 
+// Defined using AXP2102
+#define XPOWERS_CHIP_AXP2101
 XPowersPMU power;
 
 // LoRa radio module pins for TBeam
