@@ -22,11 +22,6 @@
 
 XPowersPMU power;
 
-const uint8_t i2c_sda = CONFIG_PMU_SDA;
-const uint8_t i2c_scl = CONFIG_PMU_SCL;
-const uint8_t pmu_irq_pin = CONFIG_PMU_IRQ;
-
-
 // LoRa radio module pins for TBeam
 #define  P_LORA_DIO_0   26
 #define  P_LORA_DIO_2   32
