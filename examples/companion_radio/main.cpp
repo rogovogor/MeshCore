@@ -1399,9 +1399,6 @@ void setup() {
   sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
-#ifdef RAK_4631
-  pinMode(WB_IO2, OUTPUT);
-#endif
   serial_interface.begin(Serial);
 #endif
   the_mesh.startInterface(serial_interface);
