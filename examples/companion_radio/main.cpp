@@ -171,6 +171,9 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_GET_CONTACT_BY_KEY    30
 #define CMD_GET_CHANNEL           31
 #define CMD_SET_CHANNEL           32
+#define CMD_SIGN_START            33
+#define CMD_SIGN_DATA             34
+#define CMD_SIGN_FINISH           35
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -190,6 +193,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_DISABLED         15
 //  ... _V3 stuff in here
 #define RESP_CODE_CHANNEL_INFO     18   // a reply to CMD_GET_CHANNEL
+#define RESP_CODE_SIGN_START       19
+#define RESP_CODE_SIGNATURE        20
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -203,6 +208,8 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOG_RX_DATA       0x88
 
 /* -------------------------------------------------------------------------------------- */
+
+#define MAX_SIGN_DATA_LEN    (8*1024)   // 8K
 
 struct NodePrefs {  // persisted to file
   float airtime_factor;
@@ -236,6 +243,8 @@ class MyMesh : public BaseChatMesh {
   uint32_t _active_ble_pin;
   bool  _iter_started;
   uint8_t app_target_ver;
+  uint8_t* sign_data;
+  uint32_t sign_data_len;
   uint8_t cmd_frame[MAX_FRAME_SIZE+1];
   uint8_t out_frame[MAX_FRAME_SIZE+1];
 
@@ -696,6 +705,7 @@ public:
     app_target_ver = 0;
     _identity_store = NULL;
     pending_login = pending_status = 0;
+    sign_data = NULL;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -1256,6 +1266,38 @@ public:
       if (setChannel(channel_idx, channel)) {
         saveChannels();
         writeOKFrame();
+      } else {
+        writeErrFrame();
+      }
+    } else if (cmd_frame[0] == CMD_SIGN_START) {
+      out_frame[0] = RESP_CODE_SIGN_START;
+      out_frame[1] = 0;  // reserved
+      uint32_t len = MAX_SIGN_DATA_LEN;
+      memcpy(&out_frame[2], &len, 4);
+      _serial->writeFrame(out_frame, 6);
+
+      if (sign_data) {
+        free(sign_data);
+      }
+      sign_data = (uint8_t *) malloc(MAX_SIGN_DATA_LEN);
+      sign_data_len = 0;
+    } else if (cmd_frame[0] == CMD_SIGN_DATA && len > 1) {
+      if (sign_data_len + (len - 1) > MAX_SIGN_DATA_LEN) {
+        writeErrFrame();  // error: too long
+      } else {
+        memcpy(&sign_data[sign_data_len], &cmd_frame[1], len - 1);
+        sign_data_len += (len - 1);
+        writeOKFrame();
+      }
+    } else if (cmd_frame[0] == CMD_SIGN_FINISH) {
+      if (sign_data) {
+        self_id.sign(&out_frame[1], sign_data, sign_data_len);
+
+        free(sign_data);  // don't need sign_data now
+        sign_data = NULL;
+
+        out_frame[0] = RESP_CODE_SIGNATURE;
+        _serial->writeFrame(out_frame, 1 + SIGNATURE_SIZE);
       } else {
         writeErrFrame();
       }
