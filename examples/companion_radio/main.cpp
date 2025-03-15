@@ -96,21 +96,32 @@
   #include <helpers/nrf52/TechoBoard.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static TechoBoard board;
+
 #elif defined(LILYGO_TBEAM)
   #include <helpers/TBeamBoard.h>
   #include <helpers/CustomSX1276Wrapper.h>
   static TBeamBoard board;
+
+#elif defined(FAKETEC)
+  #include <helpers/nrf52/faketecBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static faketecBoard board;
+
 #else
   #error "need to provide a 'board' object"
 #endif
 
 #ifdef DISPLAY_CLASS
+  #include "UITask.h"
   #include <helpers/ui/SSD1306Display.h>
 
   static DISPLAY_CLASS  display;
-
+  static UITask ui_task(&board, &display);
+  #define HAS_UI
+#elif defined(HAS_UI)
   #include "UITask.h"
-  static UITask ui_task(display);
+
+  static UITask ui_task(&board, NULL);
 #endif
 
 // Believe it or not, this std C function is busted on some platforms!
@@ -167,6 +178,9 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_GET_CONTACT_BY_KEY    30
 #define CMD_GET_CHANNEL           31
 #define CMD_SET_CHANNEL           32
+#define CMD_SIGN_START            33
+#define CMD_SIGN_DATA             34
+#define CMD_SIGN_FINISH           35
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -186,6 +200,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_DISABLED         15
 //  ... _V3 stuff in here
 #define RESP_CODE_CHANNEL_INFO     18   // a reply to CMD_GET_CHANNEL
+#define RESP_CODE_SIGN_START       19
+#define RESP_CODE_SIGNATURE        20
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -199,6 +215,8 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOG_RX_DATA       0x88
 
 /* -------------------------------------------------------------------------------------- */
+
+#define MAX_SIGN_DATA_LEN    (8*1024)   // 8K
 
 struct NodePrefs {  // persisted to file
   float airtime_factor;
@@ -232,6 +250,8 @@ class MyMesh : public BaseChatMesh {
   uint32_t _active_ble_pin;
   bool  _iter_started;
   uint8_t app_target_ver;
+  uint8_t* sign_data;
+  uint32_t sign_data_len;
   uint8_t cmd_frame[MAX_FRAME_SIZE+1];
   uint8_t out_frame[MAX_FRAME_SIZE+1];
 
@@ -571,8 +591,8 @@ protected:
     } else {
       soundBuzzer();
     }
-  #ifdef DISPLAY_CLASS
-    ui_task.showMsgPreview(path_len, from.name, text);
+  #ifdef HAS_UI
+    ui_task.newMsg(path_len, from.name, text, offline_queue_len);
   #endif
   }
 
@@ -613,8 +633,8 @@ protected:
     } else {
       soundBuzzer();
     }
-  #ifdef DISPLAY_CLASS
-    ui_task.showMsgPreview(in_path_len < 0 ? 0xFF : in_path_len, "Public", text);
+  #ifdef HAS_UI
+    ui_task.newMsg(in_path_len < 0 ? 0xFF : in_path_len, "Public", text, offline_queue_len);
   #endif
   }
 
@@ -692,6 +712,7 @@ public:
     app_target_ver = 0;
     _identity_store = NULL;
     pending_login = pending_status = 0;
+    sign_data = NULL;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -1078,6 +1099,9 @@ public:
       int out_len;
       if ((out_len = getFromOfflineQueue(out_frame)) > 0) {
         _serial->writeFrame(out_frame, out_len);
+        #ifdef HAS_UI
+          ui_task.msgRead(offline_queue_len);
+        #endif
       } else {
         out_frame[0] = RESP_CODE_NO_MORE_MESSAGES;
         _serial->writeFrame(out_frame, 1);
@@ -1252,6 +1276,38 @@ public:
       } else {
         writeErrFrame();
       }
+    } else if (cmd_frame[0] == CMD_SIGN_START) {
+      out_frame[0] = RESP_CODE_SIGN_START;
+      out_frame[1] = 0;  // reserved
+      uint32_t len = MAX_SIGN_DATA_LEN;
+      memcpy(&out_frame[2], &len, 4);
+      _serial->writeFrame(out_frame, 6);
+
+      if (sign_data) {
+        free(sign_data);
+      }
+      sign_data = (uint8_t *) malloc(MAX_SIGN_DATA_LEN);
+      sign_data_len = 0;
+    } else if (cmd_frame[0] == CMD_SIGN_DATA && len > 1) {
+      if (sign_data == NULL || sign_data_len + (len - 1) > MAX_SIGN_DATA_LEN) {
+        writeErrFrame();  // error: too long
+      } else {
+        memcpy(&sign_data[sign_data_len], &cmd_frame[1], len - 1);
+        sign_data_len += (len - 1);
+        writeOKFrame();
+      }
+    } else if (cmd_frame[0] == CMD_SIGN_FINISH) {
+      if (sign_data) {
+        self_id.sign(&out_frame[1], sign_data, sign_data_len);
+
+        free(sign_data);  // don't need sign_data now
+        sign_data = NULL;
+
+        out_frame[0] = RESP_CODE_SIGNATURE;
+        _serial->writeFrame(out_frame, 1 + SIGNATURE_SIZE);
+      } else {
+        writeErrFrame();
+      }
     } else {
       writeErrFrame();
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
@@ -1285,7 +1341,7 @@ public:
       checkConnections();
     }
 
-  #ifdef DISPLAY_CLASS
+  #ifdef HAS_UI
     ui_task.setHasConnection(_serial->isConnected());
     ui_task.loop();
   #endif
@@ -1357,6 +1413,13 @@ void setup() {
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
 #endif
   int status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8, tcxo);
+#if defined(FAKETEC)
+  if (status == RADIOLIB_ERR_SPI_CMD_FAILED || status == RADIOLIB_ERR_SPI_CMD_INVALID) {
+    #define SX126X_DIO3_TCXO_VOLTAGE (0.0f);
+    tcxo = SX126X_DIO3_TCXO_VOLTAGE;
+    status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8, tcxo);
+  }
+#endif
   if (status != RADIOLIB_ERR_NONE) {
     Serial.print("ERROR: radio init failed: ");
     Serial.println(status);
@@ -1388,7 +1451,6 @@ void setup() {
   sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
-  pinMode(WB_IO2, OUTPUT);
   serial_interface.begin(Serial);
 #endif
   the_mesh.startInterface(serial_interface);
@@ -1413,6 +1475,8 @@ void setup() {
 
 #ifdef DISPLAY_CLASS
   display.begin();
+#endif
+#ifdef HAS_UI
   ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
 #endif
 }
