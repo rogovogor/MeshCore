@@ -78,6 +78,10 @@
   #include <helpers/nrf52/T1000eBoard.h>
   #include <helpers/CustomLR1110Wrapper.h>
   static T1000eBoard board;
+#elif defined(FAKETEC)
+  #include <helpers/nrf52/faketecBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static faketecBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif
@@ -107,7 +111,7 @@ class MyMesh : public BaseChatMesh, ContactVisitor {
   FILESYSTEM* _fs;
   NodePrefs _prefs;
   uint32_t expected_ack_crc;
-  mesh::GroupChannel* _public;
+  ChannelDetails* _public;
   unsigned long last_msg_sent;
   ContactInfo* curr_recipient;
   char command[512+10];
@@ -341,7 +345,7 @@ public:
     }
 
     loadContacts();
-    _public = addChannel(PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
+    _public = addChannel("Public", PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
   }
 
   void savePrefs() {
@@ -409,7 +413,7 @@ public:
       temp[5 + MAX_TEXT_LEN] = 0;  // truncate if too long
 
       int len = strlen((char *) &temp[5]);
-      auto pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, *_public, temp, 5 + len);
+      auto pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, _public->channel, temp, 5 + len);
       if (pkt) {
         sendFlood(pkt);
         Serial.println("   Sent.");
@@ -589,7 +593,7 @@ void setup() {
     halt();
   }
 
-  radio.setCRC(0);
+  radio.setCRC(1);
 
 #ifdef SX126X_CURRENT_LIMIT
   radio.setCurrentLimit(SX126X_CURRENT_LIMIT);

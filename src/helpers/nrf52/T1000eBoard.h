@@ -3,8 +3,6 @@
 #include <MeshCore.h>
 #include <Arduino.h>
 
-#define HAS_T1000e_POWEROFF
-
 // LoRa and SPI pins
 #define  P_LORA_DIO_1   (32 + 1)  // P1.1
 #define  P_LORA_NSS     (0 + 12)  // P0.12
@@ -31,8 +29,13 @@ public:
 
   uint16_t getBattMilliVolts() override {
   #ifdef BATTERY_PIN
+    analogReference(AR_INTERNAL_3_0);
     analogReadResolution(12);
     float volts = (analogRead(BATTERY_PIN) * ADC_MULTIPLIER * AREF_VOLTAGE) / 4096;
+
+    analogReference(AR_DEFAULT);  // put back to default
+    analogReadResolution(10);
+
     return volts * 1000;
   #else
     return 0;
@@ -56,7 +59,7 @@ public:
     return 0;
   }
 
-  void powerOff() {
+  void powerOff() override {
     #ifdef HAS_GPS
         digitalWrite(GPS_VRTC_EN, LOW);
         digitalWrite(GPS_RESET, LOW);

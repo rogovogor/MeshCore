@@ -46,6 +46,10 @@
   #define OFFLINE_QUEUE_SIZE  16
 #endif
 
+#ifndef BLE_NAME_PREFIX
+  #define BLE_NAME_PREFIX  "MeshCore-"
+#endif
+
 #include <helpers/BaseChatMesh.h>
 
 #define SEND_TIMEOUT_BASE_MILLIS          500
@@ -92,17 +96,25 @@
   #include <helpers/nrf52/TechoBoard.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static TechoBoard board;
+#elif defined(FAKETEC)
+  #include <helpers/nrf52/faketecBoard.h>
+  #include <helpers/CustomSX1262Wrapper.h>
+  static faketecBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif
 
 #ifdef DISPLAY_CLASS
+  #include "UITask.h"
   #include <helpers/ui/SSD1306Display.h>
 
   static DISPLAY_CLASS  display;
-
+  static UITask ui_task(&board, &display);
+  #define HAS_UI
+#elif defined(HAS_UI)
   #include "UITask.h"
-  static UITask ui_task(display);
+
+  static UITask ui_task(&board, NULL);
 #endif
 
 // Believe it or not, this std C function is busted on some platforms!
@@ -120,11 +132,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    3
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "3 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "13 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.0.0"
+  #define FIRMWARE_VERSION   "v1.3.0"
 #endif
 
 #define CMD_APP_START              1
@@ -157,6 +169,8 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_HAS_CONNECTION        28
 #define CMD_LOGOUT                29   // 'Disconnect'
 #define CMD_GET_CONTACT_BY_KEY    30
+#define CMD_GET_CHANNEL           31
+#define CMD_SET_CHANNEL           32
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -176,6 +190,7 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_DISABLED         15
 #define RESP_CODE_CONTACT_MSG_RECV_V3  16   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
 #define RESP_CODE_CHANNEL_MSG_RECV_V3  17   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
+#define RESP_CODE_CHANNEL_INFO     18   // a reply to CMD_GET_CHANNEL
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -186,6 +201,7 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOGIN_SUCCESS     0x85
 #define PUSH_CODE_LOGIN_FAIL        0x86
 #define PUSH_CODE_STATUS_RESPONSE   0x87
+#define PUSH_CODE_LOG_RX_DATA       0x88
 
 /* -------------------------------------------------------------------------------------- */
 
@@ -212,7 +228,6 @@ class MyMesh : public BaseChatMesh {
   NodePrefs _prefs;
   uint32_t pending_login;
   uint32_t pending_status;
-  mesh::GroupChannel* _public;
   BaseSerialInterface* _serial;
   ContactsIterator _iter;
   uint32_t _iter_filter_since;
@@ -314,6 +329,58 @@ class MyMesh : public BaseChatMesh {
     }
   }
 
+  void loadChannels() {
+    if (_fs->exists("/channels2")) {
+      File file = _fs->open("/channels2");
+      if (file) {
+        bool full = false;
+        uint8_t channel_idx = 0;
+        while (!full) {
+          ChannelDetails ch;
+          uint8_t unused[4];
+
+          bool success = (file.read(unused, 4) == 4);
+          success = success && (file.read((uint8_t *) ch.name, 32) == 32);
+          success = success && (file.read((uint8_t *) ch.channel.secret, 32) == 32);
+
+          if (!success) break;  // EOF
+
+          if (setChannel(channel_idx, ch)) {
+            channel_idx++;
+          } else {
+            full = true;
+          }
+        }
+        file.close();
+      }
+    }
+  }
+
+  void saveChannels() {
+  #if defined(NRF52_PLATFORM)
+    File file = _fs->open("/channels2", FILE_O_WRITE);
+    if (file) { file.seek(0); file.truncate(); }
+  #else
+    File file = _fs->open("/channels2", "w", true);
+  #endif
+    if (file) {
+      uint8_t channel_idx = 0;
+      ChannelDetails ch;
+      uint8_t unused[4];
+      memset(unused, 0, 4);
+    
+      while (getChannel(channel_idx, ch)) {
+        bool success = (file.write(unused, 4) == 4);
+        success = success && (file.write((uint8_t *) ch.name, 32) == 32);
+        success = success && (file.write((uint8_t *) ch.channel.secret, 32) == 32);
+    
+        if (!success) break;  // write failed
+        channel_idx++;
+      }
+      file.close();
+    }
+  }
+    
   int  getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) override {
     char path[64];
     char fname[18];
@@ -443,6 +510,18 @@ protected:
     return (int) ((pow(_prefs.rx_delay_base, 0.85f - score) - 1.0) * air_time);
   }
 
+  void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override {
+    if (_serial->isConnected()) {
+      int i = 0;
+      out_frame[i++] = PUSH_CODE_LOG_RX_DATA;
+      out_frame[i++] = (int8_t)(snr * 4);
+      out_frame[i++] = (int8_t)(rssi);
+      memcpy(&out_frame[i], raw, len); i += len;
+
+      _serial->writeFrame(out_frame, i);
+    }
+  }
+
   void onDiscoveredContact(ContactInfo& contact, bool is_new) override {
     if (_serial->isConnected()) {
       out_frame[0] = PUSH_CODE_ADVERT;
@@ -512,8 +591,8 @@ protected:
     } else {
       soundBuzzer();
     }
-  #ifdef DISPLAY_CLASS
-    ui_task.showMsgPreview(path_len, from.name, text);
+  #ifdef HAS_UI
+    ui_task.newMsg(path_len, from.name, text, offline_queue_len);
   #endif
   }
 
@@ -544,8 +623,9 @@ protected:
       out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV;
     }
 
-    out_frame[i++] = 0;  // FUTURE: channel_idx (will just be 'public' for now)
+    out_frame[i++] = findChannelIdx(channel);
     uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
+
     out_frame[i++] = TXT_TYPE_PLAIN;
     memcpy(&out_frame[i], &timestamp, 4); i += 4;
     int tlen = strlen(text);   // TODO: UTF-8 ??
@@ -562,8 +642,8 @@ protected:
     } else {
       soundBuzzer();
     }
-  #ifdef DISPLAY_CLASS
-    ui_task.showMsgPreview(path_len, "Public", text);
+  #ifdef HAS_UI
+    ui_task.newMsg(path_len, "Public", text, offline_queue_len);
   #endif
   }
 
@@ -726,7 +806,8 @@ public:
     _fs->mkdir("/bl");
 
     loadContacts();
-    _public = addChannel(PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
+    addChannel("Public", PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
+    loadChannels();
 
     _phy->setFrequency(_prefs.freq);
     _phy->setSpreadingFactor(_prefs.sf);
@@ -782,7 +863,9 @@ public:
       int i = 0;
       out_frame[i++] = RESP_CODE_DEVICE_INFO;
       out_frame[i++] = FIRMWARE_VER_CODE;
-      memset(&out_frame[i], 0, 6); i += 6;  // reserved
+      out_frame[i++] = MAX_CONTACTS / 2;        // v3+
+      out_frame[i++] = MAX_GROUP_CHANNELS;      // v3+
+      memset(&out_frame[i], 0, 4); i += 4;  // reserved
       memset(&out_frame[i], 0, 12);
       strcpy((char *) &out_frame[i], FIRMWARE_BUILD_DATE); i += 12;
       StrHelper::strzcpy((char *) &out_frame[i], board.getManufacturerName(), 40); i += 40;
@@ -862,12 +945,14 @@ public:
     } else if (cmd_frame[0] == CMD_SEND_CHANNEL_TXT_MSG) {  // send GroupChannel msg
       int i = 1;
       uint8_t txt_type = cmd_frame[i++];  // should be TXT_TYPE_PLAIN
-      uint8_t channel_idx = cmd_frame[i++];   // reserved future
+      uint8_t channel_idx = cmd_frame[i++];
       uint32_t msg_timestamp;
       memcpy(&msg_timestamp, &cmd_frame[i], 4); i += 4;
       const char *text = (char *) &cmd_frame[i];
 
-      if (txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, *_public, _prefs.node_name, text, len - i)) {   // hard-coded to 'public' channel for now
+      ChannelDetails channel;
+      bool success = getChannel(channel_idx, channel);
+      if (success && txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, channel.channel, _prefs.node_name, text, len - i)) {
         writeOKFrame();
       } else {
         writeErrFrame();
@@ -1032,6 +1117,9 @@ public:
       int out_len;
       if ((out_len = getFromOfflineQueue(out_frame)) > 0) {
         _serial->writeFrame(out_frame, out_len);
+        #ifdef HAS_UI
+          ui_task.msgRead(offline_queue_len);
+        #endif
       } else {
         out_frame[0] = RESP_CODE_NO_MORE_MESSAGES;
         _serial->writeFrame(out_frame, 1);
@@ -1179,6 +1267,33 @@ public:
       uint8_t* pub_key = &cmd_frame[1];
       stopConnection(pub_key);
       writeOKFrame();
+    } else if (cmd_frame[0] == CMD_GET_CHANNEL && len >= 2) {
+      uint8_t channel_idx = cmd_frame[1];
+      ChannelDetails channel;
+      if (getChannel(channel_idx, channel)) {
+        int i = 0;
+        out_frame[i++] = RESP_CODE_CHANNEL_INFO;
+        out_frame[i++] = channel_idx;
+        strcpy((char *)&out_frame[i], channel.name); i += 32;
+        memcpy(&out_frame[i], channel.channel.secret, 16); i += 16;   // NOTE: only 128-bit supported
+        _serial->writeFrame(out_frame, i);
+      } else {
+        writeErrFrame();
+      }
+    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+32) {
+      writeErrFrame();  // not supported (yet)
+    } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+16) {
+      uint8_t channel_idx = cmd_frame[1];
+      ChannelDetails channel;
+      StrHelper::strncpy(channel.name, (char *) &cmd_frame[2], 32);
+      memset(channel.channel.secret, 0, sizeof(channel.channel.secret));
+      memcpy(channel.channel.secret, &cmd_frame[2+32], 16);   // NOTE: only 128-bit supported
+      if (setChannel(channel_idx, channel)) {
+        saveChannels();
+        writeOKFrame();
+      } else {
+        writeErrFrame();
+      }
     } else {
       writeErrFrame();
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
@@ -1212,7 +1327,7 @@ public:
       checkConnections();
     }
 
-  #ifdef DISPLAY_CLASS
+  #ifdef HAS_UI
     ui_task.setHasConnection(_serial->isConnected());
     ui_task.loop();
   #endif
@@ -1274,10 +1389,6 @@ void setup() {
   float tcxo = 1.6f;
 #endif
 
-#ifdef DISPLAY_CLASS
-  display.begin();
-#endif
-
 #if defined(NRF52_PLATFORM)
   SPI.setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI);
   SPI.begin();
@@ -1285,20 +1396,29 @@ void setup() {
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
 #endif
   int status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8, tcxo);
+#if defined(FAKETEC)
+  if (status == RADIOLIB_ERR_SPI_CMD_FAILED || status == RADIOLIB_ERR_SPI_CMD_INVALID) {
+    #define SX126X_DIO3_TCXO_VOLTAGE (0.0f);
+    tcxo = SX126X_DIO3_TCXO_VOLTAGE;
+    status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8, tcxo);
+  }
+#endif
   if (status != RADIOLIB_ERR_NONE) {
     Serial.print("ERROR: radio init failed: ");
     Serial.println(status);
     halt();
   }
 
-  radio.setCRC(0);
+  radio.setCRC(1);
 
 #ifdef SX126X_CURRENT_LIMIT
   radio.setCurrentLimit(SX126X_CURRENT_LIMIT);
 #endif
-
 #ifdef SX126X_DIO2_AS_RF_SWITCH
   radio.setDio2AsRfSwitch(SX126X_DIO2_AS_RF_SWITCH);
+#endif
+#ifdef SX126X_RX_BOOSTED_GAIN
+  radio.setRxBoostedGainMode(SX126X_RX_BOOSTED_GAIN);
 #endif
 
   fast_rng.begin(radio.random(0x7FFFFFFF));
@@ -1310,11 +1430,10 @@ void setup() {
   the_mesh.begin(InternalFS, trng);
 
 #ifdef BLE_PIN_CODE
-  char dev_name[32+10];
-  sprintf(dev_name, "MeshCore-%s", the_mesh.getNodeName());
+  char dev_name[32+16];
+  sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
-  pinMode(WB_IO2, OUTPUT);
   serial_interface.begin(Serial);
 #endif
   the_mesh.startInterface(serial_interface);
@@ -1326,8 +1445,8 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PWD);
   serial_interface.begin(TCP_PORT);
 #elif defined(BLE_PIN_CODE)
-  char dev_name[32+10];
-  sprintf(dev_name, "MeshCore-%s", the_mesh.getNodeName());
+  char dev_name[32+16];
+  sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
 #else
   serial_interface.begin(Serial);
@@ -1338,6 +1457,9 @@ void setup() {
 #endif
 
 #ifdef DISPLAY_CLASS
+  display.begin();
+#endif
+#ifdef HAS_UI
   ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
 #endif
 }
