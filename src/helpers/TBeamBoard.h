@@ -7,7 +7,7 @@
 
 // Defined using AXP2102
 #define XPOWERS_CHIP_AXP2101
-XPowersPMU power;
+XPowersAXP2101 power;
 
 // LoRa radio module pins for TBeam
 #define  P_LORA_DIO_0   26
