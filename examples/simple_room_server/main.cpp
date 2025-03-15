@@ -76,7 +76,7 @@
   #include <helpers/CustomSX1262Wrapper.h>
   #include <helpers/CustomSX1268Wrapper.h>
   static XiaoC3Board board;
-#elif defined(SEEED_XIAO_S3)
+#elif defined(SEEED_XIAO_S3) || defined(LILYGO_T3S3)
   #include <helpers/ESP32Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static ESP32Board board;
