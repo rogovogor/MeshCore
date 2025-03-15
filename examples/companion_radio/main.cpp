@@ -1282,7 +1282,7 @@ public:
       sign_data = (uint8_t *) malloc(MAX_SIGN_DATA_LEN);
       sign_data_len = 0;
     } else if (cmd_frame[0] == CMD_SIGN_DATA && len > 1) {
-      if (sign_data_len + (len - 1) > MAX_SIGN_DATA_LEN) {
+      if (sign_data == NULL || sign_data_len + (len - 1) > MAX_SIGN_DATA_LEN) {
         writeErrFrame();  // error: too long
       } else {
         memcpy(&sign_data[sign_data_len], &cmd_frame[1], len - 1);
