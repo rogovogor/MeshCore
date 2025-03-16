@@ -24,6 +24,10 @@ void RAK4631Board::begin() {
   pinMode(PIN_VBAT_READ, INPUT);
   pinMode(PIN_USER_BTN, INPUT_PULLUP);
 
+#if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
+  Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL)
+#endif
+
   Wire.begin();
 
   pinMode(SX126X_POWER_EN, OUTPUT);
