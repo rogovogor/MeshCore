@@ -22,7 +22,9 @@ void RAK4631Board::begin() {
   // for future use, sub-classes SHOULD call this from their begin()
   startup_reason = BD_STARTUP_NORMAL;
   pinMode(PIN_VBAT_READ, INPUT);
+#ifdef PIN_USER_BTN
   pinMode(PIN_USER_BTN, INPUT_PULLUP);
+#endif
 
 #if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
   Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL)
