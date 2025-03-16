@@ -2,6 +2,7 @@
 
 #include <MeshCore.h>
 #include <helpers/ui/DisplayDriver.h>
+#include <stddef.h>
 
 class UITask {
   DisplayDriver* _display;
@@ -21,13 +22,14 @@ class UITask {
 
 public:
 
-  UITask(mesh::MainBoard* board, DisplayDriver* display) : _board(board), _display(display){ 
+  UITask(mesh::MainBoard* board) : _board(board), _display(NULL) {
       _next_refresh = 0; 
       _connected = false;
   }
-  void begin(const char* node_name, const char* build_date, uint32_t pin_code);
+  void begin(DisplayDriver* display, const char* node_name, const char* build_date, uint32_t pin_code);
 
   void setHasConnection(bool connected) { _connected = connected; }
+  bool hasDisplay() const { return _display != NULL; }
   void clearMsgPreview();
   void msgRead(int msgcount);
   void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount);
