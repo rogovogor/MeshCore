@@ -26,11 +26,7 @@ void T114Board::begin() {
 
   pinMode(PIN_VBAT_READ, INPUT);
 
-#if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
-  Wire.begin(PIN_BOARD_SDA, PIN_BOARD_SCL);
-#else
   Wire.begin();
-#endif
 
 #ifdef P_LORA_TX_LED
   pinMode(P_LORA_TX_LED, OUTPUT);

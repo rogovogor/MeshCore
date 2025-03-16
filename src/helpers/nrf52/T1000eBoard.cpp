@@ -16,11 +16,7 @@ void T1000eBoard::begin()
   pinMode(LED_PIN, OUTPUT);
 #endif
 
-#if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
-  Wire.begin(PIN_BOARD_SDA, PIN_BOARD_SCL);
-#else
   Wire.begin();
-#endif
 
   delay(10);   // give sx1262 some time to power up
 }
