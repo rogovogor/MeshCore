@@ -109,12 +109,13 @@
   #include <helpers/ui/SSD1306Display.h>
 
   static DISPLAY_CLASS  display;
-  static UITask ui_task(&board, &display);
   #define HAS_UI
-#elif defined(HAS_UI)
+#endif
+
+#if defined(HAS_UI)
   #include "UITask.h"
 
-  static UITask ui_task(&board, NULL);
+  static UITask ui_task(&board);
 #endif
 
 // Believe it or not, this std C function is busted on some platforms!
@@ -719,7 +720,7 @@ public:
     //_prefs.rx_delay_base = 10.0f;  enable once new algo fixed
   }
 
-  void begin(FILESYSTEM& fs, mesh::RNG& trng) {
+  void begin(FILESYSTEM& fs, mesh::RNG& trng, bool has_display) {
     _fs = &fs;
 
     BaseChatMesh::begin();
@@ -770,8 +771,12 @@ public:
 
   #ifdef BLE_PIN_CODE
     if (_prefs.ble_pin == 0) {
-    #ifdef DISPLAY_CLASS
-      _active_ble_pin = trng.nextInt(100000, 999999);  // random pin each session
+    #ifdef HAS_UI
+      if (has_display) {
+        _active_ble_pin = trng.nextInt(100000, 999999);  // random pin each session
+      } else {
+        _active_ble_pin = BLE_PIN_CODE;  // otherwise static pin
+      }
     #else
       _active_ble_pin = BLE_PIN_CODE;  // otherwise static pin
     #endif
@@ -1432,9 +1437,24 @@ void setup() {
 
   RadioNoiseListener trng(radio);
 
+#ifdef HAS_UI
+  DisplayDriver* disp = NULL;
+ #ifdef DISPLAY_CLASS
+  if (display.begin()) {
+    disp = &display;
+  }
+ #endif
+#endif
+
 #if defined(NRF52_PLATFORM)
   InternalFS.begin();
-  the_mesh.begin(InternalFS, trng);
+  the_mesh.begin(InternalFS, trng,
+    #ifdef HAS_UI
+        disp != NULL
+    #else
+        false
+    #endif
+  );
 
 #ifdef BLE_PIN_CODE
   char dev_name[32+16];
@@ -1446,7 +1466,13 @@ void setup() {
   the_mesh.startInterface(serial_interface);
 #elif defined(ESP32)
   SPIFFS.begin(true);
-  the_mesh.begin(SPIFFS, trng);
+  the_mesh.begin(SPIFFS, trng,
+    #ifdef HAS_UI
+        disp != NULL
+    #else
+        false
+    #endif
+  );
 
 #ifdef WIFI_SSID
   WiFi.begin(WIFI_SSID, WIFI_PWD);
@@ -1463,11 +1489,8 @@ void setup() {
   #error "need to define filesystem"
 #endif
 
-#ifdef DISPLAY_CLASS
-  display.begin();
-#endif
 #ifdef HAS_UI
-  ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
+  ui_task.begin(disp, the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
 #endif
 }
 
