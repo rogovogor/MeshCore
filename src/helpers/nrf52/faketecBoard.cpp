@@ -11,13 +11,10 @@ void faketecBoard::begin() {
     startup_reason = BD_STARTUP_NORMAL;
     btn_prev_state = HIGH;
   
-
     pinMode(PIN_VBAT_READ, INPUT);
 
     #ifdef BUTTON_PIN
-      pinMode(BATTERY_PIN, INPUT);
       pinMode(BUTTON_PIN, INPUT);
-      pinMode(LED_PIN, OUTPUT);
     #endif
 
     #if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
@@ -31,18 +28,14 @@ void faketecBoard::begin() {
     delay(10);   // give sx1262 some time to power up
 }
 
-
-static void connect_callback(uint16_t conn_handle)
-{
+static void connect_callback(uint16_t conn_handle) {
     (void)conn_handle;
     MESH_DEBUG_PRINTLN("BLE client connected");
 }
 
-static void disconnect_callback(uint16_t conn_handle, uint8_t reason)
-{
+static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
     (void)conn_handle;
     (void)reason;
-
     MESH_DEBUG_PRINTLN("BLE client disconnected");
 }
 
