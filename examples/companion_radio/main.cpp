@@ -175,6 +175,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SIGN_START            33
 #define CMD_SIGN_DATA             34
 #define CMD_SIGN_FINISH           35
+#define CMD_SEND_TRACE_PATH       36
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -208,6 +209,7 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOGIN_FAIL        0x86
 #define PUSH_CODE_STATUS_RESPONSE   0x87
 #define PUSH_CODE_LOG_RX_DATA       0x88
+#define PUSH_CODE_TRACE_DATA        0x89
 
 /* -------------------------------------------------------------------------------------- */
 
@@ -707,6 +709,25 @@ protected:
       _serial->writeFrame(out_frame, i);
     } else {
       MESH_DEBUG_PRINTLN("onRawDataRecv(), data received while app offline");
+    }
+  }
+
+  void onTraceRecv(mesh::Packet* packet, uint32_t tag, uint32_t auth_code, uint8_t flags, const uint8_t* path_snrs, const uint8_t* path_hashes, uint8_t path_len) override {
+    int i = 0;
+    out_frame[i++] = PUSH_CODE_TRACE_DATA;
+    out_frame[i++] = 0;   // reserved
+    out_frame[i++] = path_len;
+    out_frame[i++] = flags;
+    memcpy(&out_frame[i], &tag, 4); i += 4;
+    memcpy(&out_frame[i], &auth_code, 4); i += 4;
+    memcpy(&out_frame[i], path_hashes, path_len); i += path_len;
+    memcpy(&out_frame[i], path_snrs, path_len); i += path_len;
+    out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);   // extra/final SNR (to this node)
+
+    if (_serial->isConnected()) {
+      _serial->writeFrame(out_frame, i);
+    } else {
+      MESH_DEBUG_PRINTLN("onTraceRecv(), data received while app offline");
     }
   }
 
@@ -1334,6 +1355,18 @@ public:
 
         out_frame[0] = RESP_CODE_SIGNATURE;
         _serial->writeFrame(out_frame, 1 + SIGNATURE_SIZE);
+      } else {
+        writeErrFrame();
+      }
+    } else if (cmd_frame[0] == CMD_SEND_TRACE_PATH && len > 10 && len - 10 < MAX_PATH_SIZE) {
+      uint32_t tag, auth;
+      memcpy(&tag, &cmd_frame[1], 4);
+      memcpy(&auth, &cmd_frame[5], 4);
+      auto pkt = createTrace(tag, auth, cmd_frame[9]);
+      if (pkt) {
+        uint8_t path_len = len - 10;
+        sendDirect(pkt, &cmd_frame[10], path_len);
+        writeOKFrame();
       } else {
         writeErrFrame();
       }
