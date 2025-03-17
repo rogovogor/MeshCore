@@ -71,12 +71,16 @@
   #include <helpers/HeltecV3Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static HeltecV3Board board;
+#elif defined(HELTEC_LORA_V2)
+  #include <helpers/HeltecV2Board.h>
+  #include <helpers/CustomSX1276Wrapper.h>
+  static HeltecV2Board board;
 #elif defined(ARDUINO_XIAO_ESP32C3)
   #include <helpers/XiaoC3Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   #include <helpers/CustomSX1268Wrapper.h>
   static XiaoC3Board board;
-#elif defined(SEEED_XIAO_S3)
+#elif defined(SEEED_XIAO_S3) || defined(LILYGO_T3S3)
   #include <helpers/ESP32Board.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static ESP32Board board;

@@ -6,14 +6,12 @@
 
 static BLEDfu bledfu;
 
-static void connect_callback(uint16_t conn_handle)
-{
+static void connect_callback(uint16_t conn_handle) {
   (void)conn_handle;
   MESH_DEBUG_PRINTLN("BLE client connected");
 }
 
-static void disconnect_callback(uint16_t conn_handle, uint8_t reason)
-{
+static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
   (void)conn_handle;
   (void)reason;
 
@@ -27,10 +25,10 @@ void TechoBoard::begin() {
   pinMode(PIN_VBAT_READ, INPUT);
 
 #if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
-  Wire.begin(PIN_BOARD_SDA, PIN_BOARD_SCL);
-#else
-  Wire.begin();
+  Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL)
 #endif
+
+  Wire.begin();
 
   pinMode(SX126X_POWER_EN, OUTPUT);
   digitalWrite(SX126X_POWER_EN, HIGH);

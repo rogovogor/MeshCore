@@ -109,12 +109,13 @@
   #include <helpers/ui/SSD1306Display.h>
 
   static DISPLAY_CLASS  display;
-  static UITask ui_task(&board, &display);
   #define HAS_UI
-#elif defined(HAS_UI)
+#endif
+
+#if defined(HAS_UI)
   #include "UITask.h"
 
-  static UITask ui_task(&board, NULL);
+  static UITask ui_task(&board);
 #endif
 
 // Believe it or not, this std C function is busted on some platforms!
@@ -171,6 +172,9 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_GET_CONTACT_BY_KEY    30
 #define CMD_GET_CHANNEL           31
 #define CMD_SET_CHANNEL           32
+#define CMD_SIGN_START            33
+#define CMD_SIGN_DATA             34
+#define CMD_SIGN_FINISH           35
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -191,6 +195,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_CONTACT_MSG_RECV_V3  16   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
 #define RESP_CODE_CHANNEL_MSG_RECV_V3  17   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
 #define RESP_CODE_CHANNEL_INFO     18   // a reply to CMD_GET_CHANNEL
+#define RESP_CODE_SIGN_START       19
+#define RESP_CODE_SIGNATURE        20
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -204,6 +210,8 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOG_RX_DATA       0x88
 
 /* -------------------------------------------------------------------------------------- */
+
+#define MAX_SIGN_DATA_LEN    (8*1024)   // 8K
 
 struct NodePrefs {  // persisted to file
   float airtime_factor;
@@ -235,6 +243,8 @@ class MyMesh : public BaseChatMesh {
   uint32_t _active_ble_pin;
   bool  _iter_started;
   uint8_t app_target_ver;
+  uint8_t* sign_data;
+  uint32_t sign_data_len;
   uint8_t cmd_frame[MAX_FRAME_SIZE+1];
   uint8_t out_frame[MAX_FRAME_SIZE+1];
 
@@ -726,6 +736,7 @@ public:
     _identity_store = NULL;
     pending_login = pending_status = 0;
     next_ack_idx = 0;
+    sign_data = NULL;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -739,7 +750,7 @@ public:
     //_prefs.rx_delay_base = 10.0f;  enable once new algo fixed
   }
 
-  void begin(FILESYSTEM& fs, mesh::RNG& trng) {
+  void begin(FILESYSTEM& fs, mesh::RNG& trng, bool has_display) {
     _fs = &fs;
 
     BaseChatMesh::begin();
@@ -790,8 +801,12 @@ public:
 
   #ifdef BLE_PIN_CODE
     if (_prefs.ble_pin == 0) {
-    #ifdef DISPLAY_CLASS
-      _active_ble_pin = trng.nextInt(100000, 999999);  // random pin each session
+    #ifdef HAS_UI
+      if (has_display) {
+        _active_ble_pin = trng.nextInt(100000, 999999);  // random pin each session
+      } else {
+        _active_ble_pin = BLE_PIN_CODE;  // otherwise static pin
+      }
     #else
       _active_ble_pin = BLE_PIN_CODE;  // otherwise static pin
     #endif
@@ -1294,6 +1309,38 @@ public:
       } else {
         writeErrFrame();
       }
+    } else if (cmd_frame[0] == CMD_SIGN_START) {
+      out_frame[0] = RESP_CODE_SIGN_START;
+      out_frame[1] = 0;  // reserved
+      uint32_t len = MAX_SIGN_DATA_LEN;
+      memcpy(&out_frame[2], &len, 4);
+      _serial->writeFrame(out_frame, 6);
+
+      if (sign_data) {
+        free(sign_data);
+      }
+      sign_data = (uint8_t *) malloc(MAX_SIGN_DATA_LEN);
+      sign_data_len = 0;
+    } else if (cmd_frame[0] == CMD_SIGN_DATA && len > 1) {
+      if (sign_data == NULL || sign_data_len + (len - 1) > MAX_SIGN_DATA_LEN) {
+        writeErrFrame();  // error: too long
+      } else {
+        memcpy(&sign_data[sign_data_len], &cmd_frame[1], len - 1);
+        sign_data_len += (len - 1);
+        writeOKFrame();
+      }
+    } else if (cmd_frame[0] == CMD_SIGN_FINISH) {
+      if (sign_data) {
+        self_id.sign(&out_frame[1], sign_data, sign_data_len);
+
+        free(sign_data);  // don't need sign_data now
+        sign_data = NULL;
+
+        out_frame[0] = RESP_CODE_SIGNATURE;
+        _serial->writeFrame(out_frame, 1 + SIGNATURE_SIZE);
+      } else {
+        writeErrFrame();
+      }
     } else {
       writeErrFrame();
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
@@ -1425,9 +1472,24 @@ void setup() {
 
   RadioNoiseListener trng(radio);
 
+#ifdef HAS_UI
+  DisplayDriver* disp = NULL;
+ #ifdef DISPLAY_CLASS
+  if (display.begin()) {
+    disp = &display;
+  }
+ #endif
+#endif
+
 #if defined(NRF52_PLATFORM)
   InternalFS.begin();
-  the_mesh.begin(InternalFS, trng);
+  the_mesh.begin(InternalFS, trng,
+    #ifdef HAS_UI
+        disp != NULL
+    #else
+        false
+    #endif
+  );
 
 #ifdef BLE_PIN_CODE
   char dev_name[32+16];
@@ -1439,7 +1501,13 @@ void setup() {
   the_mesh.startInterface(serial_interface);
 #elif defined(ESP32)
   SPIFFS.begin(true);
-  the_mesh.begin(SPIFFS, trng);
+  the_mesh.begin(SPIFFS, trng,
+    #ifdef HAS_UI
+        disp != NULL
+    #else
+        false
+    #endif
+  );
 
 #ifdef WIFI_SSID
   WiFi.begin(WIFI_SSID, WIFI_PWD);
@@ -1456,11 +1524,8 @@ void setup() {
   #error "need to define filesystem"
 #endif
 
-#ifdef DISPLAY_CLASS
-  display.begin();
-#endif
 #ifdef HAS_UI
-  ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
+  ui_task.begin(disp, the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
 #endif
 }
 
