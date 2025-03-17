@@ -1366,7 +1366,15 @@ public:
       if (pkt) {
         uint8_t path_len = len - 10;
         sendDirect(pkt, &cmd_frame[10], path_len);
-        writeOKFrame();
+
+        uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
+        uint32_t est_timeout = calcDirectTimeoutMillisFor(t, path_len);
+
+        out_frame[0] = RESP_CODE_SENT;
+        out_frame[1] = 0;
+        memcpy(&out_frame[2], &tag, 4);
+        memcpy(&out_frame[6], &est_timeout, 4);
+        _serial->writeFrame(out_frame, 10);
       } else {
         writeErrFrame();
       }
