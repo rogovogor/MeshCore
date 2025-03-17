@@ -18,10 +18,10 @@ void faketecBoard::begin() {
     #endif
 
     #if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
-      Wire.begin(PIN_BOARD_SDA, PIN_BOARD_SCL);
-    #else
-      Wire.begin();
+      Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL);
     #endif
+    
+    Wire.begin();
 
     pinMode(SX126X_POWER_EN, OUTPUT);
     digitalWrite(SX126X_POWER_EN, HIGH);
