@@ -166,50 +166,6 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
   }
 }
 
-void BaseChatMesh::onPeerTraceRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* data) {
-  int i = matching_peer_indexes[sender_idx];
-  if (i < 0 || i >= num_contacts) {
-    MESH_DEBUG_PRINTLN("onPeerTraceRecv: Invalid sender idx: %d", i);
-    return;
-  }
-
-  if ((packet->payload[0] & 3) != 0) {
-    MESH_DEBUG_PRINTLN("onPeerTraceRecv: unknown TRACE sub-type: %u", (uint32_t)packet->payload[0]);
-    return;
-  }
-
-  ContactInfo& from = contacts[i];
-
-  uint32_t timestamp;
-  memcpy(&timestamp, data, 4);  // timestamp (by sender's RTC clock - which could be wrong)
-  uint8_t sender_flags = data[4];
-
-  int j = 3 + CIPHER_MAC_SIZE + CIPHER_BLOCK_SIZE;  // skip fixed-len part
-
-  uint8_t path_hashes[64];
-  int8_t  path_snr[65];
-  uint16_t len;
-  if (packet->isRouteFlood()) {
-    memcpy(path_hashes, packet->path, len = packet->path_len);
-    memset(path_snr, 0, sizeof(path_snr));
-    memcpy(path_snr, &packet->payload[j], packet->payload_len - j);  // 'track' should just contain SNRs
-  } else {
-    len = 0;
-    while (j + 1 < packet->payload_len) {
-      path_hashes[len] = packet->payload[j++];   // pairs of Hash + SNR
-      path_snr[len] = packet->payload[j++];
-      len++;
-    }
-  }
-  path_snr[len] = (int8_t)(packet->getSNR()*4);  // also include last hop (to this node)
-
-  onContactTraceRecv(from, timestamp, path_hashes, path_snr, len);
-
-  if (sender_flags & 1) {   // the 'wants reply' flag
-    // TODO: send a TRACE packet back
-  }
-}
-
 bool BaseChatMesh::onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
   int i = matching_peer_indexes[sender_idx];
   if (i < 0 || i >= num_contacts) {
@@ -302,25 +258,6 @@ int  BaseChatMesh::sendMessage(const ContactInfo& recipient, uint32_t timestamp,
     rc = MSG_SEND_SENT_DIRECT;
   }
   return rc;
-}
-
-bool BaseChatMesh::sendContactTraceDirect(const ContactInfo& recipient, bool wantReply) {
-  if (recipient.out_path_len < 0) return false;  // Error: no known path
-
-  uint8_t temp[CIPHER_BLOCK_SIZE];
-  memset(temp, 0, sizeof(temp));
-
-  uint32_t timestamp = getRTCClock()->getCurrentTime();
-  memcpy(temp, &timestamp, 4);
-  temp[4] = wantReply ? 1 : 0;
-  // TODO: any other data to encrypt??
-
-  auto pkt = createDatagram(PAYLOAD_TYPE_TRACE, recipient.id, recipient.shared_secret, temp, sizeof(temp));
-  if (pkt) {
-    sendDirect(pkt, recipient.out_path, recipient.out_path_len);
-    return true;  // success
-  }
-  return false;  // error
 }
 
 int  BaseChatMesh::sendCommandData(const ContactInfo& recipient, uint32_t timestamp, uint8_t attempt, const char* text, uint32_t& est_timeout) {

@@ -140,8 +140,6 @@ void Dispatcher::checkRecv() {
     if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
         || pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
       Serial.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
-    } else if (pkt->getPayloadType() == PAYLOAD_TYPE_TRACE) {
-      Serial.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[2], (uint32_t)pkt->payload[1]);
     } else {
       Serial.printf("\n");
     }

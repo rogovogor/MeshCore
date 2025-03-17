@@ -285,10 +285,6 @@ protected:
     // not supported
   }
 
-  void onContactTraceRecv(const ContactInfo& contact, uint32_t sender_timestamp, const uint8_t hash[], int8_t snr[], uint8_t path_len) override {
-    // TODO: write an out_frame
-  }
-
   uint32_t calcFloodTimeoutMillisFor(uint32_t pkt_airtime_millis) const override {
     return SEND_TIMEOUT_BASE_MILLIS + (FLOOD_SEND_TIMEOUT_FACTOR * pkt_airtime_millis);
   }

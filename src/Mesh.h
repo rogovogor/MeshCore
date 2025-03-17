@@ -105,13 +105,16 @@ protected:
   virtual void onPeerDataRecv(Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) { }
 
   /**
-   * \brief  A (now verified) TRACE packet has been received (by a known peer).
-   *         NOTE: these can be received multiple times (per sender/msg-id), via different routes
-   * \param  sender_idx  index of peer, [0..n) where n is what searchPeersByHash() returned
-   * \param  secret   the pre-calculated shared-secret (handy for sending response packet)
-   * \param  data   decrypted data from payload (fixed length, one CIPHER_BLOCK)
+   * \brief  A TRACE packet has been received. (and has reached the end of its given path)
+   *         NOTE: this may have been initiated by another node.
+   * \param  tag         a random (unique-ish) tag set by initiator
+   * \param  auth_code   a code to authenticate the packet
+   * \param  flags       zero for now
+   * \param  path_snrs   single byte SNR*4 for each hop in the path
+   * \param  path_hashes hashes if each repeater in the path
+   * \param  path_len    length of the path_snrs[] and path_hashes[] arrays
   */
-  virtual void onPeerTraceRecv(Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* data) { }
+  virtual void onTraceRecv(Packet* packet, uint32_t tag, uint32_t auth_code, uint8_t flags, const uint8_t* path_snrs, const uint8_t* path_hashes, uint8_t path_len) { }
 
   /**
    * \brief  A path TO peer (sender_idx) has been received. (also with optional 'extra' data encoded)
@@ -192,6 +195,7 @@ public:
   Packet* createPathReturn(const uint8_t* dest_hash, const uint8_t* secret, const uint8_t* path, uint8_t path_len, uint8_t extra_type, const uint8_t*extra, size_t extra_len);
   Packet* createPathReturn(const Identity& dest, const uint8_t* secret, const uint8_t* path, uint8_t path_len, uint8_t extra_type, const uint8_t*extra, size_t extra_len);
   Packet* createRawData(const uint8_t* data, size_t len);
+  Packet* createTrace(uint32_t tag, uint32_t auth_code, uint8_t flags = 0);
 
   /**
    * \brief  send a locally-generated Packet with flood routing
@@ -207,6 +211,7 @@ public:
    * \brief  send a locally-generated Packet to just neigbor nodes (zero hops)
   */
   void sendZeroHop(Packet* packet, uint32_t delay_millis=0);
+
 };
 
 }
