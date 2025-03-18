@@ -7,7 +7,6 @@
 
 // Defined using AXP2102
 #define XPOWERS_CHIP_AXP2101
-XPowersAXP2101 power;
 
 // LoRa radio module pins for TBeam
 #define  P_LORA_DIO_0   26
@@ -29,6 +28,8 @@ XPowersAXP2101 power;
 #include <driver/rtc_io.h>
 
 class TBeamBoard : public ESP32Board {
+  XPowersAXP2101 power;
+
 public:
   void begin() {
     ESP32Board::begin();
