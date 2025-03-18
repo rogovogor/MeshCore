@@ -212,6 +212,13 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOG_RX_DATA       0x88
 #define PUSH_CODE_TRACE_DATA        0x89
 
+#define ERR_CODE_UNSUPPORTED_CMD      1
+#define ERR_CODE_NOT_FOUND            2
+#define ERR_CODE_TABLE_FULL           3
+#define ERR_CODE_BAD_STATE            4
+#define ERR_CODE_FILE_IO_ERROR        5
+#define ERR_CODE_ILLEGAL_ARG          6
+
 /* -------------------------------------------------------------------------------------- */
 
 #define MAX_SIGN_DATA_LEN    (8*1024)   // 8K
@@ -442,10 +449,11 @@ class MyMesh : public BaseChatMesh {
     buf[0] = RESP_CODE_OK;
     _serial->writeFrame(buf, 1);
   }
-  void writeErrFrame() {
-    uint8_t buf[1];
+  void writeErrFrame(uint8_t err_code) {
+    uint8_t buf[2];
     buf[0] = RESP_CODE_ERR;
-    _serial->writeFrame(buf, 1);
+    buf[1] = err_code;
+    _serial->writeFrame(buf, 2);
   }
 
   void writeDisabledFrame() {
@@ -958,7 +966,7 @@ public:
         }
         // TODO: add expected ACK to table
         if (result == MSG_SEND_FAILED) {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
           if (expected_ack) {
             expected_ack_table[next_ack_idx].msg_sent = _ms->getMillis();  // add to circular table
@@ -973,7 +981,7 @@ public:
           _serial->writeFrame(out_frame, 10);
         }
       } else {
-        writeErrFrame(); // unknown recipient, or unsuported TXT_TYPE_*
+        writeErrFrame(recipient == NULL ? ERR_CODE_NOT_FOUND : ERR_CODE_UNSUPPORTED_CMD); // unknown recipient, or unsuported TXT_TYPE_*
       }
     } else if (cmd_frame[0] == CMD_SEND_CHANNEL_TXT_MSG) {  // send GroupChannel msg
       int i = 1;
@@ -983,16 +991,20 @@ public:
       memcpy(&msg_timestamp, &cmd_frame[i], 4); i += 4;
       const char *text = (char *) &cmd_frame[i];
 
-      ChannelDetails channel;
-      bool success = getChannel(channel_idx, channel);
-      if (success && txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, channel.channel, _prefs.node_name, text, len - i)) {
-        writeOKFrame();
+      if (txt_type != TXT_TYPE_PLAIN) {
+        writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
       } else {
-        writeErrFrame();
+        ChannelDetails channel;
+        bool success = getChannel(channel_idx, channel);
+        if (success && sendGroupMessage(msg_timestamp, channel.channel, _prefs.node_name, text, len - i)) {
+          writeOKFrame();
+        } else {
+          writeErrFrame(ERR_CODE_NOT_FOUND);  // bad channel_idx
+        }
       }
     } else if (cmd_frame[0] == CMD_GET_CONTACTS) {  // get Contact list
       if (_iter_started) {
-        writeErrFrame();   // iterator is currently busy
+        writeErrFrame(ERR_CODE_BAD_STATE);   // iterator is currently busy
       } else {
         if (len >= 5) {   // has optional 'since' param
           memcpy(&_iter_filter_since, &cmd_frame[1], 4);
@@ -1031,7 +1043,7 @@ public:
         savePrefs();
         writeOKFrame();
       } else {
-        writeErrFrame();  // invalid geo coordinate
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);  // invalid geo coordinate
       }
     } else if (cmd_frame[0] == CMD_GET_DEVICE_TIME) {
       uint8_t reply[5];
@@ -1047,7 +1059,7 @@ public:
         getRTCClock()->setCurrentTime(secs);
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else if (cmd_frame[0] == CMD_SEND_SELF_ADVERT) {
       auto pkt = createSelfAdvert(_prefs.node_name, _prefs.node_lat, _prefs.node_lon);
@@ -1059,7 +1071,7 @@ public:
         }
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_TABLE_FULL);
       }
     } else if (cmd_frame[0] == CMD_RESET_PATH && len >= 1+32) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1070,7 +1082,7 @@ public:
         saveContacts();
         writeOKFrame();
       } else {
-        writeErrFrame();  // unknown contact
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // unknown contact
       }
     } else if (cmd_frame[0] == CMD_ADD_UPDATE_CONTACT && len >= 1+32+2+1) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1089,7 +1101,7 @@ public:
           saveContacts();
           writeOKFrame();
         } else {
-          writeErrFrame();  // table is full!
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         }
       }
     } else if (cmd_frame[0] == CMD_REMOVE_CONTACT) {
@@ -1099,15 +1111,19 @@ public:
         saveContacts();
         writeOKFrame();
       } else {
-        writeErrFrame();  // not found, or unable to remove
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // not found, or unable to remove
       }
     } else if (cmd_frame[0] == CMD_SHARE_CONTACT) {
       uint8_t* pub_key = &cmd_frame[1];
       ContactInfo* recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
-      if (recipient && shareContactZeroHop(*recipient)) {
-        writeOKFrame();
+      if (recipient) {
+        if (shareContactZeroHop(*recipient)) {
+          writeOKFrame();
+        } else {
+          writeErrFrame(ERR_CODE_TABLE_FULL);  // unable to send
+        }
       } else {
-        writeErrFrame();  // not found, or unable to send
+        writeErrFrame(ERR_CODE_NOT_FOUND);
       }
     } else if (cmd_frame[0] == CMD_GET_CONTACT_BY_KEY) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1115,7 +1131,7 @@ public:
       if (contact) {
         writeContactRespFrame(RESP_CODE_CONTACT, *contact);
       } else {
-        writeErrFrame();  // not found
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // not found
       }
     } else if (cmd_frame[0] == CMD_EXPORT_CONTACT) {
       if (len < 1 + PUB_KEY_SIZE) {
@@ -1127,7 +1143,7 @@ public:
           releasePacket(pkt);  // undo the obtainNewPacket()
           _serial->writeFrame(out_frame, out_len + 1);
         } else {
-          writeErrFrame();  // Error
+          writeErrFrame(ERR_CODE_TABLE_FULL);  // Error
         }
       } else {
         uint8_t* pub_key = &cmd_frame[1];
@@ -1137,14 +1153,14 @@ public:
           out_frame[0] = RESP_CODE_EXPORT_CONTACT;
           _serial->writeFrame(out_frame, out_len + 1);
         } else {
-          writeErrFrame();  // not found
+          writeErrFrame(ERR_CODE_NOT_FOUND);  // not found
         }
       }
     } else if (cmd_frame[0] == CMD_IMPORT_CONTACT && len > 2+32+64) {
       if (importContact(&cmd_frame[1], len - 1)) {
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else if (cmd_frame[0] == CMD_SYNC_NEXT_MESSAGE) {
       int out_len;
@@ -1182,11 +1198,11 @@ public:
         writeOKFrame();
       } else {
         MESH_DEBUG_PRINTLN("Error: CMD_SET_RADIO_PARAMS: f=%d, bw=%d, sf=%d, cr=%d", freq, bw, (uint32_t)sf, (uint32_t)cr);
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else if (cmd_frame[0] == CMD_SET_RADIO_TX_POWER) {
       if (cmd_frame[1] > MAX_LORA_TX_POWER) {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       } else {
         _prefs.tx_power_dbm = cmd_frame[1];
         savePrefs();
@@ -1227,7 +1243,7 @@ public:
           self_id = identity;
           writeOKFrame();
         } else {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_FILE_IO_ERROR);
         }
       #else
         writeDisabledFrame();
@@ -1242,10 +1258,10 @@ public:
           sendDirect(pkt, path, path_len);
           writeOKFrame();
         } else {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         }
       } else {
-        writeErrFrame();  // flood, not supported (yet)
+        writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);  // flood, not supported (yet)
       }
     } else if (cmd_frame[0] == CMD_SEND_LOGIN && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1256,7 +1272,7 @@ public:
         uint32_t est_timeout;
         int result = sendLogin(*recipient, password, est_timeout);
         if (result == MSG_SEND_FAILED) {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
           pending_status = 0;
           memcpy(&pending_login, recipient->id.pub_key, 4);  // match this to onContactResponse()
@@ -1267,7 +1283,7 @@ public:
           _serial->writeFrame(out_frame, 10);
         }
       } else {
-        writeErrFrame();  // contact not found
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // contact not found
       }
     } else if (cmd_frame[0] == CMD_SEND_STATUS_REQ && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1276,7 +1292,7 @@ public:
         uint32_t est_timeout;
         int result = sendStatusRequest(*recipient, est_timeout);
         if (result == MSG_SEND_FAILED) {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
           pending_login = 0;
           memcpy(&pending_status, recipient->id.pub_key, 4);  // match this to onContactResponse()
@@ -1287,14 +1303,14 @@ public:
           _serial->writeFrame(out_frame, 10);
         }
       } else {
-        writeErrFrame();  // contact not found
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // contact not found
       }
     } else if (cmd_frame[0] == CMD_HAS_CONNECTION && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
       if (hasConnectionTo(pub_key)) {
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_NOT_FOUND);
       }
     } else if (cmd_frame[0] == CMD_LOGOUT && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1311,10 +1327,10 @@ public:
         memcpy(&out_frame[i], channel.channel.secret, 16); i += 16;   // NOTE: only 128-bit supported
         _serial->writeFrame(out_frame, i);
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_NOT_FOUND);
       }
     } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+32) {
-      writeErrFrame();  // not supported (yet)
+      writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);  // not supported (yet)
     } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+16) {
       uint8_t channel_idx = cmd_frame[1];
       ChannelDetails channel;
@@ -1325,7 +1341,7 @@ public:
         saveChannels();
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // bad channel_idx
       }
     } else if (cmd_frame[0] == CMD_SIGN_START) {
       out_frame[0] = RESP_CODE_SIGN_START;
@@ -1341,7 +1357,7 @@ public:
       sign_data_len = 0;
     } else if (cmd_frame[0] == CMD_SIGN_DATA && len > 1) {
       if (sign_data == NULL || sign_data_len + (len - 1) > MAX_SIGN_DATA_LEN) {
-        writeErrFrame();  // error: too long
+        writeErrFrame(sign_data == NULL ? ERR_CODE_BAD_STATE : ERR_CODE_TABLE_FULL);  // error: too long
       } else {
         memcpy(&sign_data[sign_data_len], &cmd_frame[1], len - 1);
         sign_data_len += (len - 1);
@@ -1357,7 +1373,7 @@ public:
         out_frame[0] = RESP_CODE_SIGNATURE;
         _serial->writeFrame(out_frame, 1 + SIGNATURE_SIZE);
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_BAD_STATE);
       }
     } else if (cmd_frame[0] == CMD_SEND_TRACE_PATH && len > 10 && len - 10 < MAX_PATH_SIZE) {
       uint32_t tag, auth;
@@ -1377,10 +1393,10 @@ public:
         memcpy(&out_frame[6], &est_timeout, 4);
         _serial->writeFrame(out_frame, 10);
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_TABLE_FULL);
       }
     } else {
-      writeErrFrame();
+      writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
     }
   }
