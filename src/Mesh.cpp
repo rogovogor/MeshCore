@@ -1,5 +1,6 @@
 #include "Mesh.h"
 //#include <Arduino.h>
+#include <Ed25519.h>
 
 namespace mesh {
 
@@ -228,16 +229,14 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
         // check that signature is valid
         bool is_ok;
         {
-          static uint8_t message[PUB_KEY_SIZE + 4 + MAX_ADVERT_DATA_SIZE];
+          uint8_t message[PUB_KEY_SIZE + 4 + MAX_ADVERT_DATA_SIZE];
           int msg_len = 0;
           memcpy(&message[msg_len], id.pub_key, PUB_KEY_SIZE); msg_len += PUB_KEY_SIZE;
           memcpy(&message[msg_len], &timestamp, 4); msg_len += 4;
           memcpy(&message[msg_len], app_data, app_data_len); msg_len += app_data_len;
 
-          static uint8_t sig_copy[SIGNATURE_SIZE];
-          memcpy(sig_copy, signature, SIGNATURE_SIZE);
-
-          is_ok = id.verify(sig_copy, message, msg_len);
+          //is_ok = id.verify(signature, message, msg_len);
+          is_ok = Ed25519::verify(signature, id.pub_key, message, msg_len);
         }
         if (is_ok) {
           MESH_DEBUG_PRINTLN("%s Mesh::onRecvPacket(): valid advertisement received!", getLogDateTime());
