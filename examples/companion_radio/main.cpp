@@ -184,6 +184,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SIGN_DATA             34
 #define CMD_SIGN_FINISH           35
 #define CMD_SEND_TRACE_PATH       36
+#define CMD_SET_DEVICE_PIN        37
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -1402,6 +1403,11 @@ public:
       } else {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       }
+    } else if (cmd_frame[0] == CMD_SET_DEVICE_PIN && len > 1) {
+      cmd_frame[len] = 0;  // make C string
+      _prefs.ble_pin = _atoi((char *) &cmd_frame[1]);
+      savePrefs();
+      writeOKFrame();
     } else {
       writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
