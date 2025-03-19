@@ -914,7 +914,7 @@ public:
       out_frame[i++] = FIRMWARE_VER_CODE;
       out_frame[i++] = MAX_CONTACTS / 2;        // v3+
       out_frame[i++] = MAX_GROUP_CHANNELS;      // v3+
-      memset(&out_frame[i], 0, 4); i += 4;  // reserved
+      memcpy(&out_frame[i], &_prefs.ble_pin, 4); i += 4;
       memset(&out_frame[i], 0, 12);
       strcpy((char *) &out_frame[i], FIRMWARE_BUILD_DATE); i += 12;
       StrHelper::strzcpy((char *) &out_frame[i], board.getManufacturerName(), 40); i += 40;
@@ -1403,9 +1403,8 @@ public:
       } else {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       }
-    } else if (cmd_frame[0] == CMD_SET_DEVICE_PIN && len > 1) {
-      cmd_frame[len] = 0;  // make C string
-      _prefs.ble_pin = _atoi((char *) &cmd_frame[1]);
+    } else if (cmd_frame[0] == CMD_SET_DEVICE_PIN && len >= 5) {
+      memcpy(&_prefs.ble_pin, &cmd_frame[1], 4);
       savePrefs();
       writeOKFrame();
     } else {
