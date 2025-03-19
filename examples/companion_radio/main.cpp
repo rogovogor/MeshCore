@@ -96,10 +96,18 @@
   #include <helpers/nrf52/TechoBoard.h>
   #include <helpers/CustomSX1262Wrapper.h>
   static TechoBoard board;
+
+#elif defined(LILYGO_TBEAM)
+  #include <helpers/TBeamBoard.h>
+  #include <helpers/CustomSX1276Wrapper.h>
+  static TBeamBoard board;
+
 #elif defined(FAKETEC)
   #include <helpers/nrf52/faketecBoard.h>
   #include <helpers/CustomSX1262Wrapper.h>
+  #include <helpers/CustomLLCC68Wrapper.h>
   static faketecBoard board;
+
 #else
   #error "need to provide a 'board' object"
 #endif
@@ -130,7 +138,7 @@ static uint32_t _atoi(const char* sp) {
 
 /*------------ Frame Protocol --------------*/
 
-#define FIRMWARE_VER_CODE    2
+#define FIRMWARE_VER_CODE    3
 
 #ifndef FIRMWARE_BUILD_DATE
   #define FIRMWARE_BUILD_DATE   "13 Mar 2025"
@@ -175,6 +183,8 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SIGN_START            33
 #define CMD_SIGN_DATA             34
 #define CMD_SIGN_FINISH           35
+#define CMD_SEND_TRACE_PATH       36
+#define CMD_SET_DEVICE_PIN        37
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -183,8 +193,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_END_OF_CONTACTS   4   // last reply to CMD_GET_CONTACTS
 #define RESP_CODE_SELF_INFO         5   // reply to CMD_APP_START
 #define RESP_CODE_SENT              6   // reply to CMD_SEND_TXT_MSG
-#define RESP_CODE_CONTACT_MSG_RECV  7   // a reply to CMD_SYNC_NEXT_MESSAGE
-#define RESP_CODE_CHANNEL_MSG_RECV  8   // a reply to CMD_SYNC_NEXT_MESSAGE
+#define RESP_CODE_CONTACT_MSG_RECV  7   // a reply to CMD_SYNC_NEXT_MESSAGE (ver < 3)
+#define RESP_CODE_CHANNEL_MSG_RECV  8   // a reply to CMD_SYNC_NEXT_MESSAGE (ver < 3)
 #define RESP_CODE_CURR_TIME         9   // a reply to CMD_GET_DEVICE_TIME
 #define RESP_CODE_NO_MORE_MESSAGES 10   // a reply to CMD_SYNC_NEXT_MESSAGE
 #define RESP_CODE_EXPORT_CONTACT   11
@@ -192,7 +202,8 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_DEVICE_INFO      13   // a reply to CMD_DEVICE_QEURY
 #define RESP_CODE_PRIVATE_KEY      14   // a reply to CMD_EXPORT_PRIVATE_KEY
 #define RESP_CODE_DISABLED         15
-//  ... _V3 stuff in here
+#define RESP_CODE_CONTACT_MSG_RECV_V3  16   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
+#define RESP_CODE_CHANNEL_MSG_RECV_V3  17   // a reply to CMD_SYNC_NEXT_MESSAGE (ver >= 3)
 #define RESP_CODE_CHANNEL_INFO     18   // a reply to CMD_GET_CHANNEL
 #define RESP_CODE_SIGN_START       19
 #define RESP_CODE_SIGNATURE        20
@@ -207,6 +218,14 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOGIN_FAIL        0x86
 #define PUSH_CODE_STATUS_RESPONSE   0x87
 #define PUSH_CODE_LOG_RX_DATA       0x88
+#define PUSH_CODE_TRACE_DATA        0x89
+
+#define ERR_CODE_UNSUPPORTED_CMD      1
+#define ERR_CODE_NOT_FOUND            2
+#define ERR_CODE_TABLE_FULL           3
+#define ERR_CODE_BAD_STATE            4
+#define ERR_CODE_FILE_IO_ERROR        5
+#define ERR_CODE_ILLEGAL_ARG          6
 
 /* -------------------------------------------------------------------------------------- */
 
@@ -233,11 +252,9 @@ class MyMesh : public BaseChatMesh {
   RADIO_CLASS* _phy;
   IdentityStore* _identity_store;
   NodePrefs _prefs;
-  uint32_t expected_ack_crc;  // TODO: keep table of expected ACKs
   uint32_t pending_login;
   uint32_t pending_status;
   BaseSerialInterface* _serial;
-  unsigned long last_msg_sent;
   ContactsIterator _iter;
   uint32_t _iter_filter_since;
   uint32_t _most_recent_lastmod;
@@ -255,6 +272,14 @@ class MyMesh : public BaseChatMesh {
   };
   int offline_queue_len;
   Frame offline_queue[OFFLINE_QUEUE_SIZE];
+
+  struct AckTableEntry {
+    unsigned long msg_sent;
+    uint32_t ack;
+  };
+  #define EXPECTED_ACK_TABLE_SIZE   8
+  AckTableEntry  expected_ack_table[EXPECTED_ACK_TABLE_SIZE];  // circular table
+  int next_ack_idx;
 
   void loadMainIdentity(mesh::RNG& trng) {
     if (!_identity_store->load("_main", self_id)) {
@@ -432,10 +457,11 @@ class MyMesh : public BaseChatMesh {
     buf[0] = RESP_CODE_OK;
     _serial->writeFrame(buf, 1);
   }
-  void writeErrFrame() {
-    uint8_t buf[1];
+  void writeErrFrame(uint8_t err_code) {
+    uint8_t buf[2];
     buf[0] = RESP_CODE_ERR;
-    _serial->writeFrame(buf, 1);
+    buf[1] = err_code;
+    _serial->writeFrame(buf, 2);
   }
 
   void writeDisabledFrame() {
@@ -546,26 +572,35 @@ protected:
   }
 
   bool processAck(const uint8_t *data) override {
-    // TODO: see if matches any in a table
-    if (memcmp(data, &expected_ack_crc, 4) == 0) {     // got an ACK from recipient
-      out_frame[0] = PUSH_CODE_SEND_CONFIRMED;
-      memcpy(&out_frame[1], data, 4);
-      uint32_t trip_time = _ms->getMillis() - last_msg_sent;
-      memcpy(&out_frame[5], &trip_time, 4);
-      _serial->writeFrame(out_frame, 9);
+    // see if matches any in a table
+    for (int i = 0; i < EXPECTED_ACK_TABLE_SIZE; i++) {
+      if (memcmp(data, &expected_ack_table[i].ack, 4) == 0) {     // got an ACK from recipient
+        out_frame[0] = PUSH_CODE_SEND_CONFIRMED;
+        memcpy(&out_frame[1], data, 4);
+        uint32_t trip_time = _ms->getMillis() - expected_ack_table[i].msg_sent;
+        memcpy(&out_frame[5], &trip_time, 4);
+        _serial->writeFrame(out_frame, 9);
 
-      // NOTE: the same ACK can be received multiple times!
-      expected_ack_crc = 0;  // reset our expected hash, now that we have received ACK
-      return true;
+        // NOTE: the same ACK can be received multiple times!
+        expected_ack_table[i].ack = 0;  // clear expected hash, now that we have received ACK
+        return true;
+      }
     }
     return checkConnectionsAck(data);
   }
 
-  void queueMessage(const ContactInfo& from, uint8_t txt_type, uint8_t path_len, uint32_t sender_timestamp, const uint8_t* extra, int extra_len, const char *text) {
+  void queueMessage(const ContactInfo& from, uint8_t txt_type, mesh::Packet* pkt, uint32_t sender_timestamp, const uint8_t* extra, int extra_len, const char *text) {
     int i = 0;
-    out_frame[i++] = RESP_CODE_CONTACT_MSG_RECV;
+    if (app_target_ver >= 3) {
+      out_frame[i++] = RESP_CODE_CONTACT_MSG_RECV_V3;
+      out_frame[i++] = (int8_t)(pkt->getSNR() * 4);
+      out_frame[i++] = 0;  // reserved1
+      out_frame[i++] = 0;  // reserved2
+    } else {
+      out_frame[i++] = RESP_CODE_CONTACT_MSG_RECV;
+    }
     memcpy(&out_frame[i], from.id.pub_key, 6); i += 6;  // just 6-byte prefix
-    out_frame[i++] = path_len;
+    uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
     out_frame[i++] = txt_type;
     memcpy(&out_frame[i], &sender_timestamp, 4); i += 4;
     if (extra_len > 0) {
@@ -590,27 +625,36 @@ protected:
   #endif
   }
 
-  void onMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
+  void onMessageRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const char *text) override {
     markConnectionActive(from);   // in case this is from a server, and we have a connection
-    queueMessage(from, TXT_TYPE_PLAIN, path_len, sender_timestamp, NULL, 0, text);
+    queueMessage(from, TXT_TYPE_PLAIN, pkt, sender_timestamp, NULL, 0, text);
   }
 
-  void onCommandDataRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const char *text) override {
+  void onCommandDataRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const char *text) override {
     markConnectionActive(from);   // in case this is from a server, and we have a connection
-    queueMessage(from, TXT_TYPE_CLI_DATA, path_len, sender_timestamp, NULL, 0, text);
+    queueMessage(from, TXT_TYPE_CLI_DATA, pkt, sender_timestamp, NULL, 0, text);
   }
 
-  void onSignedMessageRecv(const ContactInfo& from, uint8_t path_len, uint32_t sender_timestamp, const uint8_t *sender_prefix, const char *text) override {
+  void onSignedMessageRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const uint8_t *sender_prefix, const char *text) override {
     markConnectionActive(from);
     saveContacts();   // from.sync_since change needs to be persisted
-    queueMessage(from, TXT_TYPE_SIGNED_PLAIN, path_len, sender_timestamp, sender_prefix, 4, text);
+    queueMessage(from, TXT_TYPE_SIGNED_PLAIN, pkt, sender_timestamp, sender_prefix, 4, text);
   }
 
-  void onChannelMessageRecv(const mesh::GroupChannel& channel, int in_path_len, uint32_t timestamp, const char *text) override {
+  void onChannelMessageRecv(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t timestamp, const char *text) override {
     int i = 0;
-    out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV;
+    if (app_target_ver >= 3) {
+      out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV_V3;
+      out_frame[i++] = (int8_t)(pkt->getSNR() * 4);
+      out_frame[i++] = 0;  // reserved1
+      out_frame[i++] = 0;  // reserved2
+    } else {
+      out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV;
+    }
+
     out_frame[i++] = findChannelIdx(channel);
-    out_frame[i++] = in_path_len < 0 ? 0xFF : in_path_len;
+    uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
+
     out_frame[i++] = TXT_TYPE_PLAIN;
     memcpy(&out_frame[i], &timestamp, 4); i += 4;
     int tlen = strlen(text);   // TODO: UTF-8 ??
@@ -628,7 +672,7 @@ protected:
       soundBuzzer();
     }
   #ifdef HAS_UI
-    ui_task.newMsg(in_path_len < 0 ? 0xFF : in_path_len, "Public", text, offline_queue_len);
+    ui_task.newMsg(path_len, "Public", text, offline_queue_len);
   #endif
   }
 
@@ -685,6 +729,25 @@ protected:
     }
   }
 
+  void onTraceRecv(mesh::Packet* packet, uint32_t tag, uint32_t auth_code, uint8_t flags, const uint8_t* path_snrs, const uint8_t* path_hashes, uint8_t path_len) override {
+    int i = 0;
+    out_frame[i++] = PUSH_CODE_TRACE_DATA;
+    out_frame[i++] = 0;   // reserved
+    out_frame[i++] = path_len;
+    out_frame[i++] = flags;
+    memcpy(&out_frame[i], &tag, 4); i += 4;
+    memcpy(&out_frame[i], &auth_code, 4); i += 4;
+    memcpy(&out_frame[i], path_hashes, path_len); i += path_len;
+    memcpy(&out_frame[i], path_snrs, path_len); i += path_len;
+    out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);   // extra/final SNR (to this node)
+
+    if (_serial->isConnected()) {
+      _serial->writeFrame(out_frame, i);
+    } else {
+      MESH_DEBUG_PRINTLN("onTraceRecv(), data received while app offline");
+    }
+  }
+
   uint32_t calcFloodTimeoutMillisFor(uint32_t pkt_airtime_millis) const override {
     return SEND_TIMEOUT_BASE_MILLIS + (FLOOD_SEND_TIMEOUT_FACTOR * pkt_airtime_millis);
   }
@@ -706,6 +769,7 @@ public:
     app_target_ver = 0;
     _identity_store = NULL;
     pending_login = pending_status = 0;
+    next_ack_idx = 0;
     sign_data = NULL;
 
     // defaults
@@ -850,7 +914,7 @@ public:
       out_frame[i++] = FIRMWARE_VER_CODE;
       out_frame[i++] = MAX_CONTACTS / 2;        // v3+
       out_frame[i++] = MAX_GROUP_CHANNELS;      // v3+
-      memset(&out_frame[i], 0, 4); i += 4;  // reserved
+      memcpy(&out_frame[i], &_prefs.ble_pin, 4); i += 4;
       memset(&out_frame[i], 0, 12);
       strcpy((char *) &out_frame[i], FIRMWARE_BUILD_DATE); i += 12;
       StrHelper::strzcpy((char *) &out_frame[i], board.getManufacturerName(), 40); i += 40;
@@ -901,26 +965,31 @@ public:
         uint32_t est_timeout;
         text[tlen] = 0;  // ensure null
         int result;
+        uint32_t expected_ack;
         if (txt_type == TXT_TYPE_CLI_DATA) {
           result = sendCommandData(*recipient, msg_timestamp, attempt, text, est_timeout);
-          expected_ack_crc = 0;  // no Ack expected
+          expected_ack = 0;  // no Ack expected
         } else {
-          result = sendMessage(*recipient, msg_timestamp, attempt, text, expected_ack_crc, est_timeout);
+          result = sendMessage(*recipient, msg_timestamp, attempt, text, expected_ack, est_timeout);
         }
         // TODO: add expected ACK to table
         if (result == MSG_SEND_FAILED) {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
-          last_msg_sent = _ms->getMillis();
+          if (expected_ack) {
+            expected_ack_table[next_ack_idx].msg_sent = _ms->getMillis();  // add to circular table
+            expected_ack_table[next_ack_idx].ack = expected_ack;
+            next_ack_idx = (next_ack_idx + 1) % EXPECTED_ACK_TABLE_SIZE;
+          }
 
           out_frame[0] = RESP_CODE_SENT;
           out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
-          memcpy(&out_frame[2], &expected_ack_crc, 4);
+          memcpy(&out_frame[2], &expected_ack, 4);
           memcpy(&out_frame[6], &est_timeout, 4);
           _serial->writeFrame(out_frame, 10);
         }
       } else {
-        writeErrFrame(); // unknown recipient, or unsuported TXT_TYPE_*
+        writeErrFrame(recipient == NULL ? ERR_CODE_NOT_FOUND : ERR_CODE_UNSUPPORTED_CMD); // unknown recipient, or unsuported TXT_TYPE_*
       }
     } else if (cmd_frame[0] == CMD_SEND_CHANNEL_TXT_MSG) {  // send GroupChannel msg
       int i = 1;
@@ -930,16 +999,20 @@ public:
       memcpy(&msg_timestamp, &cmd_frame[i], 4); i += 4;
       const char *text = (char *) &cmd_frame[i];
 
-      ChannelDetails channel;
-      bool success = getChannel(channel_idx, channel);
-      if (success && txt_type == TXT_TYPE_PLAIN && sendGroupMessage(msg_timestamp, channel.channel, _prefs.node_name, text, len - i)) {
-        writeOKFrame();
+      if (txt_type != TXT_TYPE_PLAIN) {
+        writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
       } else {
-        writeErrFrame();
+        ChannelDetails channel;
+        bool success = getChannel(channel_idx, channel);
+        if (success && sendGroupMessage(msg_timestamp, channel.channel, _prefs.node_name, text, len - i)) {
+          writeOKFrame();
+        } else {
+          writeErrFrame(ERR_CODE_NOT_FOUND);  // bad channel_idx
+        }
       }
     } else if (cmd_frame[0] == CMD_GET_CONTACTS) {  // get Contact list
       if (_iter_started) {
-        writeErrFrame();   // iterator is currently busy
+        writeErrFrame(ERR_CODE_BAD_STATE);   // iterator is currently busy
       } else {
         if (len >= 5) {   // has optional 'since' param
           memcpy(&_iter_filter_since, &cmd_frame[1], 4);
@@ -978,7 +1051,7 @@ public:
         savePrefs();
         writeOKFrame();
       } else {
-        writeErrFrame();  // invalid geo coordinate
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);  // invalid geo coordinate
       }
     } else if (cmd_frame[0] == CMD_GET_DEVICE_TIME) {
       uint8_t reply[5];
@@ -994,7 +1067,7 @@ public:
         getRTCClock()->setCurrentTime(secs);
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else if (cmd_frame[0] == CMD_SEND_SELF_ADVERT) {
       auto pkt = createSelfAdvert(_prefs.node_name, _prefs.node_lat, _prefs.node_lon);
@@ -1006,7 +1079,7 @@ public:
         }
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_TABLE_FULL);
       }
     } else if (cmd_frame[0] == CMD_RESET_PATH && len >= 1+32) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1017,7 +1090,7 @@ public:
         saveContacts();
         writeOKFrame();
       } else {
-        writeErrFrame();  // unknown contact
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // unknown contact
       }
     } else if (cmd_frame[0] == CMD_ADD_UPDATE_CONTACT && len >= 1+32+2+1) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1036,7 +1109,7 @@ public:
           saveContacts();
           writeOKFrame();
         } else {
-          writeErrFrame();  // table is full!
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         }
       }
     } else if (cmd_frame[0] == CMD_REMOVE_CONTACT) {
@@ -1046,15 +1119,19 @@ public:
         saveContacts();
         writeOKFrame();
       } else {
-        writeErrFrame();  // not found, or unable to remove
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // not found, or unable to remove
       }
     } else if (cmd_frame[0] == CMD_SHARE_CONTACT) {
       uint8_t* pub_key = &cmd_frame[1];
       ContactInfo* recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
-      if (recipient && shareContactZeroHop(*recipient)) {
-        writeOKFrame();
+      if (recipient) {
+        if (shareContactZeroHop(*recipient)) {
+          writeOKFrame();
+        } else {
+          writeErrFrame(ERR_CODE_TABLE_FULL);  // unable to send
+        }
       } else {
-        writeErrFrame();  // not found, or unable to send
+        writeErrFrame(ERR_CODE_NOT_FOUND);
       }
     } else if (cmd_frame[0] == CMD_GET_CONTACT_BY_KEY) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1062,7 +1139,7 @@ public:
       if (contact) {
         writeContactRespFrame(RESP_CODE_CONTACT, *contact);
       } else {
-        writeErrFrame();  // not found
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // not found
       }
     } else if (cmd_frame[0] == CMD_EXPORT_CONTACT) {
       if (len < 1 + PUB_KEY_SIZE) {
@@ -1074,7 +1151,7 @@ public:
           releasePacket(pkt);  // undo the obtainNewPacket()
           _serial->writeFrame(out_frame, out_len + 1);
         } else {
-          writeErrFrame();  // Error
+          writeErrFrame(ERR_CODE_TABLE_FULL);  // Error
         }
       } else {
         uint8_t* pub_key = &cmd_frame[1];
@@ -1084,14 +1161,14 @@ public:
           out_frame[0] = RESP_CODE_EXPORT_CONTACT;
           _serial->writeFrame(out_frame, out_len + 1);
         } else {
-          writeErrFrame();  // not found
+          writeErrFrame(ERR_CODE_NOT_FOUND);  // not found
         }
       }
     } else if (cmd_frame[0] == CMD_IMPORT_CONTACT && len > 2+32+64) {
       if (importContact(&cmd_frame[1], len - 1)) {
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else if (cmd_frame[0] == CMD_SYNC_NEXT_MESSAGE) {
       int out_len;
@@ -1129,11 +1206,11 @@ public:
         writeOKFrame();
       } else {
         MESH_DEBUG_PRINTLN("Error: CMD_SET_RADIO_PARAMS: f=%d, bw=%d, sf=%d, cr=%d", freq, bw, (uint32_t)sf, (uint32_t)cr);
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else if (cmd_frame[0] == CMD_SET_RADIO_TX_POWER) {
       if (cmd_frame[1] > MAX_LORA_TX_POWER) {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       } else {
         _prefs.tx_power_dbm = cmd_frame[1];
         savePrefs();
@@ -1174,7 +1251,7 @@ public:
           self_id = identity;
           writeOKFrame();
         } else {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_FILE_IO_ERROR);
         }
       #else
         writeDisabledFrame();
@@ -1189,10 +1266,10 @@ public:
           sendDirect(pkt, path, path_len);
           writeOKFrame();
         } else {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         }
       } else {
-        writeErrFrame();  // flood, not supported (yet)
+        writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);  // flood, not supported (yet)
       }
     } else if (cmd_frame[0] == CMD_SEND_LOGIN && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1203,7 +1280,7 @@ public:
         uint32_t est_timeout;
         int result = sendLogin(*recipient, password, est_timeout);
         if (result == MSG_SEND_FAILED) {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
           pending_status = 0;
           memcpy(&pending_login, recipient->id.pub_key, 4);  // match this to onContactResponse()
@@ -1214,7 +1291,7 @@ public:
           _serial->writeFrame(out_frame, 10);
         }
       } else {
-        writeErrFrame();  // contact not found
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // contact not found
       }
     } else if (cmd_frame[0] == CMD_SEND_STATUS_REQ && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1223,7 +1300,7 @@ public:
         uint32_t est_timeout;
         int result = sendStatusRequest(*recipient, est_timeout);
         if (result == MSG_SEND_FAILED) {
-          writeErrFrame();
+          writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
           pending_login = 0;
           memcpy(&pending_status, recipient->id.pub_key, 4);  // match this to onContactResponse()
@@ -1234,14 +1311,14 @@ public:
           _serial->writeFrame(out_frame, 10);
         }
       } else {
-        writeErrFrame();  // contact not found
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // contact not found
       }
     } else if (cmd_frame[0] == CMD_HAS_CONNECTION && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
       if (hasConnectionTo(pub_key)) {
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_NOT_FOUND);
       }
     } else if (cmd_frame[0] == CMD_LOGOUT && len >= 1+PUB_KEY_SIZE) {
       uint8_t* pub_key = &cmd_frame[1];
@@ -1258,10 +1335,10 @@ public:
         memcpy(&out_frame[i], channel.channel.secret, 16); i += 16;   // NOTE: only 128-bit supported
         _serial->writeFrame(out_frame, i);
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_NOT_FOUND);
       }
     } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+32) {
-      writeErrFrame();  // not supported (yet)
+      writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);  // not supported (yet)
     } else if (cmd_frame[0] == CMD_SET_CHANNEL && len >= 2+32+16) {
       uint8_t channel_idx = cmd_frame[1];
       ChannelDetails channel;
@@ -1272,7 +1349,7 @@ public:
         saveChannels();
         writeOKFrame();
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // bad channel_idx
       }
     } else if (cmd_frame[0] == CMD_SIGN_START) {
       out_frame[0] = RESP_CODE_SIGN_START;
@@ -1288,7 +1365,7 @@ public:
       sign_data_len = 0;
     } else if (cmd_frame[0] == CMD_SIGN_DATA && len > 1) {
       if (sign_data == NULL || sign_data_len + (len - 1) > MAX_SIGN_DATA_LEN) {
-        writeErrFrame();  // error: too long
+        writeErrFrame(sign_data == NULL ? ERR_CODE_BAD_STATE : ERR_CODE_TABLE_FULL);  // error: too long
       } else {
         memcpy(&sign_data[sign_data_len], &cmd_frame[1], len - 1);
         sign_data_len += (len - 1);
@@ -1304,10 +1381,34 @@ public:
         out_frame[0] = RESP_CODE_SIGNATURE;
         _serial->writeFrame(out_frame, 1 + SIGNATURE_SIZE);
       } else {
-        writeErrFrame();
+        writeErrFrame(ERR_CODE_BAD_STATE);
       }
+    } else if (cmd_frame[0] == CMD_SEND_TRACE_PATH && len > 10 && len - 10 < MAX_PATH_SIZE) {
+      uint32_t tag, auth;
+      memcpy(&tag, &cmd_frame[1], 4);
+      memcpy(&auth, &cmd_frame[5], 4);
+      auto pkt = createTrace(tag, auth, cmd_frame[9]);
+      if (pkt) {
+        uint8_t path_len = len - 10;
+        sendDirect(pkt, &cmd_frame[10], path_len);
+
+        uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
+        uint32_t est_timeout = calcDirectTimeoutMillisFor(t, path_len);
+
+        out_frame[0] = RESP_CODE_SENT;
+        out_frame[1] = 0;
+        memcpy(&out_frame[2], &tag, 4);
+        memcpy(&out_frame[6], &est_timeout, 4);
+        _serial->writeFrame(out_frame, 10);
+      } else {
+        writeErrFrame(ERR_CODE_TABLE_FULL);
+      }
+    } else if (cmd_frame[0] == CMD_SET_DEVICE_PIN && len >= 5) {
+      memcpy(&_prefs.ble_pin, &cmd_frame[1], 4);
+      savePrefs();
+      writeOKFrame();
     } else {
-      writeErrFrame();
+      writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
     }
   }
@@ -1375,6 +1476,9 @@ public:
 #if defined(NRF52_PLATFORM)
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, SPI);
 #elif defined(LILYGO_TLORA)
+SPIClass spi;
+RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1, spi);
+#elif defined(LILYGO_TBEAM)
 SPIClass spi;
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1, spi);
 #elif defined(P_LORA_SCLK)

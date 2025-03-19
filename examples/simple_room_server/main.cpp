@@ -107,6 +107,7 @@
 #elif defined(FAKETEC)
   #include <helpers/nrf52/faketecBoard.h>
   #include <helpers/CustomSX1262Wrapper.h>
+  #include <helpers/CustomLLCC68Wrapper.h>
   static faketecBoard board;
 #else
   #error "need to provide a 'board' object"
@@ -161,6 +162,23 @@ struct PostInfo {
 
 #define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
 
+struct ServerStats {
+  uint16_t batt_milli_volts;
+  uint16_t curr_tx_queue_len;
+  uint16_t curr_free_queue_len;
+  int16_t  last_rssi;
+  uint32_t n_packets_recv;
+  uint32_t n_packets_sent;
+  uint32_t total_air_time_secs;
+  uint32_t total_up_time_secs;
+  uint32_t n_sent_flood, n_sent_direct;
+  uint32_t n_recv_flood, n_recv_direct;
+  uint16_t n_full_events;
+  int16_t  last_snr;   // x 4
+  uint16_t n_direct_dups, n_flood_dups;
+  uint16_t n_posted, n_post_push;
+};
+
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   RadioLibWrapper* my_radio;
   FILESYSTEM* _fs;
@@ -173,6 +191,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   int num_clients;
   ClientInfo known_clients[MAX_CLIENTS];
   unsigned long next_push;
+  uint16_t _num_posted, _num_post_pushes;
   int next_client_idx;  // for round-robin polling
   int next_post_idx;
   PostInfo posts[MAX_UNSYNCED_POSTS];   // cyclic queue
@@ -219,6 +238,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     next_post_idx = (next_post_idx + 1) % MAX_UNSYNCED_POSTS;
 
     next_push = futureMillis(PUSH_NOTIFY_DELAY_MILLIS);
+    _num_posted++;  // stats
   }
 
   void pushPostToClient(ClientInfo* client, PostInfo& post) {
@@ -245,6 +265,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         sendDirect(reply, client->out_path, client->out_path_len);
         client->ack_timeout = futureMillis(PUSH_TIMEOUT_BASE + PUSH_ACK_TIMEOUT_FACTOR * (client->out_path_len + 1));
       }
+      _num_post_pushes++;  // stats
     } else {
       client->pending_ack = 0;
       MESH_DEBUG_PRINTLN("Unable to push post to client");
@@ -494,33 +515,81 @@ protected:
     } else if (type == PAYLOAD_TYPE_REQ && len >= 5) {
       uint32_t sender_timestamp;
       memcpy(&sender_timestamp, data, 4);  // timestamp (by sender's RTC clock - which could be wrong)
-      if (data[4] == REQ_TYPE_KEEP_ALIVE && packet->isRouteDirect()) {   // request type
-        uint32_t forceSince = 0;
-        if (len >= 9) {   // optional - last post_timestamp client received
-          memcpy(&forceSince, &data[5], 4);    // NOTE: this may be 0, if part of decrypted PADDING!
-        } else {
-          memcpy(&data[5], &forceSince, 4);  // make sure there are zeroes in payload (for ack_hash calc below)
-        }
-        if (forceSince > 0) {
-          client->sync_since = forceSince;    // force-update the 'sync since'
-        }
+      if (sender_timestamp < client->last_timestamp) {  // prevent replay attacks
+        MESH_DEBUG_PRINTLN("onPeerDataRecv: possible replay attack detected");
+      } else {
+        client->last_timestamp = sender_timestamp;
 
         uint32_t now = getRTCClock()->getCurrentTime();
         client->last_activity = now;   // <-- THIS will keep client connection alive
         client->push_failures = 0;  // reset so push can resume (if prev failed)
-        client->pending_ack = 0;
 
-        // TODO: Throttle KEEP_ALIVE requests!
-        // if client sends too quickly, evict()
+        if (data[4] == REQ_TYPE_KEEP_ALIVE && packet->isRouteDirect()) {   // request type
+          uint32_t forceSince = 0;
+          if (len >= 9) {   // optional - last post_timestamp client received
+            memcpy(&forceSince, &data[5], 4);    // NOTE: this may be 0, if part of decrypted PADDING!
+          } else {
+            memcpy(&data[5], &forceSince, 4);  // make sure there are zeroes in payload (for ack_hash calc below)
+          }
+          if (forceSince > 0) {
+            client->sync_since = forceSince;    // force-update the 'sync since'
+          }
 
-        // RULE: only send keep_alive response DIRECT!
-        if (client->out_path_len >= 0) {
-          uint32_t ack_hash;    // calc ACK to prove to sender that we got request
-          mesh::Utils::sha256((uint8_t *) &ack_hash, 4, data, 9, client->id.pub_key, PUB_KEY_SIZE);
+          client->pending_ack = 0;
 
-          auto reply = createAck(ack_hash);
-          if (reply) {
-            sendDirect(reply, client->out_path, client->out_path_len);
+          // TODO: Throttle KEEP_ALIVE requests!
+          // if client sends too quickly, evict()
+
+          // RULE: only send keep_alive response DIRECT!
+          if (client->out_path_len >= 0) {
+            uint32_t ack_hash;    // calc ACK to prove to sender that we got request
+            mesh::Utils::sha256((uint8_t *) &ack_hash, 4, data, 9, client->id.pub_key, PUB_KEY_SIZE);
+
+            auto reply = createAck(ack_hash);
+            if (reply) {
+              sendDirect(reply, client->out_path, client->out_path_len);
+            }
+          }
+        } else if (data[4] == REQ_TYPE_GET_STATUS) {
+          ServerStats stats;
+          stats.batt_milli_volts = board.getBattMilliVolts();
+          stats.curr_tx_queue_len = _mgr->getOutboundCount();
+          stats.curr_free_queue_len = _mgr->getFreeCount();
+          stats.last_rssi = (int16_t) my_radio->getLastRSSI();
+          stats.n_packets_recv = my_radio->getPacketsRecv();
+          stats.n_packets_sent = my_radio->getPacketsSent();
+          stats.total_air_time_secs = getTotalAirTime() / 1000;
+          stats.total_up_time_secs = _ms->getMillis() / 1000;
+          stats.n_sent_flood = getNumSentFlood();
+          stats.n_sent_direct = getNumSentDirect();
+          stats.n_recv_flood = getNumRecvFlood();
+          stats.n_recv_direct = getNumRecvDirect();
+          stats.n_full_events = getNumFullEvents();
+          stats.last_snr = (int16_t)(my_radio->getLastSNR() * 4);
+          stats.n_direct_dups = ((SimpleMeshTables *)getTables())->getNumDirectDups();
+          stats.n_flood_dups = ((SimpleMeshTables *)getTables())->getNumFloodDups();
+          stats.n_posted = _num_posted;
+          stats.n_post_push = _num_post_pushes;
+
+          now = getRTCClock()->getCurrentTimeUnique();
+          memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
+          memcpy(&reply_data[4], &stats, sizeof(stats));
+          uint8_t reply_len = 4 + sizeof(stats);
+  
+          if (packet->isRouteFlood()) {
+            // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
+            mesh::Packet* path = createPathReturn(client->id, secret, packet->path, packet->path_len,
+                                                  PAYLOAD_TYPE_RESPONSE, reply_data, reply_len);
+            if (path) sendFlood(path);
+          } else {
+            mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, client->id, secret, reply_data, reply_len);
+            if (reply) {
+              if (client->out_path_len >= 0) {  // we have an out_path, so send DIRECT
+                sendDirect(reply, client->out_path, client->out_path_len);
+              } else {
+                sendFlood(reply);
+              }
+            }
           }
         }
       }
@@ -588,6 +657,7 @@ public:
     next_client_idx = 0;
     next_push = 0;
     memset(posts, 0, sizeof(posts));
+    _num_posted = _num_post_pushes = 0;
   }
 
   CommonCLI* getCLI() { return &_cli; }
