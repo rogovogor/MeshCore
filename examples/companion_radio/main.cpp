@@ -739,7 +739,7 @@ protected:
     memcpy(&out_frame[i], &auth_code, 4); i += 4;
     memcpy(&out_frame[i], path_hashes, path_len); i += path_len;
     memcpy(&out_frame[i], path_snrs, path_len); i += path_len;
-    out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);   // extra/final SNR (to this node)
+    out_frame[i++] = (int8_t)(packet->getSNR() * 4);   // extra/final SNR (to this node)
 
     if (_serial->isConnected()) {
       _serial->writeFrame(out_frame, i);
