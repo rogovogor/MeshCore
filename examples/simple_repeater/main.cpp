@@ -101,6 +101,10 @@
   #include <helpers/CustomSX1262Wrapper.h>
   #include <helpers/CustomLLCC68Wrapper.h>
   static faketecBoard board;
+#elif defined(LILYGO_TBEAM)
+  #include <helpers/TBeamBoard.h>
+  #include <helpers/CustomSX1276Wrapper.h>
+  static TBeamBoard board;
 #else
   #error "need to provide a 'board' object"
 #endif
