@@ -2,7 +2,6 @@
 
 #include <MeshCore.h>
 #include <Arduino.h>
-#include <Wire.h>
 
 #define P_LORA_NSS 13 //P1.13 45
 #define P_LORA_DIO_1 11 //P0.10 10
