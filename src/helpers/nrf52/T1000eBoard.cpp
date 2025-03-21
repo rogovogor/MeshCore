@@ -9,6 +9,8 @@ void T1000eBoard::begin() {
   startup_reason = BD_STARTUP_NORMAL;
   btn_prev_state = HIGH;
 
+  sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
+
 #ifdef BUTTON_PIN
   pinMode(BATTERY_PIN, INPUT);
   pinMode(BUTTON_PIN, INPUT);
