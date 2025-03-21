@@ -6,7 +6,7 @@
 
 static BLEDfu bledfu;
 
-void faketecBoard::begin() {    
+void FaketecBoard::begin() {    
     // for future use, sub-classes SHOULD call this from their begin()
     startup_reason = BD_STARTUP_NORMAL;
     btn_prev_state = HIGH;
@@ -39,7 +39,7 @@ static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
     MESH_DEBUG_PRINTLN("BLE client disconnected");
 }
 
-bool faketecBoard::startOTAUpdate() {
+bool FaketecBoard::startOTAUpdate() {
   // Config the peripheral connection with maximum bandwidth
   // more SRAM required by SoftDevice
   // Note: All config***() function must be called before begin()

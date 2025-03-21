@@ -20,7 +20,7 @@
 #define  PIN_VBAT_READ 17
 #define  ADC_MULTIPLIER   (1.815f) // dependent on voltage divider resistors. TODO: more accurate battery tracking
 
-class faketecBoard : public mesh::MainBoard {
+class FaketecBoard : public mesh::MainBoard {
 protected:
   uint8_t startup_reason;
   uint8_t btn_prev_state;
