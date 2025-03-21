@@ -1,6 +1,6 @@
 #pragma once
 
-#include <FaketecBoard.h>
+#include <helpers/nrf52/FaketecBoard.h>
 #include <helpers/CustomSX1262Wrapper.h>
 #include <helpers/CustomLLCC68Wrapper.h>
 
