@@ -61,5 +61,5 @@ public:
     NVIC_SystemReset();
   }
 
-  bool startOTAUpdate() override;
+  bool startOTAUpdate(const char* id, char reply[]) override;
 };

@@ -42,7 +42,7 @@ public:
   virtual void reboot() = 0;
   virtual void powerOff() { /* no op */ }
   virtual uint8_t getStartupReason() const = 0;
-  virtual bool startOTAUpdate() { return false; }   // not supported
+  virtual bool startOTAUpdate(const char* id, char reply[]) { return false; }   // not supported
 };
 
 /**

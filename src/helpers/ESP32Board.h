@@ -74,6 +74,8 @@ public:
   void reboot() override {
     esp_restart();
   }
+
+  bool startOTAUpdate(const char* id, char reply[]) override;
 };
 
 class ESP32RTCClock : public mesh::RTCClock {

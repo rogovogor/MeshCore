@@ -42,7 +42,7 @@ static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
 }
 
 
-bool TrackerT1000eBoard::startOTAUpdate() {
+bool TrackerT1000eBoard::startOTAUpdate(const char* id, char reply[]) {
   // Config the peripheral connection with maximum bandwidth
   // more SRAM required by SoftDevice
   // Note: All config***() function must be called before begin()
@@ -81,6 +81,7 @@ bool TrackerT1000eBoard::startOTAUpdate() {
   Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
   Bluefruit.Advertising.start(0);             // 0 = Don't stop advertising after n seconds
 
+  strcpy(reply, "OK - started");
   return true;
 }
 #endif
