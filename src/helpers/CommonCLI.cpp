@@ -29,7 +29,7 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
       file.read((uint8_t *) &_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));  // 76
       file.read((uint8_t *) &_prefs->disable_fwd, sizeof(_prefs->disable_fwd));  // 77
       file.read((uint8_t *) &_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
-      file.read((uint8_t *) &_prefs->unused, sizeof(_prefs->unused));  // 79
+      file.read((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 79
       file.read((uint8_t *) &_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));  // 80
       file.read((uint8_t *) &_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
       file.read((uint8_t *) &_prefs->guest_password[0], sizeof(_prefs->guest_password));  // 88
@@ -80,7 +80,7 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *) &_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));  // 76
     file.write((uint8_t *) &_prefs->disable_fwd, sizeof(_prefs->disable_fwd));  // 77
     file.write((uint8_t *) &_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
-    file.write((uint8_t *) &_prefs->unused, sizeof(_prefs->unused));  // 79
+    file.write((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 79
     file.write((uint8_t *) &_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));  // 80
     file.write((uint8_t *) &_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
     file.write((uint8_t *) &_prefs->guest_password[0], sizeof(_prefs->guest_password));  // 88
@@ -155,6 +155,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       const char* config = &command[4];
       if (memcmp(config, "af", 2) == 0) {
         sprintf(reply, "> %s", StrHelper::ftoa(_prefs->airtime_factor));
+      } else if (memcmp(config, "flood.advert.interval", 21) == 0) {
+        sprintf(reply, "> %d", ((uint32_t) _prefs->flood_advert_interval));
       } else if (memcmp(config, "advert.interval", 15) == 0) {
         sprintf(reply, "> %d", ((uint32_t) _prefs->advert_interval) * 2);
       } else if (memcmp(config, "guest.password", 14) == 0) {
@@ -193,6 +195,18 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         _prefs->airtime_factor = atof(&config[3]);
         savePrefs();
         strcpy(reply, "OK");
+      } else if (memcmp(config, "flood.advert.interval ", 22) == 0) {
+        int hours = _atoi(&config[22]);
+        if (hours > 0 && hours < 3) {
+          sprintf(reply, "Error: min is 3 hours");
+        } else if (hours > 48) {
+          strcpy(reply, "Error: max is 48 hours");
+        } else {
+          _prefs->flood_advert_interval = (uint8_t)(hours);
+          _callbacks->updateFloodAdvertTimer();
+          savePrefs();
+          strcpy(reply, "OK");
+        }
       } else if (memcmp(config, "advert.interval ", 16) == 0) {
         int mins = _atoi(&config[16]);
         if (mins > 0 && mins < MIN_LOCAL_ADVERT_INTERVAL) {
