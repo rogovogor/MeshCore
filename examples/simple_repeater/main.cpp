@@ -112,7 +112,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
   RADIO_CLASS* _phy;
   mesh::MainBoard* _board;
-  unsigned long next_local_advert;
+  unsigned long next_local_advert, next_flood_advert;
   bool _logging;
   NodePrefs _prefs;
   CommonCLI _cli;
@@ -480,7 +480,7 @@ public:
   {
     my_radio = &radio;
     memset(known_clients, 0, sizeof(known_clients));
-    next_local_advert = 0;
+    next_local_advert = next_flood_advert = 0;
     _logging = false;
 
     // defaults
@@ -498,6 +498,7 @@ public:
     _prefs.cr = LORA_CR;
     _prefs.tx_power_dbm = LORA_TX_POWER;
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
+    _prefs.flood_advert_interval = 3;   // 3 hours
     _prefs.flood_max = 64;
   }
 
@@ -516,6 +517,7 @@ public:
     _phy->setOutputPower(_prefs.tx_power_dbm);
 
     updateAdvertTimer();
+    updateFloodAdvertTimer();
   }
 
   const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
@@ -548,9 +550,16 @@ public:
 
   void updateAdvertTimer() override {
     if (_prefs.advert_interval > 0) {  // schedule local advert timer
-      next_local_advert = futureMillis((uint32_t)_prefs.advert_interval * 2 * 60 * 1000);
+      next_local_advert = futureMillis( ((uint32_t)_prefs.advert_interval) * 2 * 60 * 1000);
     } else {
       next_local_advert = 0;  // stop the timer
+    }
+  }
+  void updateFloodAdvertTimer() override {
+    if (_prefs.flood_advert_interval > 0) {  // schedule flood advert timer
+      next_flood_advert = futureMillis( ((uint32_t)_prefs.flood_advert_interval) * 60 * 60 * 1000);
+    } else {
+      next_flood_advert = 0;  // stop the timer
     }
   }
 
@@ -579,11 +588,15 @@ public:
   void loop() {
     mesh::Mesh::loop();
 
-    if (next_local_advert && millisHasNowPassed(next_local_advert)) {
+    if (next_flood_advert && millisHasNowPassed(next_flood_advert)) {
       mesh::Packet* pkt = createSelfAdvert();
-      if (pkt) {
-        sendZeroHop(pkt);
-      }
+      if (pkt) sendFlood(pkt);
+
+      updateFloodAdvertTimer();   // schedule next flood advert
+      updateAdvertTimer();   // also schedule local advert (so they don't overlap)
+    } else if (next_local_advert && millisHasNowPassed(next_local_advert)) {
+      mesh::Packet* pkt = createSelfAdvert();
+      if (pkt) sendZeroHop(pkt);
 
       updateAdvertTimer();   // schedule next local advert
     }
@@ -657,7 +670,7 @@ void setup() {
 #endif
 
   // send out initial Advertisement to the mesh
-  the_mesh.sendSelfAdvertisement(2000);
+  the_mesh.sendSelfAdvertisement(16000);
 }
 
 void loop() {
