@@ -35,10 +35,6 @@ void TechoBoard::begin() {
   pinMode(PIN_TXCO, OUTPUT);
   digitalWrite(PIN_TXCO, HIGH);
 
-#if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
-  Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL)
-#endif
-
   Wire.begin();
 
   pinMode(SX126X_POWER_EN, OUTPUT);
@@ -55,7 +51,6 @@ uint16_t TechoBoard::getBattMilliVolts() {
 
   // ADC range is 0..3000mV and resolution is 12-bit (0..4095)
   adcvalue = analogRead(PIN_VBAT_READ);
-  Serial.println(adcvalue);
   // Convert the raw value to compensated mv, taking the resistor-
   // divider into account (providing the actual LIPO voltage)
   return (uint16_t)((float)adcvalue * REAL_VBAT_MV_PER_LSB);
