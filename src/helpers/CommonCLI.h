@@ -53,6 +53,8 @@ class CommonCLI {
 
   void checkAdvertInterval();
 
+  void loadPrefsInt(FILESYSTEM* _fs, const char* filename);
+
 public:
   CommonCLI(mesh::MainBoard& board, mesh::Mesh* mesh, NodePrefs* prefs, CommonCLICallbacks* callbacks) 
       : _board(&board), _mesh(mesh), _prefs(prefs), _callbacks(callbacks) { }
