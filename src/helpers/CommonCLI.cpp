@@ -37,7 +37,7 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
       file.read(pad, 4);   // 108
       file.read((uint8_t *) &_prefs->sf, sizeof(_prefs->sf));  // 112
       file.read((uint8_t *) &_prefs->cr, sizeof(_prefs->cr));  // 113
-      file.read((uint8_t *) &_prefs->reserved1, sizeof(_prefs->reserved1));  // 114
+      file.read((uint8_t *) &_prefs->allow_read_only, sizeof(_prefs->allow_read_only));  // 114
       file.read((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
       file.read((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
       file.read(pad, 4);   // 120
@@ -88,7 +88,7 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write(pad, 4);   // 108
     file.write((uint8_t *) &_prefs->sf, sizeof(_prefs->sf));  // 112
     file.write((uint8_t *) &_prefs->cr, sizeof(_prefs->cr));  // 113
-    file.write((uint8_t *) &_prefs->reserved1, sizeof(_prefs->reserved1));  // 114
+    file.write((uint8_t *) &_prefs->allow_read_only, sizeof(_prefs->allow_read_only));  // 114
     file.write((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
     file.write((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
     file.write(pad, 4);   // 120
@@ -155,6 +155,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       const char* config = &command[4];
       if (memcmp(config, "af", 2) == 0) {
         sprintf(reply, "> %s", StrHelper::ftoa(_prefs->airtime_factor));
+      } else if (memcmp(config, "allow.read.only", 15) == 0) {
+        sprintf(reply, "> %s", _prefs->allow_read_only ? "on" : "off");
       } else if (memcmp(config, "flood.advert.interval", 21) == 0) {
         sprintf(reply, "> %d", ((uint32_t) _prefs->flood_advert_interval));
       } else if (memcmp(config, "advert.interval", 15) == 0) {
@@ -193,6 +195,10 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       const char* config = &command[4];
       if (memcmp(config, "af ", 3) == 0) {
         _prefs->airtime_factor = atof(&config[3]);
+        savePrefs();
+        strcpy(reply, "OK");
+      } else if (memcmp(config, "allow.read.only ", 16) == 0) {
+        _prefs->allow_read_only = memcmp(&config[16], "on", 2) == 0;
         savePrefs();
         strcpy(reply, "OK");
       } else if (memcmp(config, "flood.advert.interval ", 22) == 0) {

@@ -79,6 +79,12 @@
 
 /* ------------------------------ Code -------------------------------- */
 
+enum RoomPermission {
+  ADMIN,
+  GUEST,
+  READ_ONLY
+};
+
 struct ClientInfo {
   mesh::Identity id;
   uint32_t last_timestamp;  // by THEIR clock
@@ -87,7 +93,7 @@ struct ClientInfo {
   uint32_t pending_ack;
   uint32_t push_post_timestamp;
   unsigned long ack_timeout;
-  bool     is_admin;
+  RoomPermission  permission;
   uint8_t  push_failures;
   uint8_t  secret[PUB_KEY_SIZE];
   int      out_path_len;
@@ -299,13 +305,16 @@ protected:
       memcpy(&sender_timestamp, data, 4);
       memcpy(&sender_sync_since, &data[4], 4);  // sender's "sync messags SINCE x" timestamp
 
-      bool is_admin;
+      RoomPermission perm;
       data[len] = 0;  // ensure null terminator
       if (strcmp((char *) &data[8], _prefs.password) == 0) {  // check for valid admin password
-        is_admin = true;
+        perm = RoomPermission::ADMIN;
       } else {
-        is_admin = false;
-        if (strcmp((char *) &data[8], _prefs.guest_password) != 0) {  // check the room/public password
+        if (strcmp((char *) &data[8], _prefs.guest_password) == 0) {  // check the room/public password
+          perm = RoomPermission::GUEST;
+        } else if (_prefs.allow_read_only) {
+          perm = RoomPermission::READ_ONLY;
+        } else {
           MESH_DEBUG_PRINTLN("Incorrect room password");
           return;   // no response. Client will timeout
         }
@@ -318,7 +327,7 @@ protected:
       }
 
       MESH_DEBUG_PRINTLN("Login success!");
-      client->is_admin = is_admin;
+      client->permission = perm;
       client->last_timestamp = sender_timestamp;
       client->sync_since = sender_sync_since;
       client->pending_ack = 0;
@@ -332,7 +341,7 @@ protected:
       // TODO: maybe reply with count of messages waiting to be synced for THIS client?
       reply_data[4] = RESP_SERVER_LOGIN_OK;
       reply_data[5] = (CLIENT_KEEP_ALIVE_SECS >> 4);  // NEW: recommended keep-alive interval (secs / 16)
-      reply_data[6] = is_admin ? 1 : 0;
+      reply_data[6] = (perm == RoomPermission::ADMIN ? 1 : (perm == RoomPermission::GUEST ? 0 : 2));
       reply_data[7] = 0;  // FUTURE: reserved
       memcpy(&reply_data[8], "OK", 2);  // REVISIT: not really needed
 
@@ -409,7 +418,7 @@ protected:
         uint8_t temp[166];
         bool send_ack;
         if (flags == TXT_TYPE_CLI_DATA) {
-          if (client->is_admin) {
+          if (client->permission == RoomPermission::ADMIN) {
             if (is_retry) {
               temp[5] = 0;  // no reply
             } else {
@@ -422,11 +431,16 @@ protected:
             send_ack = false;  // and no ACK...  user shoudn't be sending these
           }
         } else {   // TXT_TYPE_PLAIN
-          if (!is_retry) {
-            addPost(client, (const char *) &data[5]);
+          if (client->permission == RoomPermission::READ_ONLY) {
+            temp[5] = 0;  // no reply
+            send_ack = false;  // no ACK
+          } else {
+            if (!is_retry) {
+              addPost(client, (const char *) &data[5]);
+            }
+            temp[5] = 0;  // no reply (ACK is enough)
+            send_ack = true;
           }
-          temp[5] = 0;  // no reply (ACK is enough)
-          send_ack = true;
         }
 
         uint32_t delay_millis;

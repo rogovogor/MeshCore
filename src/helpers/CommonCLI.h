@@ -20,7 +20,7 @@ struct NodePrefs {  // persisted to file
     uint32_t guard;
     uint8_t sf;
     uint8_t cr;
-    uint8_t reserved1;
+    uint8_t allow_read_only;
     uint8_t reserved2;
     float bw;
     uint8_t flood_max;
