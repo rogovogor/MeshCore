@@ -1,0 +1,83 @@
+#include "ESPNOWRadio.h"
+#include <esp_now.h>
+#include <WiFi.h>
+
+static uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+static esp_now_peer_info_t peerInfo;
+static bool is_send_complete = false;
+static esp_err_t last_send_result;
+static uint8_t rx_buf[256];
+static uint8_t last_rx_len = 0;
+
+// callback when data is sent
+static void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  is_send_complete = true;
+  ESPNOW_DEBUG_PRINTLN("Send Status: %d", (int)status);
+}
+
+static void OnDataRecv(const uint8_t *mac, const uint8_t *data, int len) {
+  ESPNOW_DEBUG_PRINTLN("Recv: len = %d", len);
+  memcpy(rx_buf, data, len);
+  last_rx_len = len;
+}
+
+void ESPNOWRadio::begin() {
+  // Set device as a Wi-Fi Station
+  WiFi.mode(WIFI_STA);
+
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    ESPNOW_DEBUG_PRINTLN("Error initializing ESP-NOW");
+    return;
+  }
+
+  esp_now_register_send_cb(OnDataSent);
+  esp_now_register_recv_cb(OnDataRecv);
+
+  // Register peer
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  // Add peer        
+  if (esp_now_add_peer(&peerInfo) == ESP_OK) {
+    ESPNOW_DEBUG_PRINTLN("init success");
+  } else {
+   // ESPNOW_DEBUG_PRINTLN("Failed to add peer");
+  }
+}
+
+void ESPNOWRadio::startSendRaw(const uint8_t* bytes, int len) {
+  // Send message via ESP-NOW
+  is_send_complete = false;
+  esp_err_t result = esp_now_send(broadcastAddress, bytes, len);
+  if (result == ESP_OK) {
+    ESPNOW_DEBUG_PRINTLN("Send success");
+  } else {
+    last_send_result = result;
+    is_send_complete = true;
+    ESPNOW_DEBUG_PRINTLN("Send failed: %d", result);
+  }
+}
+
+bool ESPNOWRadio::isSendComplete() {
+  return is_send_complete;
+}
+void ESPNOWRadio::onSendFinished() {
+}
+
+float ESPNOWRadio::getLastRSSI() const { return 0; }
+float ESPNOWRadio::getLastSNR() const { return 0; }
+
+int ESPNOWRadio::recvRaw(uint8_t* bytes, int sz) {
+  int len = last_rx_len;
+  if (last_rx_len > 0) {
+    memcpy(bytes, rx_buf, last_rx_len);
+    last_rx_len = 0;
+  }
+  return len;
+}
+
+uint32_t ESPNOWRadio::getEstAirtimeFor(int len_bytes) {
+  return 100;  // TODO
+}

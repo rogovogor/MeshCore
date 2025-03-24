@@ -7,9 +7,12 @@
   #include <SPIFFS.h>
 #endif
 
+#ifdef WRAPPER_CLASS
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
+#endif
+
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/StaticPoolPacketManager.h>
 #include <helpers/SimpleMeshTables.h>
@@ -263,7 +266,11 @@ protected:
 
 public:
 
+#ifdef WRAPPER_CLASS
   MyMesh(RadioLibWrapper& radio, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
+#else
+  MyMesh(mesh::Radio& radio, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
+#endif
      : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables)
   {
     // defaults
@@ -325,6 +332,8 @@ public:
     Serial.println("===== MeshCore Chat Terminal =====");
     Serial.println();
     Serial.printf("WELCOME  %s\n", _prefs.node_name);
+    mesh::Utils::printHex(Serial, self_id.pub_key, PUB_KEY_SIZE);
+    Serial.println();
     Serial.println("   (enter 'help' for basic commands)");
     Serial.println();
   }
@@ -513,7 +522,12 @@ public:
 
 StdRNG fast_rng;
 SimpleMeshTables tables;
+
+#ifdef WRAPPER_CLASS
 MyMesh the_mesh(*new WRAPPER_CLASS(radio, board), fast_rng, *new VolatileRTCClock(), tables);
+#else
+MyMesh the_mesh(radio, fast_rng, *new VolatileRTCClock(), tables);
+#endif
 
 void halt() {
   while (1) ;
@@ -526,7 +540,11 @@ void setup() {
 
   if (!radio_init()) { halt(); }
 
+#ifdef WRAPPER_CLASS
   fast_rng.begin(radio.random(0x7FFFFFFF));
+#else
+  fast_rng.begin(rand());
+#endif
 
 #if defined(NRF52_PLATFORM)
   InternalFS.begin();
@@ -538,12 +556,14 @@ void setup() {
   #error "need to define filesystem"
 #endif
 
+#ifdef WRAPPER_CLASS
   if (LORA_FREQ != the_mesh.getFreqPref()) {
     radio.setFrequency(the_mesh.getFreqPref());
   }
   if (LORA_TX_POWER != the_mesh.getTxPowerPref()) {
     radio.setOutputPower(the_mesh.getTxPowerPref());
   }
+#endif
 
   the_mesh.showWelcome();
 
