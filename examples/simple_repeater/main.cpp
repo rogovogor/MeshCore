@@ -7,8 +7,11 @@
   #include <SPIFFS.h>
 #endif
 
+#ifdef WRAPPER_CLASS
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
+#endif
+
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/StaticPoolPacketManager.h>
 #include <helpers/SimpleMeshTables.h>
@@ -108,9 +111,13 @@ struct ClientInfo {
 #define CLI_REPLY_DELAY_MILLIS  1500
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
-  RadioLibWrapper* my_radio;
   FILESYSTEM* _fs;
+#ifdef WRAPPER_CLASS
+  RadioLibWrapper* my_radio;
   RADIO_CLASS* _phy;
+#else
+  ESPNOWRadio* my_radio;
+#endif
   mesh::MainBoard* _board;
   unsigned long next_local_advert, next_flood_advert;
   bool _logging;
@@ -474,9 +481,15 @@ protected:
   }
 
 public:
-  MyMesh(RADIO_CLASS& phy, mesh::MainBoard& board, RadioLibWrapper& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
+#ifdef WRAPPER_CLASS
+  MyMesh(RADIO_CLASS& phy, mesh::MainBoard& board, RadioLibWrapper& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
         _phy(&phy), _board(&board), _cli(board, this, &_prefs, this)
+#else
+  MyMesh(mesh::MainBoard& board, ESPNOWRadio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
+     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
+     _board(&board), _cli(board, this, &_prefs, this)
+#endif
   {
     my_radio = &radio;
     memset(known_clients, 0, sizeof(known_clients));
@@ -510,11 +523,13 @@ public:
     // load persisted prefs
     _cli.loadPrefs(_fs);
 
+  #ifdef WRAPPER_CLASS
     _phy->setFrequency(_prefs.freq);
     _phy->setSpreadingFactor(_prefs.sf);
     _phy->setBandwidth(_prefs.bw);
     _phy->setCodingRate(_prefs.cr);
     _phy->setOutputPower(_prefs.tx_power_dbm);
+  #endif
 
     updateAdvertTimer();
     updateFloodAdvertTimer();
@@ -582,7 +597,9 @@ public:
   }
 
   void setTxPower(uint8_t power_dbm) override {
+  #ifdef WRAPPER_CLASS
     _phy->setOutputPower(power_dbm);
+  #endif
   }
 
   void loop() {
@@ -616,7 +633,11 @@ VolatileRTCClock fallback_clock;
 #endif
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 
+#ifdef WRAPPER_CLASS
 MyMesh the_mesh(radio, board, *new WRAPPER_CLASS(radio, board), *new ArduinoMillis(), fast_rng, rtc_clock, tables);
+#else
+MyMesh the_mesh(board, radio, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
+#endif
 
 void halt() {
   while (1) ;
@@ -636,7 +657,11 @@ void setup() {
 
   if (!radio_init()) { halt(); }
 
+#ifdef WRAPPER_CLASS
   fast_rng.begin(radio.random(0x7FFFFFFF));
+#else
+  fast_rng.begin(radio.intID());
+#endif
 
   FILESYSTEM* fs;
 #if defined(NRF52_PLATFORM)
@@ -652,7 +677,11 @@ void setup() {
 #endif
   if (!store.load("_main", the_mesh.self_id)) {
     MESH_DEBUG_PRINTLN("Generating new keypair");
+  #ifdef WRAPPER_CLASS
     RadioNoiseListener rng(radio);
+  #else
+    #define rng  fast_rng
+  #endif
     the_mesh.self_id = mesh::LocalIdentity(&rng);  // create new random identity
     store.save("_main", the_mesh.self_id);
   }

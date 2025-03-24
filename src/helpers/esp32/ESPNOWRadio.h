@@ -22,6 +22,7 @@ public:
   virtual float getLastSNR() const override;
 
   float packetScore(float snr, int packet_len) override { return 0; }
+  uint32_t intID();
 };
 
 #if ESPNOW_DEBUG_LOGGING && ARDUINO

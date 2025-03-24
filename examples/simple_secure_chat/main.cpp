@@ -543,7 +543,11 @@ void setup() {
 #ifdef WRAPPER_CLASS
   fast_rng.begin(radio.random(0x7FFFFFFF));
 #else
-  fast_rng.begin(rand());
+  char c = 0;
+  while (c != '\n') {   // wait for ENTER to be pressed
+    if (Serial.available()) c = Serial.read();
+  }
+  fast_rng.begin(millis());
 #endif
 
 #if defined(NRF52_PLATFORM)

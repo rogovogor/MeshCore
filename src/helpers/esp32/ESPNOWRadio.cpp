@@ -47,6 +47,17 @@ void ESPNOWRadio::begin() {
   }
 }
 
+uint32_t ESPNOWRadio::intID() {
+  uint8_t mac[8];
+  memset(mac, 0, sizeof(mac));
+  esp_efuse_mac_get_default(mac);
+  uint32_t n, m;
+  memcpy(&n, &mac[0], 4);
+  memcpy(&m, &mac[4], 4);
+  
+  return n * m;
+}
+
 void ESPNOWRadio::startSendRaw(const uint8_t* bytes, int len) {
   // Send message via ESP-NOW
   is_send_complete = false;
@@ -79,5 +90,5 @@ int ESPNOWRadio::recvRaw(uint8_t* bytes, int sz) {
 }
 
 uint32_t ESPNOWRadio::getEstAirtimeFor(int len_bytes) {
-  return 100;  // TODO
+  return 2;  // Fast AF
 }
