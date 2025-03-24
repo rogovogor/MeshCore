@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "TechoBoard.h"
 
+#ifdef LILYGO_TECHO
+
 #include <bluefruit.h>
 #include <Wire.h>
 
@@ -98,3 +100,4 @@ bool TechoBoard::startOTAUpdate(const char* id, char reply[]) {
   strcpy(reply, "OK - started");
   return true;
 }
+#endif
