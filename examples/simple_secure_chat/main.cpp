@@ -544,9 +544,9 @@ void setup() {
   fast_rng.begin(radio.random(0x7FFFFFFF));
 #else
   char c = 0;
-  while (c != '\n') {   // wait for ENTER to be pressed
-    if (Serial.available()) c = Serial.read();
-  }
+//  while (c != '\n') {   // wait for ENTER to be pressed
+//    if (Serial.available()) c = Serial.read();
+//  }
   fast_rng.begin(millis());
 #endif
 

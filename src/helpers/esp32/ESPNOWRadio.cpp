@@ -1,6 +1,7 @@
 #include "ESPNOWRadio.h"
 #include <esp_now.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 
 static uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 static esp_now_peer_info_t peerInfo;
@@ -30,6 +31,8 @@ void ESPNOWRadio::begin() {
     ESPNOW_DEBUG_PRINTLN("Error initializing ESP-NOW");
     return;
   }
+
+  esp_wifi_set_max_tx_power(80);  // should be 20dBm
 
   esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
