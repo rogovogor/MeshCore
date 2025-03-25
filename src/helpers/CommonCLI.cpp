@@ -38,7 +38,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *) &_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));  // 76
     file.read((uint8_t *) &_prefs->disable_fwd, sizeof(_prefs->disable_fwd));  // 77
     file.read((uint8_t *) &_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
-    file.read((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 79
+    file.read((uint8_t *) pad, 1);  // 79  was 'unused'
     file.read((uint8_t *) &_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));  // 80
     file.read((uint8_t *) &_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
     file.read((uint8_t *) &_prefs->guest_password[0], sizeof(_prefs->guest_password));  // 88
@@ -51,6 +51,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
     file.read(pad, 4);   // 120
     file.read((uint8_t *) &_prefs->flood_max, sizeof(_prefs->flood_max));   // 124
+    file.read((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 125
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -88,7 +89,7 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *) &_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));  // 76
     file.write((uint8_t *) &_prefs->disable_fwd, sizeof(_prefs->disable_fwd));  // 77
     file.write((uint8_t *) &_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
-    file.write((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 79
+    file.write((uint8_t *) pad, 1);  // 79  was 'unused'
     file.write((uint8_t *) &_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));  // 80
     file.write((uint8_t *) &_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
     file.write((uint8_t *) &_prefs->guest_password[0], sizeof(_prefs->guest_password));  // 88
@@ -101,6 +102,7 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
     file.write(pad, 4);   // 120
     file.write((uint8_t *) &_prefs->flood_max, sizeof(_prefs->flood_max));   // 124
+    file.write((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 125
 
     file.close();
   }
