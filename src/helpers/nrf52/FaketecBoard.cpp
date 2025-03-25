@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "faketecBoard.h"
+#include "FaketecBoard.h"
 
 #include <bluefruit.h>
 #include <Wire.h>
