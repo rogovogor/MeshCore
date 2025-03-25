@@ -267,9 +267,9 @@ protected:
 public:
 
 #ifdef WRAPPER_CLASS
-  MyMesh(RadioLibWrapper& radio, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
+  MyMesh(RadioLibWrapper& radio, StdRNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
 #else
-  MyMesh(mesh::Radio& radio, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
+  MyMesh(mesh::Radio& radio, StdRNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
 #endif
      : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables)
   {
@@ -298,6 +298,14 @@ public:
     IdentityStore store(fs, "/identity");
   #endif
     if (!store.load("_main", self_id, _prefs.node_name, sizeof(_prefs.node_name))) {  // legacy: node_name was from identity file
+      // Need way to get some entropy to seed RNG
+      Serial.println("Press ENTER to generate key:");
+      char c = 0;
+      while (c != '\n') {   // wait for ENTER to be pressed
+        if (Serial.available()) c = Serial.read();
+      }
+      ((StdRNG *)getRNG())->begin(millis());
+
       self_id = mesh::LocalIdentity(getRNG());  // create new random identity
       store.save("_main", self_id);
     }
@@ -543,10 +551,6 @@ void setup() {
 #ifdef WRAPPER_CLASS
   fast_rng.begin(radio.random(0x7FFFFFFF));
 #else
-  char c = 0;
-//  while (c != '\n') {   // wait for ENTER to be pressed
-//    if (Serial.available()) c = Serial.read();
-//  }
   fast_rng.begin(millis());
 #endif
 
