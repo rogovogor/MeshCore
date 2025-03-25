@@ -196,6 +196,10 @@ protected:
     return 0;  // disable rxdelay
   }
 
+  bool allowPacketForward(const mesh::Packet* packet) override {
+    return true;
+  }
+
   void onDiscoveredContact(ContactInfo& contact, bool is_new) override {
     // TODO: if not in favs,  prompt to add as fav(?)
 

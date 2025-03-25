@@ -93,5 +93,5 @@ int ESPNOWRadio::recvRaw(uint8_t* bytes, int sz) {
 }
 
 uint32_t ESPNOWRadio::getEstAirtimeFor(int len_bytes) {
-  return 2;  // Fast AF
+  return 4;  // Fast AF
 }
