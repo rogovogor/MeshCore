@@ -11,7 +11,6 @@
 #include <helpers/StaticPoolPacketManager.h>
 #include <helpers/SimpleMeshTables.h>
 #include <helpers/IdentityStore.h>
-#include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/AdvertDataHelpers.h>
 #include <helpers/TxtDataHelpers.h>
 #include <helpers/CommonCLI.h>
@@ -600,13 +599,6 @@ public:
 StdRNG fast_rng;
 SimpleMeshTables tables;
 
-#ifdef ESP32
-ESP32RTCClock fallback_clock;
-#else
-VolatileRTCClock fallback_clock;
-#endif
-AutoDiscoverRTCClock rtc_clock(fallback_clock);
-
 MyMesh the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
 
 void halt() {
@@ -620,10 +612,6 @@ void setup() {
   delay(1000);
 
   board.begin();
-#ifdef ESP32
-  fallback_clock.begin();
-#endif
-  rtc_clock.begin(Wire);
 
   if (!radio_init()) { halt(); }
 

@@ -12,11 +12,17 @@ HeltecV3Board board;
 
 WRAPPER_CLASS radio_driver(radio, board);
 
+ESP32RTCClock fallback_clock;
+AutoDiscoverRTCClock rtc_clock(fallback_clock);
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif
 
 bool radio_init() {
+  fallback_clock.begin();
+  rtc_clock.begin(Wire);
+  
 #ifdef SX126X_DIO3_TCXO_VOLTAGE
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
 #else

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "target.h"
+#include <helpers/ArduinoHelpers.h>
 
 FaketecBoard board;
 
@@ -7,11 +8,16 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BU
 
 WRAPPER_CLASS radio_driver(radio, board);
 
+VolatileRTCClock fallback_clock;
+AutoDiscoverRTCClock rtc_clock(fallback_clock);
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif
 
 bool radio_init() {
+  rtc_clock.begin(Wire);
+  
 #ifdef SX126X_DIO3_TCXO_VOLTAGE
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
 #else

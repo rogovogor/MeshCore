@@ -5,9 +5,11 @@
 #include <helpers/RadioLibWrappers.h>
 #include <helpers/ESP32Board.h>
 #include <helpers/CustomSX1262Wrapper.h>
+#include <helpers/AutoDiscoverRTCClock.h>
 
 extern ESP32Board board;
 extern WRAPPER_CLASS radio_driver;
+extern AutoDiscoverRTCClock rtc_clock;
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

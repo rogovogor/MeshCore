@@ -8,11 +8,17 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DI
 
 WRAPPER_CLASS radio_driver(radio, board);
 
+ESP32RTCClock fallback_clock;
+AutoDiscoverRTCClock rtc_clock(fallback_clock);
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif
 
 bool radio_init() {
+  fallback_clock.begin();
+  rtc_clock.begin(Wire);
+  
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
   int status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8);
   if (status != RADIOLIB_ERR_NONE) {

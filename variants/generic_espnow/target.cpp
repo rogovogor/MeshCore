@@ -6,7 +6,11 @@ ESP32Board board;
 
 ESPNOWRadio radio_driver;
 
+ESP32RTCClock rtc_clock;
+
 bool radio_init() {
+  rtc_clock.begin();
+
   // NOTE: radio_driver.begin() is called by Dispatcher::begin(), so not needed here
   return true;  // success
 }

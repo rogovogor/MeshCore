@@ -5,6 +5,7 @@
 
 extern ESP32Board board;
 extern ESPNOWRadio radio_driver;
+extern ESP32RTCClock rtc_clock;
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

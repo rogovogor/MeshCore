@@ -12,11 +12,17 @@ TBeamBoard board;
 
 WRAPPER_CLASS radio_driver(radio, board);
 
+ESP32RTCClock fallback_clock;
+AutoDiscoverRTCClock rtc_clock(fallback_clock);
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif
 
 bool radio_init() {
+  fallback_clock.begin();
+  rtc_clock.begin(Wire);
+  
 #if defined(P_LORA_SCLK)
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
 #endif
