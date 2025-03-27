@@ -50,6 +50,10 @@ void ESPNOWRadio::begin() {
   }
 }
 
+void ESPNOWRadio::setTxPower(uint8_t dbm) {
+  esp_wifi_set_max_tx_power(dbm * 4);
+}
+
 uint32_t ESPNOWRadio::intID() {
   uint8_t mac[8];
   memset(mac, 0, sizeof(mac));
@@ -58,7 +62,7 @@ uint32_t ESPNOWRadio::intID() {
   memcpy(&n, &mac[0], 4);
   memcpy(&m, &mac[4], 4);
   
-  return n * m;
+  return n + m;
 }
 
 void ESPNOWRadio::startSendRaw(const uint8_t* bytes, int len) {

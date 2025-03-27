@@ -23,6 +23,7 @@ public:
 
   float packetScore(float snr, int packet_len) override { return 0; }
   uint32_t intID();
+  void setTxPower(uint8_t dbm);
 };
 
 #if ESPNOW_DEBUG_LOGGING && ARDUINO

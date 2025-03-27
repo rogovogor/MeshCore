@@ -1,13 +1,10 @@
 #pragma once
 
-#define RADIOLIB_STATIC_ONLY 1
-#include <RadioLib.h>
-#include <helpers/RadioLibWrappers.h>
 #include <helpers/ESP32Board.h>
-#include <helpers/CustomSX1262Wrapper.h>
+#include <helpers/esp32/ESPNOWRadio.h>
 
 extern ESP32Board board;
-extern WRAPPER_CLASS radio_driver;
+extern ESPNOWRadio radio_driver;
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

@@ -7,11 +7,6 @@
   #include <SPIFFS.h>
 #endif
 
-#ifdef WRAPPER_CLASS
-#define RADIOLIB_STATIC_ONLY 1
-#include <RadioLib.h>
-#endif
-
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/StaticPoolPacketManager.h>
 #include <helpers/SimpleMeshTables.h>
@@ -112,13 +107,6 @@ struct ClientInfo {
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
-#ifdef WRAPPER_CLASS
-  RadioLibWrapper* my_radio;
-  RADIO_CLASS* _phy;
-#else
-  ESPNOWRadio* my_radio;
-#endif
-  mesh::MainBoard* _board;
   unsigned long next_local_advert, next_flood_advert;
   bool _logging;
   NodePrefs _prefs;
@@ -154,9 +142,9 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         stats.batt_milli_volts = board.getBattMilliVolts();
         stats.curr_tx_queue_len = _mgr->getOutboundCount();
         stats.curr_free_queue_len = _mgr->getFreeCount();
-        stats.last_rssi = (int16_t) my_radio->getLastRSSI();
-        stats.n_packets_recv = my_radio->getPacketsRecv();
-        stats.n_packets_sent = my_radio->getPacketsSent();
+        stats.last_rssi = (int16_t) radio_driver.getLastRSSI();
+        stats.n_packets_recv = radio_driver.getPacketsRecv();
+        stats.n_packets_sent = radio_driver.getPacketsSent();
         stats.total_air_time_secs = getTotalAirTime() / 1000;
         stats.total_up_time_secs = _ms->getMillis() / 1000;
         stats.n_sent_flood = getNumSentFlood();
@@ -164,7 +152,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         stats.n_recv_flood = getNumRecvFlood();
         stats.n_recv_direct = getNumRecvDirect();
         stats.n_full_events = getNumFullEvents();
-        stats.last_snr = (int16_t)(my_radio->getLastSNR() * 4);
+        stats.last_snr = (int16_t)(radio_driver.getLastSNR() * 4);
         stats.n_direct_dups = ((SimpleMeshTables *)getTables())->getNumDirectDups();
         stats.n_flood_dups = ((SimpleMeshTables *)getTables())->getNumFloodDups();
 
@@ -481,17 +469,10 @@ protected:
   }
 
 public:
-#ifdef WRAPPER_CLASS
-  MyMesh(RADIO_CLASS& phy, mesh::MainBoard& board, RadioLibWrapper& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
+  MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-        _phy(&phy), _board(&board), _cli(board, this, &_prefs, this)
-#else
-  MyMesh(mesh::MainBoard& board, ESPNOWRadio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
-     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-     _board(&board), _cli(board, this, &_prefs, this)
-#endif
+      _cli(board, this, &_prefs, this)
   {
-    my_radio = &radio;
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
     _logging = false;
@@ -523,13 +504,8 @@ public:
     // load persisted prefs
     _cli.loadPrefs(_fs);
 
-  #ifdef WRAPPER_CLASS
-    _phy->setFrequency(_prefs.freq);
-    _phy->setSpreadingFactor(_prefs.sf);
-    _phy->setBandwidth(_prefs.bw);
-    _phy->setCodingRate(_prefs.cr);
-    _phy->setOutputPower(_prefs.tx_power_dbm);
-  #endif
+    radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+    radio_set_tx_power(_prefs.tx_power_dbm);
 
     updateAdvertTimer();
     updateFloodAdvertTimer();
@@ -597,9 +573,7 @@ public:
   }
 
   void setTxPower(uint8_t power_dbm) override {
-  #ifdef WRAPPER_CLASS
-    _phy->setOutputPower(power_dbm);
-  #endif
+    radio_set_tx_power(power_dbm);
   }
 
   void loop() {
@@ -633,11 +607,7 @@ VolatileRTCClock fallback_clock;
 #endif
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 
-#ifdef WRAPPER_CLASS
-MyMesh the_mesh(radio, board, *new WRAPPER_CLASS(radio, board), *new ArduinoMillis(), fast_rng, rtc_clock, tables);
-#else
-MyMesh the_mesh(board, radio, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
-#endif
+MyMesh the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
 
 void halt() {
   while (1) ;
@@ -657,11 +627,7 @@ void setup() {
 
   if (!radio_init()) { halt(); }
 
-#ifdef WRAPPER_CLASS
-  fast_rng.begin(radio.random(0x7FFFFFFF));
-#else
-  fast_rng.begin(radio.intID());
-#endif
+  fast_rng.begin(radio_get_rng_seed());
 
   FILESYSTEM* fs;
 #if defined(NRF52_PLATFORM)
@@ -677,12 +643,7 @@ void setup() {
 #endif
   if (!store.load("_main", the_mesh.self_id)) {
     MESH_DEBUG_PRINTLN("Generating new keypair");
-  #ifdef WRAPPER_CLASS
-    RadioNoiseListener rng(radio);
-  #else
-    #define rng  fast_rng
-  #endif
-    the_mesh.self_id = mesh::LocalIdentity(&rng);  // create new random identity
+    the_mesh.self_id = radio_new_identity();   // create new random identity
     store.save("_main", the_mesh.self_id);
   }
 
