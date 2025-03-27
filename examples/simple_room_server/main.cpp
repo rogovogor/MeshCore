@@ -77,6 +77,8 @@
   static UITask ui_task(display);
 #endif
 
+#define PACKET_LOG_FILE  "/packet_log"
+
 /* ------------------------------ Code -------------------------------- */
 
 enum RoomPermission {
@@ -146,6 +148,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   RADIO_CLASS* _phy;
   mesh::MainBoard* _board;
   unsigned long next_local_advert, next_flood_advert;
+  bool _logging;
   NodePrefs _prefs;
   CommonCLI _cli;
   uint8_t reply_data[MAX_PACKET_PAYLOAD];
@@ -257,6 +260,14 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
    return createAdvert(self_id, app_data, app_data_len);
   }
 
+  File openAppend(const char* fname) {
+    #if defined(NRF52_PLATFORM)
+      return _fs->open(fname, FILE_O_WRITE);
+    #else
+      return _fs->open(fname, "a", true);
+    #endif
+    }
+  
 protected:
   float getAirtimeBudgetFactor() const override {
     return _prefs.airtime_factor;
@@ -269,6 +280,55 @@ protected:
       mesh::Utils::printHex(Serial, raw, len);
       Serial.println();
     #endif
+  }
+
+  void logRx(mesh::Packet* pkt, int len, float score) override {
+    if (_logging) {
+      File f = openAppend(PACKET_LOG_FILE);
+      if (f) {
+        f.print(getLogDateTime());
+        f.printf(": RX, len=%d (type=%d, route=%s, payload_len=%d) SNR=%d RSSI=%d score=%d",
+          len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len,
+          (int)_radio->getLastSNR(), (int)_radio->getLastRSSI(), (int)(score*1000));
+
+        if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
+          || pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
+          f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        } else {
+          f.printf("\n");
+        }
+        f.close();
+      }
+    }
+  }
+  void logTx(mesh::Packet* pkt, int len) override {
+    if (_logging) {
+      File f = openAppend(PACKET_LOG_FILE);
+      if (f) {
+        f.print(getLogDateTime());
+        f.printf(": TX, len=%d (type=%d, route=%s, payload_len=%d)",
+          len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len);
+
+        if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
+          || pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
+          f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        } else {
+          f.printf("\n");
+        }
+        f.close();
+      }
+    }
+  }
+  void logTxFail(mesh::Packet* pkt, int len) override {
+    if (_logging) {
+      File f = openAppend(PACKET_LOG_FILE);
+      if (f) {
+        f.print(getLogDateTime());
+        f.printf(": TX FAIL!, len=%d (type=%d, route=%s, payload_len=%d)\n",
+          len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len);
+        f.close();
+      }
+    }
   }
 
   int calcRxDelay(float score, uint32_t air_time) const override {
@@ -599,6 +659,7 @@ public:
   {
     my_radio = &radio;
     next_local_advert = next_flood_advert = 0;
+    _logging = false;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -690,9 +751,23 @@ public:
     }
   }
 
-  void setLoggingOn(bool enable) override { /* no-op */ }
-  void eraseLogFile() override { /* no-op */ }
-  void dumpLogFile() override { /* no-op */ }
+  void setLoggingOn(bool enable) override { _logging = enable; }
+
+  void eraseLogFile() override {
+    _fs->remove(PACKET_LOG_FILE);
+  }
+
+  void dumpLogFile() override {
+    File f = _fs->open(PACKET_LOG_FILE);
+    if (f) {
+      while (f.available()) {
+        int c = f.read();
+        if (c < 0) break;
+        Serial.print((char)c);
+      }
+      f.close();
+    }
+  }
 
   void setTxPower(uint8_t power_dbm) override {
     _phy->setOutputPower(power_dbm);
