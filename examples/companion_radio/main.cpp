@@ -484,7 +484,7 @@ protected:
   }
 
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override {
-    if (_serial->isConnected()) {
+    if (_serial->isConnected() && len+3 <= MAX_FRAME_SIZE) {
       int i = 0;
       out_frame[i++] = PUSH_CODE_LOG_RX_DATA;
       out_frame[i++] = (int8_t)(snr * 4);
