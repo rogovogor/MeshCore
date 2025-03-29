@@ -25,6 +25,8 @@ static void OnDataRecv(const uint8_t *mac, const uint8_t *data, int len) {
 void ESPNOWRadio::begin() {
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
+  // Long Range mode
+  esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_LR);
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
