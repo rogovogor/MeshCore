@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include "target.h"
-#include <helpers/ArduinoHelpers.h>
 
 T1000eBoard board;
 
@@ -8,8 +7,7 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BU
 
 WRAPPER_CLASS radio_driver(radio, board);
 
-VolatileRTCClock fallback_clock;
-AutoDiscoverRTCClock rtc_clock(fallback_clock);
+VolatileRTCClock rtc_clock;
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -38,7 +36,7 @@ static const Module::RfSwitchMode_t rfswitch_table[] = {
 #endif
 
 bool radio_init() {
-  rtc_clock.begin(Wire);
+  //rtc_clock.begin(Wire);
   
 #ifdef LR11X0_DIO3_TCXO_VOLTAGE
   float tcxo = LR11X0_DIO3_TCXO_VOLTAGE;
