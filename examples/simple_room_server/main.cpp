@@ -7,13 +7,10 @@
   #include <SPIFFS.h>
 #endif
 
-#define RADIOLIB_STATIC_ONLY 1
-#include <RadioLib.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/StaticPoolPacketManager.h>
 #include <helpers/SimpleMeshTables.h>
 #include <helpers/IdentityStore.h>
-#include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/AdvertDataHelpers.h>
 #include <helpers/TxtDataHelpers.h>
 #include <helpers/CommonCLI.h>
@@ -23,11 +20,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "25 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "30 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.4.1"
+  #define FIRMWARE_VERSION   "v1.4.2"
 #endif
 
 #ifndef LORA_FREQ
@@ -76,6 +73,10 @@
   #include "UITask.h"
   static UITask ui_task(display);
 #endif
+
+#define FIRMWARE_ROLE "room_server"
+
+#define PACKET_LOG_FILE  "/packet_log"
 
 /* ------------------------------ Code -------------------------------- */
 
@@ -141,11 +142,9 @@ struct ServerStats {
 };
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
-  RadioLibWrapper* my_radio;
   FILESYSTEM* _fs;
-  RADIO_CLASS* _phy;
-  mesh::MainBoard* _board;
   unsigned long next_local_advert, next_flood_advert;
+  bool _logging;
   NodePrefs _prefs;
   CommonCLI _cli;
   uint8_t reply_data[MAX_PACKET_PAYLOAD];
@@ -257,6 +256,14 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
    return createAdvert(self_id, app_data, app_data_len);
   }
 
+  File openAppend(const char* fname) {
+    #if defined(NRF52_PLATFORM)
+      return _fs->open(fname, FILE_O_WRITE);
+    #else
+      return _fs->open(fname, "a", true);
+    #endif
+    }
+
 protected:
   float getAirtimeBudgetFactor() const override {
     return _prefs.airtime_factor;
@@ -269,6 +276,55 @@ protected:
       mesh::Utils::printHex(Serial, raw, len);
       Serial.println();
     #endif
+  }
+
+  void logRx(mesh::Packet* pkt, int len, float score) override {
+    if (_logging) {
+      File f = openAppend(PACKET_LOG_FILE);
+      if (f) {
+        f.print(getLogDateTime());
+        f.printf(": RX, len=%d (type=%d, route=%s, payload_len=%d) SNR=%d RSSI=%d score=%d",
+          len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len,
+          (int)_radio->getLastSNR(), (int)_radio->getLastRSSI(), (int)(score*1000));
+
+        if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
+          || pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
+          f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        } else {
+          f.printf("\n");
+        }
+        f.close();
+      }
+    }
+  }
+  void logTx(mesh::Packet* pkt, int len) override {
+    if (_logging) {
+      File f = openAppend(PACKET_LOG_FILE);
+      if (f) {
+        f.print(getLogDateTime());
+        f.printf(": TX, len=%d (type=%d, route=%s, payload_len=%d)",
+          len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len);
+
+        if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
+          || pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
+          f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        } else {
+          f.printf("\n");
+        }
+        f.close();
+      }
+    }
+  }
+  void logTxFail(mesh::Packet* pkt, int len) override {
+    if (_logging) {
+      File f = openAppend(PACKET_LOG_FILE);
+      if (f) {
+        f.print(getLogDateTime());
+        f.printf(": TX FAIL!, len=%d (type=%d, route=%s, payload_len=%d)\n",
+          len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len);
+        f.close();
+      }
+    }
   }
 
   int calcRxDelay(float score, uint32_t air_time) const override {
@@ -524,9 +580,9 @@ protected:
           stats.batt_milli_volts = board.getBattMilliVolts();
           stats.curr_tx_queue_len = _mgr->getOutboundCount();
           stats.curr_free_queue_len = _mgr->getFreeCount();
-          stats.last_rssi = (int16_t) my_radio->getLastRSSI();
-          stats.n_packets_recv = my_radio->getPacketsRecv();
-          stats.n_packets_sent = my_radio->getPacketsSent();
+          stats.last_rssi = (int16_t) radio_driver.getLastRSSI();
+          stats.n_packets_recv = radio_driver.getPacketsRecv();
+          stats.n_packets_sent = radio_driver.getPacketsSent();
           stats.total_air_time_secs = getTotalAirTime() / 1000;
           stats.total_up_time_secs = _ms->getMillis() / 1000;
           stats.n_sent_flood = getNumSentFlood();
@@ -534,7 +590,7 @@ protected:
           stats.n_recv_flood = getNumRecvFlood();
           stats.n_recv_direct = getNumRecvDirect();
           stats.n_full_events = getNumFullEvents();
-          stats.last_snr = (int16_t)(my_radio->getLastSNR() * 4);
+          stats.last_snr = (int16_t)(radio_driver.getLastSNR() * 4);
           stats.n_direct_dups = ((SimpleMeshTables *)getTables())->getNumDirectDups();
           stats.n_flood_dups = ((SimpleMeshTables *)getTables())->getNumFloodDups();
           stats.n_posted = _num_posted;
@@ -544,7 +600,7 @@ protected:
           memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
           memcpy(&reply_data[4], &stats, sizeof(stats));
           uint8_t reply_len = 4 + sizeof(stats);
-  
+
           if (packet->isRouteFlood()) {
             // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
             mesh::Packet* path = createPathReturn(client->id, secret, packet->path, packet->path_len,
@@ -593,12 +649,12 @@ protected:
   }
 
 public:
-  MyMesh(RADIO_CLASS& phy, mesh::MainBoard& board, RadioLibWrapper& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
+  MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-        _phy(&phy), _board(&board), _cli(board, this, &_prefs, this)
+      _cli(board, this, &_prefs, this)
   {
-    my_radio = &radio;
     next_local_advert = next_flood_advert = 0;
+    _logging = false;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -638,17 +694,16 @@ public:
     // load persisted prefs
     _cli.loadPrefs(_fs);
 
-    _phy->setFrequency(_prefs.freq);
-    _phy->setSpreadingFactor(_prefs.sf);
-    _phy->setBandwidth(_prefs.bw);
-    _phy->setCodingRate(_prefs.cr);
-    _phy->setOutputPower(_prefs.tx_power_dbm);
+    radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+    radio_set_tx_power(_prefs.tx_power_dbm);
 
     updateAdvertTimer();
+    updateFloodAdvertTimer();
   }
 
   const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
   const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
+  const char* getRole() override { return FIRMWARE_ROLE; }
   const char* getNodeName() { return _prefs.node_name; }
 
   void savePrefs() override {
@@ -690,12 +745,26 @@ public:
     }
   }
 
-  void setLoggingOn(bool enable) override { /* no-op */ }
-  void eraseLogFile() override { /* no-op */ }
-  void dumpLogFile() override { /* no-op */ }
+  void setLoggingOn(bool enable) override { _logging = enable; }
+
+  void eraseLogFile() override {
+    _fs->remove(PACKET_LOG_FILE);
+  }
+
+  void dumpLogFile() override {
+    File f = _fs->open(PACKET_LOG_FILE);
+    if (f) {
+      while (f.available()) {
+        int c = f.read();
+        if (c < 0) break;
+        Serial.print((char)c);
+      }
+      f.close();
+    }
+  }
 
   void setTxPower(uint8_t power_dbm) override {
-    _phy->setOutputPower(power_dbm);
+    radio_set_tx_power(power_dbm);
   }
 
   void loop() {
@@ -756,15 +825,7 @@ public:
 
 StdRNG fast_rng;
 SimpleMeshTables tables;
-
-#ifdef ESP32
-ESP32RTCClock fallback_clock;
-#else
-VolatileRTCClock fallback_clock;
-#endif
-AutoDiscoverRTCClock rtc_clock(fallback_clock);
-
-MyMesh the_mesh(radio, board, *new WRAPPER_CLASS(radio, board), *new ArduinoMillis(), fast_rng, rtc_clock, tables);
+MyMesh the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
 
 void halt() {
   while (1) ;
@@ -777,14 +838,10 @@ void setup() {
   delay(1000);
 
   board.begin();
-#ifdef ESP32
-  fallback_clock.begin();
-#endif
-  rtc_clock.begin(Wire);
 
   if (!radio_init()) { halt(); }
 
-  fast_rng.begin(radio.random(0x7FFFFFFF));
+  fast_rng.begin(radio_get_rng_seed());
 
   FILESYSTEM* fs;
 #if defined(NRF52_PLATFORM)
@@ -799,8 +856,7 @@ void setup() {
   #error "need to define filesystem"
 #endif
   if (!store.load("_main", the_mesh.self_id)) {
-    RadioNoiseListener rng(radio);
-    the_mesh.self_id = mesh::LocalIdentity(&rng);  // create new random identity
+    the_mesh.self_id = radio_new_identity();   // create new random identity
     store.save("_main", the_mesh.self_id);
   }
 

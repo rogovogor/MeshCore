@@ -7,9 +7,6 @@
   #include <SPIFFS.h>
 #endif
 
-#define RADIOLIB_STATIC_ONLY 1
-#include <RadioLib.h>
-#include <helpers/RadioLibWrappers.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/StaticPoolPacketManager.h>
 #include <helpers/SimpleMeshTables.h>
@@ -89,11 +86,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    3
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "25 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "30 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.4.1"
+  #define FIRMWARE_VERSION   "v1.4.2"
 #endif
 
 #define CMD_APP_START              1
@@ -197,7 +194,6 @@ struct NodePrefs {  // persisted to file
 
 class MyMesh : public BaseChatMesh {
   FILESYSTEM* _fs;
-  RADIO_CLASS* _phy;
   IdentityStore* _identity_store;
   NodePrefs _prefs;
   uint32_t pending_login;
@@ -229,9 +225,9 @@ class MyMesh : public BaseChatMesh {
   AckTableEntry  expected_ack_table[EXPECTED_ACK_TABLE_SIZE];  // circular table
   int next_ack_idx;
 
-  void loadMainIdentity(mesh::RNG& trng) {
+  void loadMainIdentity() {
     if (!_identity_store->load("_main", self_id)) {
-      self_id = mesh::LocalIdentity(&trng);  // create new random identity
+      self_id = radio_new_identity();  // create new random identity
       saveMainIdentity(self_id);
     }
   }
@@ -488,7 +484,7 @@ protected:
   }
 
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override {
-    if (_serial->isConnected()) {
+    if (_serial->isConnected() && len+3 <= MAX_FRAME_SIZE) {
       int i = 0;
       out_frame[i++] = PUSH_CODE_LOG_RX_DATA;
       out_frame[i++] = (int8_t)(snr * 4);
@@ -709,8 +705,8 @@ protected:
 
 public:
 
-  MyMesh(RADIO_CLASS& phy, RadioLibWrapper& rw, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
-     : BaseChatMesh(rw, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables), _serial(NULL), _phy(&phy)
+  MyMesh(mesh::Radio& radio, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
+     : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables), _serial(NULL)
   {
     _iter_started = false;
     offline_queue_len = 0;
@@ -767,7 +763,7 @@ public:
     }
   }
 
-  void begin(FILESYSTEM& fs, mesh::RNG& trng, bool has_display) {
+  void begin(FILESYSTEM& fs, bool has_display) {
     _fs = &fs;
 
     BaseChatMesh::begin();
@@ -778,7 +774,7 @@ public:
     _identity_store = new IdentityStore(fs, "/identity");
   #endif
 
-    loadMainIdentity(trng);
+    loadMainIdentity();
 
     // load persisted prefs
     if (_fs->exists("/new_prefs")) {
@@ -793,7 +789,8 @@ public:
     if (_prefs.ble_pin == 0) {
     #ifdef HAS_UI
       if (has_display) {
-        _active_ble_pin = trng.nextInt(100000, 999999);  // random pin each session
+        StdRNG  rng;
+        _active_ble_pin = rng.nextInt(100000, 999999);  // random pin each session
       } else {
         _active_ble_pin = BLE_PIN_CODE;  // otherwise static pin
       }
@@ -814,11 +811,8 @@ public:
     addChannel("Public", PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
     loadChannels();
 
-    _phy->setFrequency(_prefs.freq);
-    _phy->setSpreadingFactor(_prefs.sf);
-    _phy->setBandwidth(_prefs.bw);
-    _phy->setCodingRate(_prefs.cr);
-    _phy->setOutputPower(_prefs.tx_power_dbm);
+    radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+    radio_set_tx_power(_prefs.tx_power_dbm);
   }
 
   const char* getNodeName() { return _prefs.node_name; }
@@ -1153,10 +1147,7 @@ public:
         _prefs.bw = (float)bw / 1000.0;
         savePrefs();
 
-        _phy->setFrequency(_prefs.freq);
-        _phy->setSpreadingFactor(_prefs.sf);
-        _phy->setBandwidth(_prefs.bw);
-        _phy->setCodingRate(_prefs.cr);
+        radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
         MESH_DEBUG_PRINTLN("OK: CMD_SET_RADIO_PARAMS: f=%d, bw=%d, sf=%d, cr=%d", freq, bw, (uint32_t)sf, (uint32_t)cr);
 
         writeOKFrame();
@@ -1170,7 +1161,7 @@ public:
       } else {
         _prefs.tx_power_dbm = cmd_frame[1];
         savePrefs();
-        _phy->setOutputPower(_prefs.tx_power_dbm);
+        radio_set_tx_power(_prefs.tx_power_dbm);
         writeOKFrame();
       }
     } else if (cmd_frame[0] == CMD_SET_TUNING_PARAMS) {
@@ -1431,7 +1422,7 @@ public:
 
 StdRNG fast_rng;
 SimpleMeshTables tables;
-MyMesh the_mesh(radio, *new WRAPPER_CLASS(radio, board), fast_rng, *new VolatileRTCClock(), tables);
+MyMesh the_mesh(radio_driver, fast_rng, *new VolatileRTCClock(), tables); // TODO: test with 'rtc_clock' in target.cpp
 
 void halt() {
   while (1) ;
@@ -1444,9 +1435,7 @@ void setup() {
 
   if (!radio_init()) { halt(); }
 
-  fast_rng.begin(radio.random(0x7FFFFFFF));
-
-  RadioNoiseListener trng(radio);
+  fast_rng.begin(radio_get_rng_seed());
 
 #ifdef HAS_UI
   DisplayDriver* disp = NULL;
@@ -1459,7 +1448,7 @@ void setup() {
 
 #if defined(NRF52_PLATFORM)
   InternalFS.begin();
-  the_mesh.begin(InternalFS, trng,
+  the_mesh.begin(InternalFS,
     #ifdef HAS_UI
         disp != NULL
     #else
@@ -1477,7 +1466,7 @@ void setup() {
   the_mesh.startInterface(serial_interface);
 #elif defined(ESP32)
   SPIFFS.begin(true);
-  the_mesh.begin(SPIFFS, trng,
+  the_mesh.begin(SPIFFS,
     #ifdef HAS_UI
         disp != NULL
     #else
