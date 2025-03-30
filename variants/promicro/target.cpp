@@ -2,7 +2,7 @@
 #include "target.h"
 #include <helpers/ArduinoHelpers.h>
 
-FaketecBoard board;
+PromicroBoard board;
 
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, SPI);
 
