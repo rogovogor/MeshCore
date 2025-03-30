@@ -20,11 +20,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "25 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "30 Mar 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.4.1"
+  #define FIRMWARE_VERSION   "v1.4.2"
 #endif
 
 #ifndef LORA_FREQ
