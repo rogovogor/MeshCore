@@ -3,12 +3,12 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
-#include <helpers/nrf52/FaketecBoard.h>
+#include <helpers/nrf52/PromicroBoard.h>
 #include <helpers/CustomSX1262Wrapper.h>
 #include <helpers/CustomLLCC68Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 
-extern FaketecBoard board;
+extern PromicroBoard board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 
