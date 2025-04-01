@@ -1404,6 +1404,10 @@ public:
   #elif defined(BLE_PIN_CODE)
     #include <helpers/esp32/SerialBLEInterface.h>
     SerialBLEInterface serial_interface;
+  #elif defined(SERIAL_RX)
+    #include <helpers/ArduinoSerialInterface.h>
+    ArduinoSerialInterface serial_interface;
+    HardwareSerial companion_serial(1);
   #else
     #include <helpers/ArduinoSerialInterface.h>
     ArduinoSerialInterface serial_interface;
@@ -1484,6 +1488,10 @@ void setup() {
   char dev_name[32+16];
   sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
+#elif defined(SERIAL_RX)
+  companion_serial.setPins(SERIAL_RX, SERIAL_TX);
+  companion_serial.begin(115200);
+  serial_interface.begin(companion_serial);
 #else
   serial_interface.begin(Serial);
 #endif
