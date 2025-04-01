@@ -62,7 +62,7 @@
 #endif
 
 #ifndef MAX_UNSYNCED_POSTS
-  #define MAX_UNSYNCED_POSTS    16
+  #define MAX_UNSYNCED_POSTS    32
 #endif
 
 #ifdef DISPLAY_CLASS
@@ -111,7 +111,7 @@ struct PostInfo {
 
 #define REPLY_DELAY_MILLIS         1500
 #define PUSH_NOTIFY_DELAY_MILLIS   2000
-#define SYNC_PUSH_INTERVAL         2000
+#define SYNC_PUSH_INTERVAL         1200
 
 #define PUSH_ACK_TIMEOUT_FLOOD    12000
 #define PUSH_TIMEOUT_BASE          4000
@@ -782,6 +782,7 @@ public:
       }
       // check next Round-Robin client, and sync next new post
       auto client = &known_clients[next_client_idx];
+      bool did_push = false;
       if (client->pending_ack == 0 && client->last_activity != 0 && client->push_failures < 3) {  // not already waiting for ACK, AND not evicted, AND retries not max
         MESH_DEBUG_PRINTLN("loop - checking for client %02X", (uint32_t) client->id.pub_key[0]);
         for (int k = 0, idx = next_post_idx; k < MAX_UNSYNCED_POSTS; k++) {
@@ -789,6 +790,7 @@ public:
             && !posts[idx].author.matches(client->id)) {    // don't push posts to the author
             // push this post to Client, then wait for ACK
             pushPostToClient(client, posts[idx]);
+            did_push = true;
             MESH_DEBUG_PRINTLN("loop - pushed to client %02X: %s", (uint32_t) client->id.pub_key[0], posts[idx].text);
             break;
           }
@@ -799,7 +801,12 @@ public:
       }
       next_client_idx = (next_client_idx + 1) % num_clients;  // round robin polling for each client
 
-      next_push = futureMillis(SYNC_PUSH_INTERVAL);
+      if (did_push) {
+        next_push = futureMillis(SYNC_PUSH_INTERVAL);
+      } else {
+        // were no unsynced posts for curr client, so proccess next client much quicker! (in next loop())
+        next_push = futureMillis(SYNC_PUSH_INTERVAL / 8);
+      }
     }
 
     if (next_flood_advert && millisHasNowPassed(next_flood_advert)) {
@@ -839,6 +846,14 @@ void setup() {
 
   board.begin();
 
+#ifdef DISPLAY_CLASS
+  if(display.begin()){
+    display.startFrame();
+    display.print("Please wait...");
+    display.endFrame();
+  }
+#endif
+
   if (!radio_init()) { halt(); }
 
   fast_rng.begin(radio_get_rng_seed());
@@ -868,7 +883,6 @@ void setup() {
   the_mesh.begin(fs);
 
 #ifdef DISPLAY_CLASS
-  display.begin();
   ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE);
 #endif
 

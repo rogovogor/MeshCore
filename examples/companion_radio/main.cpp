@@ -1437,18 +1437,21 @@ void setup() {
 
   board.begin();
 
-  if (!radio_init()) { halt(); }
-
-  fast_rng.begin(radio_get_rng_seed());
-
 #ifdef HAS_UI
   DisplayDriver* disp = NULL;
  #ifdef DISPLAY_CLASS
   if (display.begin()) {
     disp = &display;
+    disp->startFrame();
+    disp->print("Please wait...");
+    disp->endFrame();
   }
  #endif
 #endif
+
+  if (!radio_init()) { halt(); }
+
+  fast_rng.begin(radio_get_rng_seed());
 
 #if defined(NRF52_PLATFORM)
   InternalFS.begin();
