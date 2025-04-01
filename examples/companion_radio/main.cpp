@@ -1442,7 +1442,9 @@ void setup() {
  #ifdef DISPLAY_CLASS
   if (display.begin()) {
     disp = &display;
-    disp->clear();
+    disp->startFrame();
+    disp->print("Please wait...");
+    disp->endFrame();
   }
  #endif
 #endif
