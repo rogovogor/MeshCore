@@ -1442,6 +1442,7 @@ void setup() {
  #ifdef DISPLAY_CLASS
   if (display.begin()) {
     disp = &display;
+    disp->clear();
   }
  #endif
 #endif
