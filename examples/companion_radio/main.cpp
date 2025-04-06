@@ -228,6 +228,10 @@ class MyMesh : public BaseChatMesh {
   void loadMainIdentity() {
     if (!_identity_store->load("_main", self_id)) {
       self_id = radio_new_identity();  // create new random identity
+      int count = 0;
+      while (count < 10 && (self_id.pub_key[0] == 0x00 || self_id.pub_key[0] == 0xFF)) {  // reserved id hashes
+        self_id = radio_new_identity(); count++;
+      }
       saveMainIdentity(self_id);
     }
   }
