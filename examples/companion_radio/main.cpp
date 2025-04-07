@@ -86,11 +86,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    3
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "30 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Apr 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.4.2"
+  #define FIRMWARE_VERSION   "v1.4.3"
 #endif
 
 #define CMD_APP_START              1
@@ -228,6 +228,10 @@ class MyMesh : public BaseChatMesh {
   void loadMainIdentity() {
     if (!_identity_store->load("_main", self_id)) {
       self_id = radio_new_identity();  // create new random identity
+      int count = 0;
+      while (count < 10 && (self_id.pub_key[0] == 0x00 || self_id.pub_key[0] == 0xFF)) {  // reserved id hashes
+        self_id = radio_new_identity(); count++;
+      }
       saveMainIdentity(self_id);
     }
   }
@@ -1404,6 +1408,10 @@ public:
   #elif defined(BLE_PIN_CODE)
     #include <helpers/esp32/SerialBLEInterface.h>
     SerialBLEInterface serial_interface;
+  #elif defined(SERIAL_RX)
+    #include <helpers/ArduinoSerialInterface.h>
+    ArduinoSerialInterface serial_interface;
+    HardwareSerial companion_serial(1);
   #else
     #include <helpers/ArduinoSerialInterface.h>
     ArduinoSerialInterface serial_interface;
@@ -1433,18 +1441,21 @@ void setup() {
 
   board.begin();
 
-  if (!radio_init()) { halt(); }
-
-  fast_rng.begin(radio_get_rng_seed());
-
 #ifdef HAS_UI
   DisplayDriver* disp = NULL;
  #ifdef DISPLAY_CLASS
   if (display.begin()) {
     disp = &display;
+    disp->startFrame();
+    disp->print("Please wait...");
+    disp->endFrame();
   }
  #endif
 #endif
+
+  if (!radio_init()) { halt(); }
+
+  fast_rng.begin(radio_get_rng_seed());
 
 #if defined(NRF52_PLATFORM)
   InternalFS.begin();
@@ -1481,6 +1492,10 @@ void setup() {
   char dev_name[32+16];
   sprintf(dev_name, "%s%s", BLE_NAME_PREFIX, the_mesh.getNodeName());
   serial_interface.begin(dev_name, the_mesh.getBLEPin());
+#elif defined(SERIAL_RX)
+  companion_serial.setPins(SERIAL_RX, SERIAL_TX);
+  companion_serial.begin(115200);
+  serial_interface.begin(companion_serial);
 #else
   serial_interface.begin(Serial);
 #endif

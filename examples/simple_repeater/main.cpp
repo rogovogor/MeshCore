@@ -20,11 +20,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "30 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Apr 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.4.2"
+  #define FIRMWARE_VERSION   "v1.4.3"
 #endif
 
 #ifndef LORA_FREQ
@@ -616,6 +616,14 @@ void setup() {
 
   board.begin();
 
+#ifdef DISPLAY_CLASS
+  if(display.begin()){
+    display.startFrame();
+    display.print("Please wait...");
+    display.endFrame();
+  }
+#endif
+
   if (!radio_init()) { halt(); }
 
   fast_rng.begin(radio_get_rng_seed());
@@ -635,6 +643,10 @@ void setup() {
   if (!store.load("_main", the_mesh.self_id)) {
     MESH_DEBUG_PRINTLN("Generating new keypair");
     the_mesh.self_id = radio_new_identity();   // create new random identity
+    int count = 0;
+    while (count < 10 && (the_mesh.self_id.pub_key[0] == 0x00 || the_mesh.self_id.pub_key[0] == 0xFF)) {  // reserved id hashes
+      the_mesh.self_id = radio_new_identity(); count++;
+    }
     store.save("_main", the_mesh.self_id);
   }
 
@@ -646,7 +658,6 @@ void setup() {
   the_mesh.begin(fs);
 
 #ifdef DISPLAY_CLASS
-  display.begin();
   ui_task.begin(the_mesh.getNodeName(), FIRMWARE_BUILD_DATE);
 #endif
 

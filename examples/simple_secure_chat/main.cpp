@@ -300,6 +300,10 @@ public:
       ((StdRNG *)getRNG())->begin(millis());
 
       self_id = mesh::LocalIdentity(getRNG());  // create new random identity
+      int count = 0;
+      while (count < 10 && (self_id.pub_key[0] == 0x00 || self_id.pub_key[0] == 0xFF)) {  // reserved id hashes
+        self_id = mesh::LocalIdentity(getRNG()); count++;
+      }
       store.save("_main", self_id);
     }
 
