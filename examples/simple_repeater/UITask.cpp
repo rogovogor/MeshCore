@@ -24,7 +24,6 @@ void UITask::begin(const char* node_name, const char* build_date, const char* fi
   _prevBtnState = HIGH;
   _auto_off = millis() + AUTO_OFF_MILLIS;
   _node_name = node_name;
-  _build_date = build_date;
   _display->turnOn();
 
   // strip off dash and commit hash by changing dash to null terminator
@@ -36,7 +35,7 @@ void UITask::begin(const char* node_name, const char* build_date, const char* fi
   }
 
   // v1.2.3 (1 Jan 2025)
-  sprintf(_version_info, "%s (%s)", version, _build_date);
+  sprintf(_version_info, "%s (%s)", version, build_date);
 }
 
 void UITask::renderCurrScreen() {

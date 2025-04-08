@@ -7,7 +7,6 @@ class UITask {
   unsigned long _next_read, _next_refresh, _auto_off;
   int _prevBtnState;
   const char* _node_name;
-  const char* _build_date;
   char _version_info[32];
 
   void renderCurrScreen();

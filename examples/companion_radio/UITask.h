@@ -11,8 +11,6 @@ class UITask {
   bool _connected;
   uint32_t _pin_code;
   const char* _node_name;
-  const char* _build_date;
-  const char* _firmware_version;
   char _version_info[32];
   char _origin[62];
   char _msg[80];

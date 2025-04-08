@@ -30,8 +30,6 @@ void UITask::begin(DisplayDriver* display, const char* node_name, const char* bu
   _auto_off = millis() + AUTO_OFF_MILLIS;
   clearMsgPreview();
   _node_name = node_name;
-  _build_date = build_date;
-  _firmware_version = firmware_version;
   _pin_code = pin_code;
   if (_display != NULL) {
     _display->turnOn();
@@ -39,14 +37,14 @@ void UITask::begin(DisplayDriver* display, const char* node_name, const char* bu
 
   // strip off dash and commit hash by changing dash to null terminator
   // e.g: v1.2.3-abcdef -> v1.2.3
-  char *version = strdup(_firmware_version);
+  char *version = strdup(firmware_version);
   char *dash = strchr(version, '-');
   if(dash){
     *dash = 0;
   }
 
   // v1.2.3 (1 Jan 2025)
-  sprintf(_version_info, "%s (%s)", version, _build_date);
+  sprintf(_version_info, "%s (%s)", version, build_date);
 }
 
 void UITask::msgRead(int msgcount) {
