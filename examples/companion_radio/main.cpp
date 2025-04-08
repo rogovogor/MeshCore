@@ -1505,7 +1505,7 @@ void setup() {
 #endif
 
 #ifdef HAS_UI
-  ui_task.begin(disp, the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
+  ui_task.begin(disp, the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
 #endif
 }
 
