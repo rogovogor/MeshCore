@@ -12,6 +12,8 @@ class UITask {
   uint32_t _pin_code;
   const char* _node_name;
   const char* _build_date;
+  const char* _firmware_version;
+  char _version_info[32];
   char _origin[62];
   char _msg[80];
   int _msgcount;
@@ -26,7 +28,7 @@ public:
       _next_refresh = 0; 
       _connected = false;
   }
-  void begin(DisplayDriver* display, const char* node_name, const char* build_date, uint32_t pin_code);
+  void begin(DisplayDriver* display, const char* node_name, const char* build_date, const char* firmware_version, uint32_t pin_code);
 
   void setHasConnection(bool connected) { _connected = connected; }
   bool hasDisplay() const { return _display != NULL; }

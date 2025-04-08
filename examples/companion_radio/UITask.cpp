@@ -25,16 +25,28 @@ static const uint8_t meshcore_logo [] PROGMEM = {
     0xe3, 0xe3, 0x8f, 0xff, 0x1f, 0xfc, 0x3c, 0x0e, 0x1f, 0xf8, 0xff, 0xf8, 0x70, 0x3c, 0x7f, 0xf8, 
 };
 
-void UITask::begin(DisplayDriver* display, const char* node_name, const char* build_date, uint32_t pin_code) {
+void UITask::begin(DisplayDriver* display, const char* node_name, const char* build_date, const char* firmware_version, uint32_t pin_code) {
   _display = display;
   _auto_off = millis() + AUTO_OFF_MILLIS;
   clearMsgPreview();
   _node_name = node_name;
   _build_date = build_date;
+  _firmware_version = firmware_version;
   _pin_code = pin_code;
   if (_display != NULL) {
     _display->turnOn();
   }
+
+  // strip off dash and commit hash by changing dash to null terminator
+  // e.g: v1.2.3-abcdef -> v1.2.3
+  char *version = strdup(_firmware_version);
+  char *dash = strchr(version, '-');
+  if(dash){
+    *dash = 0;
+  }
+
+  // v1.2.3 (1 Jan 2025)
+  sprintf(_version_info, "%s (%s)", version, _build_date);
 }
 
 void UITask::msgRead(int msgcount) {
@@ -90,10 +102,9 @@ void UITask::renderCurrScreen() {
     _display->setCursor(0, 20);
     _display->setTextSize(1);
     _display->print(_node_name);
-
-    sprintf(tmp, "Build: %s", _build_date);
+    
     _display->setCursor(0, 32);
-    _display->print(tmp);
+    _display->print(_version_info);
 
     if (_connected) {
       //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
