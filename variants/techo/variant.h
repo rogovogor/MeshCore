@@ -42,7 +42,6 @@
 
 #define PIN_SERIAL1_RX          (41) // GPS TX
 #define PIN_SERIAL1_TX          (40) // GPS RX
-#define PIN_GPS_STANDBY         (34)
 ////////////////////////////////////////////////////////////////////////////////
 // I2C pin definition
 
@@ -121,3 +120,4 @@
 #define PIN_GPS_WAKEUP          (34)
 #define PIN_GPS_RESET           (37)
 #define PIN_GPS_PPS             (36)
+#define PIN_GPS_STANDBY         (34)
