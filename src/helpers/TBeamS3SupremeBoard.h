@@ -4,10 +4,10 @@
 #include <driver/rtc_io.h>
 #include <Wire.h>
 #include <Arduino.h>
-//#include "XPowersLib.h"
+#include "XPowersLib.h"
 
-// Defined using AXP2102
-//#define XPOWERS_CHIP_AXP2101
+// Define using AXP2102
+#define XPOWERS_CHIP_AXP2101
 
 // LoRa radio module pins for TBeam S3 Supreme
 #define  P_LORA_DIO_1   1   //SX1262 IRQ pin
@@ -39,19 +39,51 @@
 
 
 class TBeamS3SupremeBoard : public ESP32Board {
-  //XPowersAXP2101 PMU;
+  XPowersAXP2101 PMU;
 
 public:
   void begin() {
     ESP32Board::begin();
     
     //Manually set voltage rails
-    //PMU.setProtectedChannel(XPOWERS_DCDC3); //Set protected DCDC for esp32
-    //PMU.setALDO2Voltage(3300);  //Set LDO for LoRa module
-    //PMU.setALDO3Voltage(3300);  //Set LDO for GPS module
-    //PMU.setDC1Voltage(3300);    //Set DCDC for OLED
-    //PMU.enableALDO2();          //Enable LDO2 for LoRa
-    //PMU.enableALDO3();          //Enable LDO3 for GPS
+    //GPS
+    PMU.setALDO4Voltage(3300);  
+    PMU.disableALDO3();          //disable to save power
+
+    //Lora
+    PMU.setALDO3Voltage(3300);  
+    PMU.enableALDO3();          
+
+    //BME280 and OLED
+    PMU.setALDO1Voltage(3300);
+    PMU.enableALDO1();
+
+    //QMC6310U 
+    PMU.setALDO2Voltage(3300);
+    PMU.disableALDO2();          //disable to save power
+
+    //SD card
+    PMU.setBLDO1Voltage(3300);
+    PMU.enableBLDO1();
+
+    //Out to header pins
+    PMU.setBLDO2Voltage(3300);
+    PMU.enableBLDO2();
+
+    PMU.setDC4Voltage(XPOWERS_AXP2101_DCDC4_VOL2_MAX);    //1.8V
+    PMU.enableDC4();
+
+    PMU.setDC5Voltage(3300);
+    PMU.enableDC5();
+
+    //Other power rails
+    PMU.setDC3Voltage(3300);    //doesn't go anywhere in the schematic??
+    PMU.enableDC3();
+
+    //Unused power rails
+    PMU.disableDC2();
+    PMU.disableDLDO1();
+    PMU.disableDLDO2();    
 
 
     esp_reset_reason_t reason = esp_reset_reason();
