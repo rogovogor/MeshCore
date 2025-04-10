@@ -43,6 +43,10 @@ void UITask::begin(DisplayDriver* display, const char* node_name, const char* bu
     *dash = 0;
   }
 
+  #ifdef PIN_USER_BTN
+    pinMode(PIN_USER_BTN, INPUT);
+  #endif
+
   // v1.2.3 (1 Jan 2025)
   sprintf(_version_info, "%s (%s)", version, build_date);
 }
@@ -57,6 +61,7 @@ void UITask::msgRead(int msgcount) {
 void UITask::clearMsgPreview() {
   _origin[0] = 0;
   _msg[0] = 0;
+  _need_refresh = true;
 }
 
 void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) {
@@ -72,6 +77,7 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   if (_display != NULL) {
     if (!_display->isOn()) _display->turnOn();
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
+    _need_refresh = true;
   }
 }
 
@@ -114,6 +120,7 @@ void UITask::renderCurrScreen() {
       _display->print(tmp);
     }
   }
+  _need_refresh = false;
 }
 
 void UITask::userLedHandler() {
@@ -157,6 +164,7 @@ void UITask::buttonHandler() {
             clearMsgPreview();
           } else {
             _display->turnOn();
+            _need_refresh = true;
           }
           _auto_off = cur_time + AUTO_OFF_MILLIS;   // extend auto-off timer
         }
@@ -182,7 +190,7 @@ void UITask::loop() {
   userLedHandler();
 
   if (_display != NULL && _display->isOn()) {
-    if (millis() >= _next_refresh) {
+    if (millis() >= _next_refresh && _need_refresh) {
       _display->startFrame();
       renderCurrScreen();
       _display->endFrame();
