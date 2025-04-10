@@ -6,9 +6,6 @@
 #include <Arduino.h>
 #include "XPowersLib.h"
 
-// Define using AXP2102
-#define XPOWERS_CHIP_AXP2101
-
 // LoRa radio module pins for TBeam S3 Supreme
 #define  P_LORA_DIO_1   1   //SX1262 IRQ pin
 #define  P_LORA_NSS     10  //SX1262 SS pin
@@ -18,8 +15,12 @@
 #define  P_LORA_MISO    13  //SX1262 MISO pin
 #define  P_LORA_MOSI    11  //SX1262 MOSI pin
 
+#define PIN_BOARD_SDA 17  //SDA for OLED, BME280, and QMC6310U (0x1C)
+#define PIN_BOARD_SCL 18  //SCL for OLED, BME280, and QMC6310U (0x1C)
+
 #define PIN_BOARD_SDA_1 42  //SDA for PMU and PFC8563 (RTC)
 #define PIN_BOARD_SCL_1 41  //SCL for PMU and PFC8563 (RTC)
+#define PIN_PMU_IRQ 40      //IRQ pin for PMU
 
 #define PIN_USER_BTN 0
 
@@ -39,52 +40,13 @@
 
 
 class TBeamS3SupremeBoard : public ESP32Board {
-  XPowersAXP2101 PMU;
 
 public:
   void begin() {
-    ESP32Board::begin();
     
-    //Manually set voltage rails
-    //GPS
-    PMU.setALDO4Voltage(3300);  
-    PMU.disableALDO3();          //disable to save power
-
-    //Lora
-    PMU.setALDO3Voltage(3300);  
-    PMU.enableALDO3();          
-
-    //BME280 and OLED
-    PMU.setALDO1Voltage(3300);
-    PMU.enableALDO1();
-
-    //QMC6310U 
-    PMU.setALDO2Voltage(3300);
-    PMU.disableALDO2();          //disable to save power
-
-    //SD card
-    PMU.setBLDO1Voltage(3300);
-    PMU.enableBLDO1();
-
-    //Out to header pins
-    PMU.setBLDO2Voltage(3300);
-    PMU.enableBLDO2();
-
-    PMU.setDC4Voltage(XPOWERS_AXP2101_DCDC4_VOL2_MAX);    //1.8V
-    PMU.enableDC4();
-
-    PMU.setDC5Voltage(3300);
-    PMU.enableDC5();
-
-    //Other power rails
-    PMU.setDC3Voltage(3300);    //doesn't go anywhere in the schematic??
-    PMU.enableDC3();
-
-    //Unused power rails
-    PMU.disableDC2();
-    PMU.disableDLDO1();
-    PMU.disableDLDO2();    
-
+    bool power_init();
+    
+    ESP32Board::begin();
 
     esp_reset_reason_t reason = esp_reset_reason();
     if (reason == ESP_RST_DEEPSLEEP) {
@@ -122,8 +84,11 @@ public:
   }
 
   uint16_t getBattMilliVolts() override {
+
     return 0;
   }
+
+  uint16_t getBattPercent();
 
   const char* getManufacturerName() const override {
     return "LilyGo T-Beam S3 Supreme SX1262";
