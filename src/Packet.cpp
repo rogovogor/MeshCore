@@ -24,6 +24,10 @@ void Packet::calculatePacketHash(uint8_t* hash) const {
 uint8_t Packet::writeTo(uint8_t dest[]) const {
   uint8_t i = 0;
   dest[i++] = header;
+  if (hasTransCodes()) {
+    memcpy(&dest[i], &trans_codes[0], 2); i += 2;
+    memcpy(&dest[i], &trans_codes[1], 2); i += 2;
+  }
   dest[i++] = path_len;
   memcpy(&dest[i], path, path_len); i += path_len;
   memcpy(&dest[i], payload, payload_len); i += payload_len;
@@ -33,6 +37,12 @@ uint8_t Packet::writeTo(uint8_t dest[]) const {
 bool Packet::readFrom(const uint8_t src[], uint8_t len) {
   uint8_t i = 0;
   header = src[i++];
+  if (hasTransCodes()) {
+    memcpy(&trans_codes[0], &src[i], 2); i += 2;
+    memcpy(&trans_codes[1], &src[i], 2); i += 2;
+  } else {
+    trans_codes[0] = trans_codes[1] = 0;
+  }
   path_len = src[i++];
   if (path_len > sizeof(path)) return false;   // bad encoding
   memcpy(path, &src[i], path_len); i += path_len;
