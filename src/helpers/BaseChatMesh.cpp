@@ -252,7 +252,7 @@ int  BaseChatMesh::sendMessage(const ContactInfo& recipient, uint32_t timestamp,
   mesh::Packet* pkt = composeMsgPacket(recipient, timestamp, attempt, text, expected_ack);
   if (pkt == NULL) return MSG_SEND_FAILED;
 
-  uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
+  uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
 
   int rc;
   if (recipient.out_path_len < 0) {
@@ -279,7 +279,7 @@ int  BaseChatMesh::sendCommandData(const ContactInfo& recipient, uint32_t timest
   auto pkt = createDatagram(PAYLOAD_TYPE_TXT_MSG, recipient.id, recipient.shared_secret, temp, 5 + text_len);
   if (pkt == NULL) return MSG_SEND_FAILED;
 
-  uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
+  uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
   int rc;
   if (recipient.out_path_len < 0) {
     sendFlood(pkt);
@@ -362,7 +362,7 @@ int BaseChatMesh::sendLogin(const ContactInfo& recipient, const char* password, 
 
   auto pkt = createAnonDatagram(PAYLOAD_TYPE_ANON_REQ, self_id, recipient.id, recipient.shared_secret, temp, tlen);
   if (pkt) {
-    uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
+    uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
     if (recipient.out_path_len < 0) {
       sendFlood(pkt);
       est_timeout = calcFloodTimeoutMillisFor(t);
@@ -386,7 +386,7 @@ int  BaseChatMesh::sendStatusRequest(const ContactInfo& recipient, uint32_t& est
 
   auto pkt = createDatagram(PAYLOAD_TYPE_REQ, recipient.id, recipient.shared_secret, temp, sizeof(temp));
   if (pkt) {
-    uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
+    uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
     if (recipient.out_path_len < 0) {
       sendFlood(pkt);
       est_timeout = calcFloodTimeoutMillisFor(t);
