@@ -663,6 +663,10 @@ protected:
   }
 
   void onRawDataRecv(mesh::Packet* packet) override {
+    if (packet->payload_len + 4 > sizeof(out_frame)) {
+      MESH_DEBUG_PRINTLN("onRawDataRecv(), payload_len too long: %d", packet->payload_len);
+      return;
+    }
     int i = 0;
     out_frame[i++] = PUSH_CODE_RAW_DATA;
     out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);
