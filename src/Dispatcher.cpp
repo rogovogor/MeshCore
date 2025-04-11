@@ -101,11 +101,11 @@ void Dispatcher::checkRecv() {
 #endif
 
         pkt->header = raw[i++];
-        if (pkt->hasTransCodes()) {
-          memcpy(&pkt->trans_codes[0], &raw[i], 2); i += 2;
-          memcpy(&pkt->trans_codes[1], &raw[i], 2); i += 2;
+        if (pkt->hasTransportCodes()) {
+          memcpy(&pkt->transport_codes[0], &raw[i], 2); i += 2;
+          memcpy(&pkt->transport_codes[1], &raw[i], 2); i += 2;
         } else {
-          pkt->trans_codes[0] = pkt->trans_codes[1] = 0;
+          pkt->transport_codes[0] = pkt->transport_codes[1] = 0;
         }
         pkt->path_len = raw[i++];
 
@@ -218,9 +218,9 @@ void Dispatcher::checkSend() {
     raw[len++] = NODE_ID;
 #endif
     raw[len++] = outbound->header;
-    if (outbound->hasTransCodes()) {
-      memcpy(&raw[len], &outbound->trans_codes[0], 2); len += 2;
-      memcpy(&raw[len], &outbound->trans_codes[1], 2); len += 2;
+    if (outbound->hasTransportCodes()) {
+      memcpy(&raw[len], &outbound->transport_codes[0], 2); len += 2;
+      memcpy(&raw[len], &outbound->transport_codes[1], 2); len += 2;
     }
     raw[len++] = outbound->path_len;
     memcpy(&raw[len], outbound->path, outbound->path_len); len += outbound->path_len;
