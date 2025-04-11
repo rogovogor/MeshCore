@@ -1,3 +1,5 @@
+#ifdef ST7789
+
 #include "ST7789Display.h"
 
 bool ST7789Display::i2c_probe(TwoWire& wire, uint8_t addr) {
@@ -59,7 +61,32 @@ void ST7789Display::setTextSize(int sz) {
 }
 
 void ST7789Display::setColor(Color c) {
-  _color = (c == LIGHT) ? ST77XX_WHITE : ST77XX_BLACK;
+  switch (c) {
+    case DisplayDriver::DARK :
+      _color = ST77XX_BLACK;
+      break;
+    case DisplayDriver::LIGHT : 
+      _color = ST77XX_WHITE;
+      break;
+    case DisplayDriver::RED : 
+      _color = ST77XX_RED;
+      break;
+    case DisplayDriver::GREEN : 
+      _color = ST77XX_GREEN;
+      break;
+    case DisplayDriver::BLUE : 
+      _color = ST77XX_BLUE;
+      break;
+    case DisplayDriver::YELLOW : 
+      _color = ST77XX_YELLOW;
+      break;
+    case DisplayDriver::ORANGE : 
+      _color = ST77XX_ORANGE;
+      break;
+    default:
+      _color = ST77XX_WHITE;
+      break;
+  }
   display.setTextColor(_color);
 }
 
@@ -80,9 +107,11 @@ void ST7789Display::drawRect(int x, int y, int w, int h) {
 }
 
 void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
-  display.drawBitmap(x, y, bits, w, h, ST77XX_BLUE);
+  display.drawBitmap(x, y, bits, w, h, _color);
 }
 
 void ST7789Display::endFrame() {
   // display.display();
 }
+
+#endif

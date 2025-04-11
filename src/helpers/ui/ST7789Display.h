@@ -9,7 +9,7 @@
 class ST7789Display : public DisplayDriver {
   Adafruit_ST7789 display;
   bool _isOn;
-  uint8_t _color;
+  uint16_t _color;
 
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:

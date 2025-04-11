@@ -89,22 +89,29 @@ void UITask::renderCurrScreen() {
     // render message preview
     _display->setCursor(0, 0);
     _display->setTextSize(1);
+    _display->setColor(DisplayDriver::GREEN);
     _display->print(_node_name);
 
     _display->setCursor(0, 12);
+    _display->setColor(DisplayDriver::YELLOW);
     _display->print(_origin);
     _display->setCursor(0, 24);
+    _display->setColor(DisplayDriver::LIGHT);
     _display->print(_msg);
 
     _display->setCursor(100, 9);
     _display->setTextSize(2);
+    _display->setColor(DisplayDriver::ORANGE);
     sprintf(tmp, "%d", _msgcount);
     _display->print(tmp);
   } else {
     // render 'home' screen
+    _display->setColor(DisplayDriver::BLUE);
     _display->drawXbm(0, 0, meshcore_logo, 128, 13);
     _display->setCursor(0, 20);
     _display->setTextSize(1);
+
+    _display->setColor(DisplayDriver::LIGHT);
     _display->print(_node_name);
     
     _display->setCursor(0, 32);
@@ -114,6 +121,7 @@ void UITask::renderCurrScreen() {
       //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
       //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
     } else if (_pin_code != 0) {
+      _display->setColor(DisplayDriver::RED);
       _display->setTextSize(2);
       _display->setCursor(0, 43);
       sprintf(tmp, "Pin:%d", _pin_code);
