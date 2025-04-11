@@ -80,6 +80,11 @@ public:
   float getSNR() const { return ((float)_snr) / 4.0f; }
 
   /**
+   * \returns  the encoded/wire format length of this packet
+   */
+  int getRawLength() const;
+
+  /**
    * \brief  save entire packet as a blob
    * \param dest  (OUT) destination buffer (assumed to be MAX_MTU_SIZE)
    * \returns  the packet length

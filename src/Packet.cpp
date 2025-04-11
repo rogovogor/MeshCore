@@ -10,6 +10,10 @@ Packet::Packet() {
   payload_len = 0;
 }
 
+int Packet::getRawLength() const {
+  return 2 + path_len + payload_len + (hasTransCodes() ? 4 : 0);
+}
+
 void Packet::calculatePacketHash(uint8_t* hash) const {
   SHA256 sha;
   uint8_t t = getPayloadType();

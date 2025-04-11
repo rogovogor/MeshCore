@@ -138,7 +138,7 @@ void Dispatcher::checkRecv() {
     #if MESH_PACKET_LOGGING
     Serial.print(getLogDateTime());
     Serial.printf(": RX, len=%d (type=%d, route=%s, payload_len=%d) SNR=%d RSSI=%d score=%d", 
-            2 + pkt->path_len + pkt->payload_len, pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len,
+            pkt->getRawLength(), pkt->getPayloadType(), pkt->isRouteDirect() ? "D" : "F", pkt->payload_len,
             (int)pkt->getSNR(), (int)_radio->getLastRSSI(), (int)(score*1000));
 
     static uint8_t packet_hash[MAX_HASH_SIZE];
@@ -153,7 +153,7 @@ void Dispatcher::checkRecv() {
       Serial.printf("\n");
     }
     #endif
-    logRx(pkt, 2 + pkt->path_len + pkt->payload_len, score);   // hook for custom logging
+    logRx(pkt, pkt->getRawLength(), score);   // hook for custom logging
 
     if (pkt->isRouteFlood()) {
       n_recv_flood++;
