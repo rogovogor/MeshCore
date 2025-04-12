@@ -113,7 +113,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_IMPORT_CONTACT        18
 #define CMD_REBOOT                19
 #define CMD_GET_BATTERY_VOLTAGE   20
-#define CMD_SET_OTHER_PARAMS      21
+#define CMD_SET_TUNING_PARAMS     21
 #define CMD_DEVICE_QEURY          22
 #define CMD_EXPORT_PRIVATE_KEY    23
 #define CMD_IMPORT_PRIVATE_KEY    24
@@ -130,6 +130,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SIGN_FINISH           35
 #define CMD_SEND_TRACE_PATH       36
 #define CMD_SET_DEVICE_PIN        37
+#define CMD_SET_OTHER_PARAMS      38
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -1184,16 +1185,17 @@ public:
         radio_set_tx_power(_prefs.tx_power_dbm);
         writeOKFrame();
       }
-    } else if (cmd_frame[0] == CMD_SET_OTHER_PARAMS) {
+    } else if (cmd_frame[0] == CMD_SET_TUNING_PARAMS) {
       int i = 1;
       uint32_t rx, af;
       memcpy(&rx, &cmd_frame[i], 4); i += 4;
       memcpy(&af, &cmd_frame[i], 4); i += 4;
       _prefs.rx_delay_base = ((float)rx) / 1000.0f;
       _prefs.airtime_factor = ((float)af) / 1000.0f;
-      if (i < len) {
-        _prefs.manual_add_contacts = cmd_frame[i++];
-      }
+      savePrefs();
+      writeOKFrame();
+    } else if (cmd_frame[0] == CMD_SET_OTHER_PARAMS) {
+      _prefs.manual_add_contacts = cmd_frame[1];
       savePrefs();
       writeOKFrame();
     } else if (cmd_frame[0] == CMD_REBOOT && memcmp(&cmd_frame[1], "reboot", 6) == 0) {
