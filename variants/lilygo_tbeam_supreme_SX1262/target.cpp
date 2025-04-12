@@ -30,7 +30,9 @@ static void setPMUIntFlag(){
 }
 
 bool power_init() {
-
+  //Start up Wire1 with PMU address
+  Wire1.begin(I2C_PMU_ADD);
+  
   //Set LED to indicate charge state
   PMU.setChargingLedMode(XPOWERS_CHG_LED_CTRL_CHG);  
   
@@ -109,7 +111,7 @@ bool power_init() {
 
 bool radio_init() {
   fallback_clock.begin();
-  rtc_clock.begin(Wire);
+  rtc_clock.begin(Wire1);
   
 #ifdef SX126X_DIO3_TCXO_VOLTAGE
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;

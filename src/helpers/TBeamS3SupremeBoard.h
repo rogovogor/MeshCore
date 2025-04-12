@@ -18,9 +18,9 @@
 #define PIN_BOARD_SDA 17  //SDA for OLED, BME280, and QMC6310U (0x1C)
 #define PIN_BOARD_SCL 18  //SCL for OLED, BME280, and QMC6310U (0x1C)
 
-#define PIN_BOARD_SDA_1 42  //SDA for PMU and PFC8563 (RTC)
-#define PIN_BOARD_SCL_1 41  //SCL for PMU and PFC8563 (RTC)
-#define PIN_PMU_IRQ 40      //IRQ pin for PMU
+#define PIN_BOARD_SDA1 42  //SDA for PMU and PFC8563 (RTC)
+#define PIN_BOARD_SCL1 41  //SCL for PMU and PFC8563 (RTC)
+#define PIN_PMU_IRQ 40     //IRQ pin for PMU
 
 #define PIN_USER_BTN 0
 
@@ -37,6 +37,16 @@
 #define P_GPS_TX    8   //GPS TX pin
 #define P_GPS_WAKE  7   //GPS Wakeup pin
 #define P_GPS_1PPS  6   //GPS 1PPS pin
+
+//I2C Wire addresses
+#define I2C_BME280_ADD    0x76  //BME280 sensor I2C address on Wire
+#define I2C_OLED_ADD      0x3C  //SSD1306/SH1106 OLED I2C address on Wire
+#define I2C_QMC6310U_ADD  0x1C  //QMC6310U mag sensor I2C address on Wire
+
+//I2C Wire1 addresses
+#define I2C_RTC_ADD       0x51  //RTC I2C address on Wire1
+#define I2C_PMU_ADD       0x34  //AXP2101 I2C address on Wire1
+
 
 
 class TBeamS3SupremeBoard : public ESP32Board {
