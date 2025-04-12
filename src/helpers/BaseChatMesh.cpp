@@ -31,8 +31,29 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
     }
   }
 
+  // save a copy of raw advert packet (to support "Share..." function)
+  int plen = packet->writeTo(temp_buf);
+  putBlobByKey(id.pub_key, PUB_KEY_SIZE, temp_buf, plen);
+  
   bool is_new = false;
   if (from == NULL) {
+    if (!isAutoAddEnabled()) {
+      ContactInfo ci;
+      memset(&ci, 0, sizeof(ci));
+      ci.id = id;
+      ci.out_path_len = -1;  // initially out_path is unknown
+      StrHelper::strncpy(ci.name, parser.getName(), sizeof(ci.name));
+      ci.type = parser.getType();
+      if (parser.hasLatLon()) {
+        ci.gps_lat = parser.getIntLat();
+        ci.gps_lon = parser.getIntLon();
+      }
+      ci.last_advert_timestamp = timestamp;
+      ci.lastmod = getRTCClock()->getCurrentTime();
+      onDiscoveredContact(ci, true);       // let UI know
+      return;
+    }
+
     is_new = true;
     if (num_contacts < MAX_CONTACTS) {
       from = &contacts[num_contacts++];
@@ -50,10 +71,6 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
     }
   }
 
-  // save a copy of raw advert packet (to support "Share..." function)
-  int plen = packet->writeTo(temp_buf);
-  putBlobByKey(id.pub_key, PUB_KEY_SIZE, temp_buf, plen);
-  
   // update
   StrHelper::strncpy(from->name, parser.getName(), sizeof(from->name));
   from->type = parser.getType();
