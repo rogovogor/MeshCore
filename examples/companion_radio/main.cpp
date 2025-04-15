@@ -83,14 +83,14 @@ static uint32_t _atoi(const char* sp) {
 
 /*------------ Frame Protocol --------------*/
 
-#define FIRMWARE_VER_CODE    3
+#define FIRMWARE_VER_CODE    4
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "30 Mar 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Apr 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.4.2"
+  #define FIRMWARE_VERSION   "v1.4.3"
 #endif
 
 #define CMD_APP_START              1
@@ -130,6 +130,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SIGN_FINISH           35
 #define CMD_SEND_TRACE_PATH       36
 #define CMD_SET_DEVICE_PIN        37
+#define CMD_SET_OTHER_PARAMS      38
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -164,6 +165,7 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_STATUS_RESPONSE   0x87
 #define PUSH_CODE_LOG_RX_DATA       0x88
 #define PUSH_CODE_TRACE_DATA        0x89
+#define PUSH_CODE_NEW_ADVERT        0x8A
 
 #define ERR_CODE_UNSUPPORTED_CMD      1
 #define ERR_CODE_NOT_FOUND            2
@@ -184,7 +186,7 @@ struct NodePrefs {  // persisted to file
   uint8_t sf;
   uint8_t cr;
   uint8_t reserved1;
-  uint8_t reserved2;
+  uint8_t manual_add_contacts;
   float bw;
   uint8_t tx_power_dbm;
   uint8_t unused[3];
@@ -499,11 +501,19 @@ protected:
     }
   }
 
+  bool isAutoAddEnabled() const override {
+    return (_prefs.manual_add_contacts & 1) == 0;
+  }
+
   void onDiscoveredContact(ContactInfo& contact, bool is_new) override {
     if (_serial->isConnected()) {
-      out_frame[0] = PUSH_CODE_ADVERT;
-      memcpy(&out_frame[1], contact.id.pub_key, PUB_KEY_SIZE);
-      _serial->writeFrame(out_frame, 1 + PUB_KEY_SIZE);
+      if (!isAutoAddEnabled() && is_new) {
+        writeContactRespFrame(PUSH_CODE_NEW_ADVERT, contact);
+      } else {
+        out_frame[0] = PUSH_CODE_ADVERT;
+        memcpy(&out_frame[1], contact.id.pub_key, PUB_KEY_SIZE);
+        _serial->writeFrame(out_frame, 1 + PUB_KEY_SIZE);
+      }
     } else {
       soundBuzzer();
     }
@@ -663,6 +673,10 @@ protected:
   }
 
   void onRawDataRecv(mesh::Packet* packet) override {
+    if (packet->payload_len + 4 > sizeof(out_frame)) {
+      MESH_DEBUG_PRINTLN("onRawDataRecv(), payload_len too long: %d", packet->payload_len);
+      return;
+    }
     int i = 0;
     out_frame[i++] = PUSH_CODE_RAW_DATA;
     out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);
@@ -746,7 +760,7 @@ public:
       file.read((uint8_t *) &_prefs.sf, sizeof(_prefs.sf));  // 60
       file.read((uint8_t *) &_prefs.cr, sizeof(_prefs.cr));  // 61
       file.read((uint8_t *) &_prefs.reserved1, sizeof(_prefs.reserved1));  // 62
-      file.read((uint8_t *) &_prefs.reserved2, sizeof(_prefs.reserved2));  // 63
+      file.read((uint8_t *) &_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts));  // 63
       file.read((uint8_t *) &_prefs.bw, sizeof(_prefs.bw));  // 64
       file.read((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
       file.read((uint8_t *) _prefs.unused, sizeof(_prefs.unused));  // 69
@@ -847,7 +861,7 @@ public:
       file.write((uint8_t *) &_prefs.sf, sizeof(_prefs.sf));  // 60
       file.write((uint8_t *) &_prefs.cr, sizeof(_prefs.cr));  // 61
       file.write((uint8_t *) &_prefs.reserved1, sizeof(_prefs.reserved1));  // 62
-      file.write((uint8_t *) &_prefs.reserved2, sizeof(_prefs.reserved2));  // 63
+      file.write((uint8_t *) &_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts));  // 63
       file.write((uint8_t *) &_prefs.bw, sizeof(_prefs.bw));  // 64
       file.write((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
       file.write((uint8_t *) _prefs.unused, sizeof(_prefs.unused));  // 69
@@ -888,12 +902,15 @@ public:
       out_frame[i++] = MAX_LORA_TX_POWER;
       memcpy(&out_frame[i], self_id.pub_key, PUB_KEY_SIZE); i += PUB_KEY_SIZE;
 
-      int32_t lat, lon, alt = 0;
+      int32_t lat, lon;
       lat = (_prefs.node_lat * 1000000.0);
       lon = (_prefs.node_lon * 1000000.0);
       memcpy(&out_frame[i], &lat, 4); i += 4;
       memcpy(&out_frame[i], &lon, 4); i += 4;
-      memcpy(&out_frame[i], &alt, 4); i += 4;
+      out_frame[i++] = 0;  // reserved
+      out_frame[i++] = 0;  // reserved
+      out_frame[i++] = 0;  // reserved
+      out_frame[i++] = _prefs.manual_add_contacts;
 
       uint32_t freq = _prefs.freq * 1000;
       memcpy(&out_frame[i], &freq, 4); i += 4;
@@ -1175,6 +1192,10 @@ public:
       memcpy(&af, &cmd_frame[i], 4); i += 4;
       _prefs.rx_delay_base = ((float)rx) / 1000.0f;
       _prefs.airtime_factor = ((float)af) / 1000.0f;
+      savePrefs();
+      writeOKFrame();
+    } else if (cmd_frame[0] == CMD_SET_OTHER_PARAMS) {
+      _prefs.manual_add_contacts = cmd_frame[1];
       savePrefs();
       writeOKFrame();
     } else if (cmd_frame[0] == CMD_REBOOT && memcmp(&cmd_frame[1], "reboot", 6) == 0) {
@@ -1505,7 +1526,7 @@ void setup() {
 #endif
 
 #ifdef HAS_UI
-  ui_task.begin(disp, the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, the_mesh.getBLEPin());
+  ui_task.begin(disp, the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
 #endif
 }
 

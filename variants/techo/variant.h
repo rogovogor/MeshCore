@@ -42,7 +42,6 @@
 
 #define PIN_SERIAL1_RX          (41) // GPS TX
 #define PIN_SERIAL1_TX          (40) // GPS RX
-
 ////////////////////////////////////////////////////////////////////////////////
 // I2C pin definition
 
@@ -100,3 +99,25 @@
 #define PIN_SPI1_MISO           (39)
 #define PIN_SPI1_MOSI           (29)
 #define PIN_SPI1_SCK            (31)
+
+////////////////////////////////////////////////////////////////////////////////
+// Display
+
+#define DISP_MISO               (38)
+#define DISP_MOSI               (29)
+#define DISP_SCLK               (31)
+#define DISP_CS                 (30)
+#define DISP_DC                 (28)
+#define DISP_RST                (2)
+#define DISP_BUSY               (3)
+#define DISP_BACKLIGHT          (43)
+
+////////////////////////////////////////////////////////////////////////////////
+// GPS
+
+#define PIN_GPS_RX              (41)
+#define PIN_GPS_TX              (40)
+#define PIN_GPS_WAKEUP          (34)
+#define PIN_GPS_RESET           (37)
+#define PIN_GPS_PPS             (36)
+#define PIN_GPS_STANDBY         (34)
