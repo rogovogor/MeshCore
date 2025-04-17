@@ -583,6 +583,7 @@ protected:
 
             auto reply = createAck(ack_hash);
             if (reply) {
+              reply->payload[reply->payload_len++] = getUnsyncedCount(client);  // NEW: add unsynced counter to end of ACK packet
               sendDirect(reply, client->out_path, client->out_path_len);
             }
           }
