@@ -25,15 +25,17 @@ class GxEPDDisplay : public DisplayDriver {
 
   GxEPD2_BW<GxEPD2_150_BN, 200> display;
   bool _init = false;
+  bool _isOn = false;
 
 public:
-  GxEPDDisplay() : DisplayDriver(200, 200), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) { 
+  // there is a margin in y...
+  GxEPDDisplay() : DisplayDriver(200, 200-10), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) { 
 
   }
 
   bool begin();
 
-  bool isOn() override { return true; }
+  bool isOn() override {return _isOn;}; 
   void turnOn() override;
   void turnOff() override;
   void clear() override;

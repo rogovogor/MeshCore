@@ -99,7 +99,7 @@ void UITask::renderCurrScreen() {
     _display->setColor(DisplayDriver::LIGHT);
     _display->print(_msg);
 
-    _display->setCursor(100, 9);
+    _display->setCursor(_display->width() - 28, 9);
     _display->setTextSize(2);
     _display->setColor(DisplayDriver::ORANGE);
     sprintf(tmp, "%d", _msgcount);
