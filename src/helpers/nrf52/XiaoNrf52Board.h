@@ -49,20 +49,16 @@ public:
     // Please read befor going further ;)
     // https://wiki.seeedstudio.com/XIAO_BLE#q3-what-are-the-considerations-when-using-xiao-nrf52840-sense-for-battery-charging
 
-    pinMode(BAT_NOT_CHARGING, INPUT);
-    if (digitalRead(BAT_NOT_CHARGING) == HIGH) {
-      int adcvalue = 0;
-      analogReadResolution(12);
-      analogReference(AR_INTERNAL_3_0);  
-      digitalWrite(VBAT_ENABLE, LOW);
-      delay(10);
-      adcvalue = analogRead(PIN_VBAT);
-      digitalWrite(VBAT_ENABLE, HIGH);
-      return (adcvalue * ADC_MULTIPLIER * AREF_VOLTAGE) / 4.096;
-    } else {
-      digitalWrite(VBAT_ENABLE, HIGH); // ensures high !
-      return 4200; // charging value
-    }
+    // We can't drive VBAT_ENABLE to HIGH as long 
+    // as we don't know wether we are charging or not ...
+    // this is a 3mA loss (4/1500)
+    digitalWrite(VBAT_ENABLE, LOW);
+    int adcvalue = 0;
+    analogReadResolution(12);
+    analogReference(AR_INTERNAL_3_0);  
+    delay(10);
+    adcvalue = analogRead(PIN_VBAT);
+    return (adcvalue * ADC_MULTIPLIER * AREF_VOLTAGE) / 4.096;
   }
 
   const char* getManufacturerName() const override {
