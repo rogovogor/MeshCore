@@ -11,7 +11,7 @@ bool GxEPDDisplay::begin() {
   display.setPartialWindow(0, 0, display.width(), display.height());
 
   display.fillScreen(GxEPD_WHITE);
-  display.display();
+  display.display(true);
   _init = true;
   return true;
 }
