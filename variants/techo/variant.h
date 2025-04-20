@@ -65,6 +65,7 @@
 #define LED_GREEN               (33)
 #define LED_BLUE                (14)
 
+#define PIN_STATUS_LED          LED_GREEN
 #define LED_BUILTIN             LED_GREEN
 #define PIN_LED                 LED_BUILTIN
 #define LED_PIN                 LED_BUILTIN
@@ -78,6 +79,7 @@
 
 #define PIN_BUTTON1             (42)
 #define BUTTON_PIN              PIN_BUTTON1
+#define PIN_USER_BTN            BUTTON_PIN
 
 #define PIN_BUTTON2             (11)
 #define BUTTON_PIN2             PIN_BUTTON2
