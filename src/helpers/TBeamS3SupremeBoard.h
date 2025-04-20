@@ -40,7 +40,7 @@
 
 //I2C Wire addresses
 #define I2C_BME280_ADD    0x76  //BME280 sensor I2C address on Wire
-#define I2C_OLED_ADD      0x3C  //SSD1306/SH1106 OLED I2C address on Wire
+#define I2C_OLED_ADD      0x3C  //SH1106 OLED I2C address on Wire
 #define I2C_QMC6310U_ADD  0x1C  //QMC6310U mag sensor I2C address on Wire
 
 //I2C Wire1 addresses
