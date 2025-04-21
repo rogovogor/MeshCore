@@ -130,7 +130,7 @@ class MyMesh : public BaseChatMesh, ContactVisitor {
     File file = _fs->open("/contacts", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
-    File file = _fs->open("/contacts", "w+");
+    File file = _fs->open("/contacts", "w");
 #else
     File file = _fs->open("/contacts", "w", true);
 #endif
@@ -337,7 +337,7 @@ public:
     File file = _fs->open("/node_prefs", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
-    File file = _fs->open("/node_prefs", "w+");
+    File file = _fs->open("/node_prefs", "w");
 #else
     File file = _fs->open("/node_prefs", "w", true);
 #endif

@@ -291,7 +291,7 @@ class MyMesh : public BaseChatMesh {
     File file = _fs->open("/contacts3", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
-    File file = _fs->open("/contacts3", "w+");
+    File file = _fs->open("/contacts3", "w");
 #else
     File file = _fs->open("/contacts3", "w", true);
 #endif
@@ -356,7 +356,7 @@ class MyMesh : public BaseChatMesh {
     File file = _fs->open("/channels2", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
   #elif defined(RP2040_PLATFORM)
-    File file = _fs->open("/channels2", "w+");
+    File file = _fs->open("/channels2", "w");
   #else
     File file = _fs->open("/channels2", "w", true);
   #endif
@@ -413,7 +413,7 @@ class MyMesh : public BaseChatMesh {
     File f = _fs->open(path, FILE_O_WRITE);
     if (f) { f.seek(0); f.truncate(); }
   #elif defined(RP2040_PLATFORM)
-    File f = _fs->open(path, "w+");
+    File f = _fs->open(path, "w");
   #else
     File f = _fs->open(path, "w", true);
   #endif
@@ -875,7 +875,7 @@ public:
     File file = _fs->open("/new_prefs", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
-    File file = _fs->open("/new_prefs", "w+");
+    File file = _fs->open("/new_prefs", "w");
 #else
     File file = _fs->open("/new_prefs", "w", true);
 #endif
