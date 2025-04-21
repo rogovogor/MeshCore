@@ -61,6 +61,8 @@
   #include "UITask.h"
   #ifdef ST7789
     #include <helpers/ui/ST7789Display.h>
+  #elif defined(HAS_GxEPD)
+    #include <helpers/ui/GxEPDDisplay.h>
   #else
     #include <helpers/ui/SSD1306Display.h>
   #endif
