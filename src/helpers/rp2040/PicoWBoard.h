@@ -18,7 +18,7 @@
 
 // built-ins
 #define  PIN_VBAT_READ    26
-#define  ADC_MULTIPLIER   (3 * 1.73 * 1.187 * 1000) // MT Uses 3.1
+#define  ADC_MULTIPLIER   (3.1 * 3.3 * 1000) // MT Uses 3.1
 #define  PIN_LED_BUILTIN  LED_BUILTIN
 
 class PicoWBoard : public mesh::MainBoard {
