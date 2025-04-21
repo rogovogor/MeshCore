@@ -1122,6 +1122,8 @@ public:
         // export SELF
         auto pkt = createSelfAdvert(_prefs.node_name, _prefs.node_lat, _prefs.node_lon);
         if (pkt) {
+          pkt->header |= ROUTE_TYPE_FLOOD;  // would normally be sent in this mode
+
           out_frame[0] = RESP_CODE_EXPORT_CONTACT;
           uint8_t out_len =  pkt->writeTo(&out_frame[1]);
           releasePacket(pkt);  // undo the obtainNewPacket()
