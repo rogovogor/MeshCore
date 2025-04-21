@@ -22,7 +22,9 @@ AutoDiscoverRTCClock rtc_clock(fallback_clock);
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-  
+  pinMode(21, INPUT);
+  pinMode(48, OUTPUT);
+
 #ifdef SX126X_DIO3_TCXO_VOLTAGE
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
 #else
