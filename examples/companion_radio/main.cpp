@@ -12,6 +12,7 @@
 #include <helpers/SimpleMeshTables.h>
 #include <helpers/IdentityStore.h>
 #include <helpers/BaseSerialInterface.h>
+#include "NodePrefs.h"
 #include <RTClib.h>
 #include <target.h>
 
@@ -180,22 +181,6 @@ static uint32_t _atoi(const char* sp) {
 /* -------------------------------------------------------------------------------------- */
 
 #define MAX_SIGN_DATA_LEN    (8*1024)   // 8K
-
-struct NodePrefs {  // persisted to file
-  float airtime_factor;
-  char node_name[32];
-  double node_lat, node_lon;
-  float freq;
-  uint8_t sf;
-  uint8_t cr;
-  uint8_t reserved1;
-  uint8_t manual_add_contacts;
-  float bw;
-  uint8_t tx_power_dbm;
-  uint8_t unused[3];
-  float rx_delay_base;
-  uint32_t ble_pin;
-};
 
 class MyMesh : public BaseChatMesh {
   FILESYSTEM* _fs;
@@ -837,6 +822,9 @@ public:
   }
 
   const char* getNodeName() { return _prefs.node_name; }
+  NodePrefs* getNodePrefs() { 
+    return &_prefs; 
+  }
   uint32_t getBLEPin() { return _active_ble_pin; }
 
   void startInterface(BaseSerialInterface& serial) {
@@ -1529,7 +1517,7 @@ void setup() {
 #endif
 
 #ifdef HAS_UI
-  ui_task.begin(disp, the_mesh.getNodeName(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
+  ui_task.begin(disp, the_mesh.getNodePrefs(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
 #endif
 }
 
