@@ -166,7 +166,7 @@ void UITask::renderCurrScreen() {
     _display->print(tmp);
 
     // BT pin
-    if (_pin_code != 0) {
+    if (!_connected && _pin_code != 0) {
       _display->setColor(DisplayDriver::RED);
       _display->setTextSize(2);
       _display->setCursor(0, 43);
