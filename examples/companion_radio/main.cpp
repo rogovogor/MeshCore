@@ -817,6 +817,9 @@ public:
 
   #if defined(NRF52_PLATFORM)
     _identity_store = new IdentityStore(fs, "");
+  #elif defined(RP2040_PLATFORM)
+    _identity_store = new IdentityStore(fs, "/identity");
+    _identity_store->begin();
   #else
     _identity_store = new IdentityStore(fs, "/identity");
   #endif

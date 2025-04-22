@@ -889,6 +889,7 @@ void setup() {
   LittleFS.begin();
   fs = &LittleFS;
   IdentityStore store(LittleFS, "/identity");
+  store.begin();
 #elif defined(ESP32)
   SPIFFS.begin(true);
   fs = &SPIFFS;

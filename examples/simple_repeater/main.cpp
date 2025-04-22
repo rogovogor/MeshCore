@@ -651,6 +651,7 @@ void setup() {
   LittleFS.begin();
   fs = &LittleFS;
   IdentityStore store(LittleFS, "/identity");
+  store.begin();
 #else
   #error "need to define filesystem"
 #endif

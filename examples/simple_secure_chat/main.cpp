@@ -295,6 +295,9 @@ public:
 
   #if defined(NRF52_PLATFORM)
     IdentityStore store(fs, "");
+  #elif defined(RP2040_PLATFORM)
+    IdentityStore store(fs, "/identity");
+    store.begin();
   #else
     IdentityStore store(fs, "/identity");
   #endif
