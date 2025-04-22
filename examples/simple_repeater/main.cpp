@@ -3,6 +3,8 @@
 
 #if defined(NRF52_PLATFORM)
   #include <InternalFileSystem.h>
+#elif defined(RP2040_PLATFORM)
+  #include <LittleFS.h>
 #elif defined(ESP32)
   #include <SPIFFS.h>
 #endif
@@ -180,6 +182,8 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   File openAppend(const char* fname) {
   #if defined(NRF52_PLATFORM)
     return _fs->open(fname, FILE_O_WRITE);
+  #elif defined(RP2040_PLATFORM)
+    return _fs->open(fname, "a");
   #else
     return _fs->open(fname, "a", true);
   #endif
@@ -524,10 +528,12 @@ public:
   bool formatFileSystem() override {
 #if defined(NRF52_PLATFORM)
     return InternalFS.format();
+#elif defined(RP2040_PLATFORM)
+    return LittleFS.format();
 #elif defined(ESP32)
     return SPIFFS.format();
 #else
-  #error "need to implement file system erase"
+    #error "need to implement file system erase"
     return false;
 #endif
   }
@@ -563,7 +569,11 @@ public:
   }
 
   void dumpLogFile() override {
+#if defined(RP2040_PLATFORM)
+    File f = _fs->open(PACKET_LOG_FILE, "r");
+#else
     File f = _fs->open(PACKET_LOG_FILE);
+#endif
     if (f) {
       while (f.available()) {
         int c = f.read();
@@ -637,6 +647,10 @@ void setup() {
   SPIFFS.begin(true);
   fs = &SPIFFS;
   IdentityStore store(SPIFFS, "/identity");
+#elif defined(RP2040_PLATFORM)
+  LittleFS.begin();
+  fs = &LittleFS;
+  IdentityStore store(LittleFS, "/identity");
 #else
   #error "need to define filesystem"
 #endif
