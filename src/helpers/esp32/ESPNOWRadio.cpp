@@ -22,7 +22,7 @@ static void OnDataRecv(const uint8_t *mac, const uint8_t *data, int len) {
   last_rx_len = len;
 }
 
-void ESPNOWRadio::begin() {
+void ESPNOWRadio::init() {
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   // Long Range mode
