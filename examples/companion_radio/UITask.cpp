@@ -49,10 +49,6 @@ void UITask::begin(DisplayDriver* display, const char* node_name, const char* bu
     *dash = 0;
   }
 
-  #ifdef PIN_USER_BTN
-    pinMode(PIN_USER_BTN, INPUT);
-  #endif
-
   // v1.2.3 (1 Jan 2025)
   sprintf(_version_info, "%s (%s)", version, build_date);
 }
