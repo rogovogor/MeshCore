@@ -62,6 +62,8 @@
   #include "UITask.h"
   #ifdef ST7789
     #include <helpers/ui/ST7789Display.h>
+  #elif defined(HAS_GxEPD)
+    #include <helpers/ui/GxEPDDisplay.h>
   #else
     #include <helpers/ui/SSD1306Display.h>
   #endif
@@ -90,11 +92,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    4
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "7 Apr 2025"
+  #define FIRMWARE_BUILD_DATE   "21 Apr 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.4.3"
+  #define FIRMWARE_VERSION   "v1.5.1"
 #endif
 
 #define CMD_APP_START              1
@@ -1108,6 +1110,8 @@ public:
         // export SELF
         auto pkt = createSelfAdvert(_prefs.node_name, _prefs.node_lat, _prefs.node_lon);
         if (pkt) {
+          pkt->header |= ROUTE_TYPE_FLOOD;  // would normally be sent in this mode
+
           out_frame[0] = RESP_CODE_EXPORT_CONTACT;
           uint8_t out_len =  pkt->writeTo(&out_frame[1]);
           releasePacket(pkt);  // undo the obtainNewPacket()
