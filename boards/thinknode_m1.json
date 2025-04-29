@@ -5,17 +5,25 @@
     },
     "core": "nRF5",
     "cpu": "cortex-m4",
-    "extra_flags": "-DARDUINO_NRF52840_PCA10056 -DNRF52840_XXAA",
+    "extra_flags": "-DARDUINO_NRF52840_TTGO_EINK -DNRF52840_XXAA",
     "f_cpu": "64000000L",
     "hwids": [
       [
         "0x239A",
-        "0x8029"
+        "0x4405"
+      ],
+      [
+        "0x239A",
+        "0x0029"
+      ],
+      [
+        "0x239A",
+        "0x002A"
       ]
     ],
-    "usb_product": "NRF52 DK",
+    "usb_product": "elecrow_eink",
     "mcu": "nrf52840",
-    "variant": "pca10056",
+    "variant": "ELECROW-ThinkNode-M1",
     "bsp": {
       "name": "adafruit"
     },
@@ -42,21 +50,22 @@
   "frameworks": [
     "arduino"
   ],
-  "name": "LilyGo T-ECHO",
+  "name": "elecrow eink",
   "upload": {
     "maximum_ram_size": 248832,
     "maximum_size": 815104,
-    "require_upload_port": true,
     "speed": 115200,
-    "protocol": "jlink",
+    "use_1200bps_touch": true,
+    "require_upload_port": true,
+    "wait_for_upload_port": true,
+    "protocol": "nrfutil",
     "protocols": [
       "jlink",
       "nrfjprog",
-      "stlink",
-      "cmsis-dap",
-      "blackmagic"
+      "nrfutil",
+      "stlink"
     ]
   },
-  "url": "https://os.mbed.com/platforms/Nordic-nRF52840-DK/",
-  "vendor": "Nordic"
+  "url": "https://github.com/Elecrow-RD",
+  "vendor": "ELECROW"
 }
