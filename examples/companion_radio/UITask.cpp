@@ -106,6 +106,7 @@ void UITask::renderCurrScreen() {
     _display->setColor(DisplayDriver::ORANGE);
     sprintf(tmp, "%d", _msgcount);
     _display->print(tmp);
+    _display->setColor(DisplayDriver::YELLOW); // last color will be kept on T114
   } else {
     // render 'home' screen
     _display->setColor(DisplayDriver::BLUE);
@@ -120,6 +121,7 @@ void UITask::renderCurrScreen() {
     _display->print(_version_info);
 
     if (_connected) {
+      _display->setColor(DisplayDriver::BLUE);
       //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
       //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
     } else if (_pin_code != 0) {
@@ -128,6 +130,9 @@ void UITask::renderCurrScreen() {
       _display->setCursor(0, 43);
       sprintf(tmp, "Pin:%d", _pin_code);
       _display->print(tmp);
+      _display->setColor(DisplayDriver::GREEN);
+    } else {
+      _display->setColor(DisplayDriver::LIGHT);
     }
   }
   _need_refresh = false;

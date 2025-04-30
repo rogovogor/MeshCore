@@ -17,7 +17,8 @@ bool ST7789Display::begin() {
     display.init();
     display.landscapeScreen();
     display.displayOn();
-  
+    setCursor(0,0);
+
     _isOn = true;
   }
   return true;
