@@ -2,6 +2,10 @@
 
 #include "ST7789Display.h"
 
+#ifndef X_OFFSET
+#define X_OFFSET 16
+#endif
+
 bool ST7789Display::begin() {
   if(!_isOn) {
     pinMode(PIN_TFT_VDD_CTL, OUTPUT);
@@ -11,6 +15,7 @@ bool ST7789Display::begin() {
     digitalWrite(PIN_TFT_RST, HIGH);
 
     display.init();
+    display.landscapeScreen();
     display.displayOn();
   
     _isOn = true;
@@ -26,34 +31,23 @@ void ST7789Display::turnOff() {
   digitalWrite(PIN_TFT_VDD_CTL, HIGH);
   digitalWrite(PIN_TFT_LEDA_CTL, HIGH);
   digitalWrite(PIN_TFT_RST, LOW);
-  // digitalWrite(PIN_TFT_VDD_CTL, LOW);
-  // digitalWrite(PIN_TFT_LEDA_CTL, LOW);
   _isOn = false;
 }
 
 void ST7789Display::clear() {
-  // display.fillScreen(ST77XX_BLACK);
   display.clear();
 }
 
 void ST7789Display::startFrame(Color bkg) {
   display.clear();
-  // display.fillScreen(0x00);
-  // display.setTextColor(ST77XX_WHITE);
-  // display.setTextSize(2);
-  // display.cp437(true);         // Use full 256 char 'Code Page 437' font
 }
 
 void ST7789Display::setTextSize(int sz) {
-//  display.setTextSize(sz);
   switch(sz) {
     case 1 :
       display.setFont(ArialMT_Plain_10);
       break;
     case 2 :
-      display.setFont(ArialMT_Plain_16);
-      break;
-    case 3 :
       display.setFont(ArialMT_Plain_24);
       break;
     default:
@@ -89,12 +83,10 @@ void ST7789Display::setColor(Color c) {
       break;
   }
   display.setRGB(_color);
-  //display.setColor((OLEDDISPLAY_COLOR) 4);
 }
 
 void ST7789Display::setCursor(int x, int y) {
-  //display.setCursor(x, y);
-  _x = x;
+  _x = x + X_OFFSET;
   _y = y;
 }
 
@@ -103,15 +95,15 @@ void ST7789Display::print(const char* str) {
 }
 
 void ST7789Display::fillRect(int x, int y, int w, int h) {
-  display.fillRect(x, y, w, h);
+  display.fillRect(x + X_OFFSET, y, w, h);
 }
 
 void ST7789Display::drawRect(int x, int y, int w, int h) {
-  display.drawRect(x, y, w, h);
+  display.drawRect(x + X_OFFSET, y, w, h);
 }
 
 void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
-  display.drawXbm(x, y, w, h, bits);
+  display.drawBitmap(x+X_OFFSET, y, w, h, bits);
 }
 
 void ST7789Display::endFrame() {

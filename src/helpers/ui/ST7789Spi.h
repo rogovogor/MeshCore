@@ -262,6 +262,17 @@ class ST7789Spi : public OLEDDisplay {
 	delay(10);
   }
 
+  virtual void landscapeScreen() {
+
+    
+    uint8_t madctl = ST77XX_MADCTL_RGB;
+    sendCommand(ST77XX_MADCTL);
+    WriteData(madctl);
+    delay(10);
+
+    }
+  
+
   void setRGB(uint16_t c)
   {
 
@@ -276,6 +287,26 @@ class ST7789Spi : public OLEDDisplay {
   //sendCommand(DISPLAYOFF);
   }
   
+  void drawBitmap(int16_t xMove, int16_t yMove, int16_t width, int16_t height, const uint8_t *xbm) {
+    int16_t widthInXbm = (width + 7) / 8;
+    uint8_t data = 0;
+  
+    for(int16_t y = 0; y < height; y++) {
+      for(int16_t x = 0; x < width; x++ ) {
+        if (x & 7) {
+          data <<= 1; // Move a bit
+        } else {  // Read new data every 8 bit
+            data = pgm_read_byte(xbm + (x / 8) + y * widthInXbm);
+        }
+        // if there is a bit draw it
+        if (data & 0x80) {
+          setPixel(xMove + x, yMove + y);
+        }
+      }
+    }
+  }
+  
+
 //#define ST77XX_MADCTL_MY 0x80
 //#define ST77XX_MADCTL_MX 0x40
 //#define ST77XX_MADCTL_MV 0x20
