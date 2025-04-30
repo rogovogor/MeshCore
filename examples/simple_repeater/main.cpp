@@ -476,7 +476,7 @@ protected:
         const char *command = (const char *) &data[5];
         char *reply = (char *) &temp[5];
         if (is_retry) {
-          temp[0] = 0;
+          *reply = 0;
       #if MAX_NEIGHBOURS
         } else if (memcmp(command, "neighbors", 9) == 0) {
           char *dp = reply;
