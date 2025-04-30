@@ -105,6 +105,13 @@ struct ClientInfo {
 
 #define MAX_CLIENTS   4
 
+struct NeighbourInfo {
+  mesh::Identity id;
+  uint32_t advert_timestamp;
+  uint32_t heard_timestamp;
+  int8_t snr; // multiplied by 4, user should divide to get float value
+};
+
 // NOTE: need to space the ACK and the reply text apart (in CLI)
 #define CLI_REPLY_DELAY_MILLIS  1500
 
@@ -116,6 +123,9 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   CommonCLI _cli;
   uint8_t reply_data[MAX_PACKET_PAYLOAD];
   ClientInfo known_clients[MAX_CLIENTS];
+#if MAX_NEIGHBOURS
+  NeighbourInfo neighbours[MAX_NEIGHBOURS];
+#endif
 
   ClientInfo* putClient(const mesh::Identity& id) {
     uint32_t min_time = 0xFFFFFFFF;
@@ -133,6 +143,33 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     oldest->last_timestamp = 0;
     self_id.calcSharedSecret(oldest->secret, id);   // calc ECDH shared secret
     return oldest;
+  }
+
+  void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr) {
+  #if MAX_NEIGHBOURS    // check if neighbours enabled    
+    // find existing neighbour, else use least recently updated
+    uint32_t oldest_timestamp = 0xFFFFFFFF;
+    NeighbourInfo* neighbour = &neighbours[0];
+    for (int i = 0; i < MAX_NEIGHBOURS; i++) {
+      // if neighbour already known, we should update it
+      if (id.matches(neighbours[i].id)) {
+        neighbour = &neighbours[i];
+        break;
+      }
+
+      // otherwise we should update the least recently updated neighbour
+      if (neighbours[i].heard_timestamp < oldest_timestamp) {
+        neighbour = &neighbours[i];
+        oldest_timestamp = neighbour->heard_timestamp;
+      }
+    }
+
+    // update neighbour info
+    neighbour->id = id;
+    neighbour->advert_timestamp = timestamp;
+    neighbour->heard_timestamp = getRTCClock()->getCurrentTime();
+    neighbour->snr = (int8_t) (snr * 4);
+  #endif
   }
 
   int handleRequest(ClientInfo* sender, uint8_t* payload, size_t payload_len) {
@@ -361,6 +398,15 @@ protected:
     }
   }
 
+  void onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len) {
+    mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);  // chain to super impl
+
+    // if this a zero hop advert, add it to neighbours
+    if (packet->path_len == 0) {
+      putNeighbour(id, timestamp, packet->getSNR());
+    }
+  }
+
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override {
     int i = matching_peer_indexes[sender_idx];
     if (i < 0 || i >= MAX_CLIENTS) {  // get from our known_clients table (sender SHOULD already be known in this context)
@@ -427,12 +473,35 @@ protected:
         }
 
         uint8_t temp[166];
+        const char *command = (const char *) &data[5];
+        char *reply = (char *) &temp[5];
         if (is_retry) {
           temp[0] = 0;
+      #if MAX_NEIGHBOURS
+        } else if (memcmp(command, "neighbors", 9) == 0) {
+          char *dp = reply;
+
+          for (int i = 0; i < MAX_NEIGHBOURS && dp - reply < 130; i++) {
+            NeighbourInfo* neighbour = &neighbours[i];
+            if (neighbour->heard_timestamp == 0) continue;    // skip empty slots
+
+            // add new line if not first item
+            if (i > 0) *dp++ = '\n';
+
+            char hex[10];
+            // get 4 bytes of neighbour id as hex
+            mesh::Utils::toHex(hex, neighbour->id.pub_key, 4);
+
+            // add next neighbour
+            sprintf(dp, "%s:%d:%d", hex, neighbour->advert_timestamp, neighbour->snr);
+            while (*dp) dp++;   // find end of string
+          }
+          *dp = 0;  // null terminator
+      #endif
         } else {
-          _cli.handleCommand(sender_timestamp, (const char *) &data[5], (char *) &temp[5]);
+          _cli.handleCommand(sender_timestamp, command, reply);
         }
-        int text_len = strlen((char *) &temp[5]);
+        int text_len = strlen(reply);
         if (text_len > 0) {
           uint32_t timestamp = getRTCClock()->getCurrentTimeUnique();
           if (timestamp == sender_timestamp) {
@@ -481,6 +550,10 @@ public:
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
     _logging = false;
+
+  #if MAX_NEIGHBOURS
+    memset(neighbours, 0, sizeof(neighbours));
+  #endif
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
