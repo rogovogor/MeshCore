@@ -480,27 +480,6 @@ protected:
         char *reply = (char *) &temp[5];
         if (is_retry) {
           *reply = 0;
-      #if MAX_NEIGHBOURS
-        } else if (memcmp(command, "neighbors", 9) == 0) {
-          char *dp = reply;
-
-          for (int i = 0; i < MAX_NEIGHBOURS && dp - reply < 136; i++) {
-            NeighbourInfo* neighbour = &neighbours[i];
-            if (neighbour->heard_timestamp == 0) continue;    // skip empty slots
-
-            // add new line if not first item
-            if (i > 0) *dp++ = '\n';
-
-            char hex[10];
-            // get 4 bytes of neighbour id as hex
-            mesh::Utils::toHex(hex, neighbour->id.pub_key, 4);
-
-            // add next neighbour
-            sprintf(dp, "%s:%d:%d", hex, neighbour->advert_timestamp, neighbour->snr);
-            while (*dp) dp++;   // find end of string
-          }
-          *dp = 0;  // null terminator
-      #endif
         } else {
           _cli.handleCommand(sender_timestamp, command, reply);
         }
@@ -662,6 +641,29 @@ public:
 
   void setTxPower(uint8_t power_dbm) override {
     radio_set_tx_power(power_dbm);
+  }
+
+  void formatNeighborsReply(char *reply) override {
+    char *dp = reply;
+
+#if MAX_NEIGHBOURS
+    for (int i = 0; i < MAX_NEIGHBOURS && dp - reply < 134; i++) {
+      NeighbourInfo* neighbour = &neighbours[i];
+      if (neighbour->heard_timestamp == 0) continue;    // skip empty slots
+
+      // add new line if not first item
+      if (i > 0) *dp++ = '\n';
+
+      char hex[10];
+      // get 4 bytes of neighbour id as hex
+      mesh::Utils::toHex(hex, neighbour->id.pub_key, 4);
+
+      // add next neighbour
+      sprintf(dp, "%s:%d:%d", hex, neighbour->advert_timestamp, neighbour->snr);
+      while (*dp) dp++;   // find end of string
+    }
+#endif
+    *dp = 0;  // null terminator
   }
 
   void loop() {

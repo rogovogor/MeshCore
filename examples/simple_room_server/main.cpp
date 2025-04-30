@@ -789,6 +789,10 @@ public:
     radio_set_tx_power(power_dbm);
   }
 
+  void formatNeighborsReply(char *reply) override {
+    strcpy(reply, "not supported");
+  }
+
   void loop() {
     mesh::Mesh::loop();
 
