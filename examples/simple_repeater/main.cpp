@@ -403,7 +403,10 @@ protected:
 
     // if this a zero hop advert, add it to neighbours
     if (packet->path_len == 0) {
-      putNeighbour(id, timestamp, packet->getSNR());
+      AdvertDataParser parser(app_data, app_data_len);
+      if (parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) {   // just keep neigbouring Repeaters
+        putNeighbour(id, timestamp, packet->getSNR());
+      }
     }
   }
 
@@ -481,7 +484,7 @@ protected:
         } else if (memcmp(command, "neighbors", 9) == 0) {
           char *dp = reply;
 
-          for (int i = 0; i < MAX_NEIGHBOURS && dp - reply < 130; i++) {
+          for (int i = 0; i < MAX_NEIGHBOURS && dp - reply < 136; i++) {
             NeighbourInfo* neighbour = &neighbours[i];
             if (neighbour->heard_timestamp == 0) continue;    // skip empty slots
 
