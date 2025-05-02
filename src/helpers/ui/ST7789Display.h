@@ -4,16 +4,18 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
+#include <ST7789Spi.h>
 
 class ST7789Display : public DisplayDriver {
-  Adafruit_ST7789 display;
+  ST7789Spi display;
   bool _isOn;
   uint16_t _color;
+  int _x=0, _y=0;
 
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:
-  ST7789Display() : DisplayDriver(135, 240), display(&SPI1, PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST) { _isOn = false; }
+  ST7789Display() : DisplayDriver(135, 240), display(&SPI1, PIN_TFT_RST, PIN_TFT_DC, PIN_TFT_CS, GEOMETRY_RAWMODE, 240, 135) {_isOn = false;}
+
 //  ST7789Display() : DisplayDriver(135, 240), display(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_SDA, PIN_TFT_SCL, PIN_TFT_RST) { _isOn = false; }
   bool begin();
 

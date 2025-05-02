@@ -6,6 +6,12 @@
 #define AUTO_OFF_MILLIS     15000   // 15 seconds
 #define BOOT_SCREEN_MILLIS   4000   // 4 seconds
 
+#ifdef PIN_STATUS_LED
+#define LED_ON_MILLIS     20
+#define LED_ON_MSG_MILLIS 200
+#define LED_CYCLE_MILLIS  4000
+#endif
+
 #ifndef USER_BTN_PRESSED
 #define USER_BTN_PRESSED LOW
 #endif
@@ -44,10 +50,6 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs, const char* bu
   if(dash){
     *dash = 0;
   }
-
-  #ifdef PIN_USER_BTN
-    pinMode(PIN_USER_BTN, INPUT);
-  #endif
 
   // v1.2.3 (1 Jan 2025)
   sprintf(_version_info, "%s (%s)", version, build_date);
@@ -132,6 +134,7 @@ void UITask::renderCurrScreen() {
     _display->setColor(DisplayDriver::ORANGE);
     sprintf(tmp, "%d", _msgcount);
     _display->print(tmp);
+    _display->setColor(DisplayDriver::YELLOW); // last color will be kept on T114
   } else if (millis() < BOOT_SCREEN_MILLIS) { // boot screen
     // meshcore logo
     _display->setColor(DisplayDriver::BLUE);
@@ -141,7 +144,7 @@ void UITask::renderCurrScreen() {
     // version info
     _display->setColor(DisplayDriver::LIGHT);
     _display->setTextSize(1);
-    int textWidth = strlen(_version_info) * 6; // Assuming each character is 6 pixels wide
+    int textWidth = strlen(_version_info) * 5; // Assuming each character is 5 pixels wide
     _display->setCursor((_display->width() - textWidth) / 2, 22);
     _display->print(_version_info);
   } else {  // home screen
@@ -172,6 +175,9 @@ void UITask::renderCurrScreen() {
       _display->setCursor(0, 43);
       sprintf(tmp, "Pin:%d", _pin_code);
       _display->print(tmp);
+      _display->setColor(DisplayDriver::GREEN);
+    } else {
+      _display->setColor(DisplayDriver::LIGHT); 
     }
   }
   _need_refresh = false;
@@ -181,22 +187,21 @@ void UITask::userLedHandler() {
 #ifdef PIN_STATUS_LED
   static int state = 0;
   static int next_change = 0;
+  static int last_increment = 0;
+
   int cur_time = millis();
   if (cur_time > next_change) {
     if (state == 0) {
-      state = 1; // led on, short = unread msg
+      state = 1;
       if (_msgcount > 0) {
-        next_change = cur_time + 500;
+        last_increment = LED_ON_MSG_MILLIS;
       } else {
-        next_change = cur_time + 2000;
+        last_increment = LED_ON_MILLIS;
       }
+      next_change = cur_time + last_increment;
     } else {
       state = 0;
-      if (_board->getBattMilliVolts() > 3800) {
-        next_change = cur_time + 2000;
-      } else {
-        next_change = cur_time + 4000; // 4s blank if bat level low
-      }
+      next_change = cur_time + LED_CYCLE_MILLIS - last_increment;
     }
     digitalWrite(PIN_STATUS_LED, state);
   }
