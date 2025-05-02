@@ -666,6 +666,9 @@ public:
       while (*dp) dp++;   // find end of string
     }
 #endif
+    if (dp == reply) {   // no neighbours, need empty response
+      strcpy(dp, "-none-"); dp += 6;
+    }
     *dp = 0;  // null terminator
   }
 
