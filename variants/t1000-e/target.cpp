@@ -8,7 +8,8 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BU
 WRAPPER_CLASS radio_driver(radio, board);
 
 VolatileRTCClock rtc_clock;
-T1000SensorManager sensors;
+MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
+T1000SensorManager sensors = T1000SensorManager(nmea);
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -86,8 +87,70 @@ mesh::LocalIdentity radio_new_identity() {
   return mesh::LocalIdentity(&rng);  // create new random identity
 }
 
+void T1000SensorManager::start_gps() {
+  gps_active = true;
+  //_nmea->begin();
+  // this init sequence should be better 
+  // comes from seeed examples and deals with all gps pins
+  pinMode(GPS_EN, OUTPUT);
+  digitalWrite(GPS_EN, HIGH);
+  delay(10);
+  pinMode(GPS_VRTC_EN, OUTPUT);
+  digitalWrite(GPS_VRTC_EN, HIGH);
+  delay(10);
+       
+  pinMode(GPS_RESET, OUTPUT);
+  digitalWrite(GPS_RESET, HIGH);
+  delay(10);
+  digitalWrite(GPS_RESET, LOW);
+       
+  pinMode(GPS_SLEEP_INT, OUTPUT);
+  digitalWrite(GPS_SLEEP_INT, HIGH);
+  pinMode(GPS_RTC_INT, OUTPUT);
+  digitalWrite(GPS_RTC_INT, LOW);
+  pinMode(GPS_RESETB, INPUT_PULLUP);
+}
+
+void T1000SensorManager::sleep_gps() {
+  gps_active = false;
+  digitalWrite(GPS_VRTC_EN, HIGH);
+  digitalWrite(GPS_EN, LOW);
+  digitalWrite(GPS_RESET, HIGH);
+  digitalWrite(GPS_SLEEP_INT, HIGH);
+  digitalWrite(GPS_RTC_INT, LOW);
+  pinMode(GPS_RESETB, OUTPUT);
+  digitalWrite(GPS_RESETB, LOW);
+  //_nmea->stop();
+}
+
+void T1000SensorManager::stop_gps() {
+  gps_active = false;
+  digitalWrite(GPS_VRTC_EN, LOW);
+  digitalWrite(GPS_EN, LOW);
+  digitalWrite(GPS_RESET, HIGH);
+  digitalWrite(GPS_SLEEP_INT, HIGH);
+  digitalWrite(GPS_RTC_INT, LOW);
+  pinMode(GPS_RESETB, OUTPUT);
+  digitalWrite(GPS_RESETB, LOW);
+  //_nmea->stop();
+}
+
+
 bool T1000SensorManager::begin() {
   // TODO: init GPS
+  Serial1.begin(115200);
+
+  // make sure gps pin are off
+  digitalWrite(GPS_VRTC_EN, LOW);
+  digitalWrite(GPS_RESET, LOW);
+  digitalWrite(GPS_SLEEP_INT, LOW);
+  digitalWrite(GPS_RTC_INT, LOW);
+  pinMode(GPS_RESETB, OUTPUT);
+  digitalWrite(GPS_RESETB, LOW);
+
+  start_gps();
+
+
   return true;
 }
 
@@ -100,4 +163,16 @@ bool T1000SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP&
 
 void T1000SensorManager::loop() {
   // TODO: poll GPS serial,  set _lat, _lon, _alt
+  static long next_gps_update = 0;
+
+  _nmea->loop();
+
+  if (millis() > next_gps_update) {
+    if (_nmea->isValid()) {
+      _lat = ((double)_nmea->getLatitude())/1000000.;
+      _lon = ((double)_nmea->getLongitude())/1000000.;
+      //Serial.printf("lat %f lon %f\r\n", _lat, _lon);
+    }
+    next_gps_update = millis() + 5000;
+  }
 }
