@@ -414,11 +414,11 @@ int BaseChatMesh::sendLogin(const ContactInfo& recipient, const char* password, 
   return MSG_SEND_FAILED;
 }
 
-int  BaseChatMesh::sendStatusRequest(const ContactInfo& recipient, uint32_t& est_timeout) {
+int  BaseChatMesh::sendRequest(const ContactInfo& recipient, uint8_t req_type, uint32_t& tag, uint32_t& est_timeout) {
   uint8_t temp[13];
-  uint32_t now = getRTCClock()->getCurrentTimeUnique();
-  memcpy(temp, &now, 4);   // mostly an extra blob to help make packet_hash unique
-  temp[4] = REQ_TYPE_GET_STATUS;
+  tag = getRTCClock()->getCurrentTimeUnique();
+  memcpy(temp, &tag, 4);   // mostly an extra blob to help make packet_hash unique
+  temp[4] = req_type;
   memset(&temp[5], 0, 4);  // reserved (possibly for 'since' param)
   getRNG()->random(&temp[9], 4);   // random blob to help make packet-hash unique
 

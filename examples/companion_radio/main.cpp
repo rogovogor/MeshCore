@@ -139,6 +139,7 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SEND_TRACE_PATH       36
 #define CMD_SET_DEVICE_PIN        37
 #define CMD_SET_OTHER_PARAMS      38
+#define CMD_SEND_TELEMETRY_REQ    39
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -174,6 +175,7 @@ static uint32_t _atoi(const char* sp) {
 #define PUSH_CODE_LOG_RX_DATA       0x88
 #define PUSH_CODE_TRACE_DATA        0x89
 #define PUSH_CODE_NEW_ADVERT        0x8A
+#define PUSH_CODE_TELEMETRY_RESPONSE  0x8B
 
 #define ERR_CODE_UNSUPPORTED_CMD      1
 #define ERR_CODE_NOT_FOUND            2
@@ -196,6 +198,7 @@ class MyMesh : public BaseChatMesh {
   NodePrefs _prefs;
   uint32_t pending_login;
   uint32_t pending_status;
+  uint32_t pending_telemetry;
   BaseSerialInterface* _serial;
   ContactsIterator _iter;
   uint32_t _iter_filter_since;
@@ -666,8 +669,8 @@ protected:
   }
 
   void onContactResponse(const ContactInfo& contact, const uint8_t* data, uint8_t len) override {
-    uint32_t sender_timestamp;
-    memcpy(&sender_timestamp, data, 4);
+    uint32_t tag;
+    memcpy(&tag, data, 4);
 
     if (pending_login && memcmp(&pending_login, contact.id.pub_key, 4) == 0) { // check for login response
       // yes, is response to pending sendLogin()
@@ -690,12 +693,20 @@ protected:
       }
       memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       _serial->writeFrame(out_frame, i);
-    } else if (len > 4 && pending_status && memcmp(&pending_status, contact.id.pub_key, 4) == 0) { // check for status response
-      // yes, is response to pending sendStatusRequest()
+    } else if (len > 4 && tag == pending_status) { // check for status response
       pending_status = 0;
 
       int i = 0;
       out_frame[i++] = PUSH_CODE_STATUS_RESPONSE;
+      out_frame[i++] = 0;  // reserved
+      memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
+      memcpy(&out_frame[i], &data[4], len - 4); i += (len - 4);
+      _serial->writeFrame(out_frame, i);
+    } else if (len > 4 && tag == pending_telemetry) {  // check for telemetry response
+      pending_telemetry = 0;
+
+      int i = 0;
+      out_frame[i++] = PUSH_CODE_TELEMETRY_RESPONSE;
       out_frame[i++] = 0;  // reserved
       memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       memcpy(&out_frame[i], &data[4], len - 4); i += (len - 4);
@@ -762,7 +773,7 @@ public:
     offline_queue_len = 0;
     app_target_ver = 0;
     _identity_store = NULL;
-    pending_login = pending_status = 0;
+    pending_login = pending_status = pending_telemetry = 0;
     next_ack_idx = 0;
     sign_data = NULL;
 
@@ -1300,7 +1311,7 @@ public:
         if (result == MSG_SEND_FAILED) {
           writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
-          pending_status = 0;
+          pending_telemetry = pending_status = 0;
           memcpy(&pending_login, recipient->id.pub_key, 4);  // match this to onContactResponse()
           out_frame[0] = RESP_CODE_SENT;
           out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
@@ -1315,16 +1326,36 @@ public:
       uint8_t* pub_key = &cmd_frame[1];
       ContactInfo* recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
       if (recipient) {
-        uint32_t est_timeout;
-        int result = sendStatusRequest(*recipient, est_timeout);
+        uint32_t tag, est_timeout;
+        int result = sendRequest(*recipient, REQ_TYPE_GET_STATUS, tag, est_timeout);
         if (result == MSG_SEND_FAILED) {
           writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
-          pending_login = 0;
-          memcpy(&pending_status, recipient->id.pub_key, 4);  // match this to onContactResponse()
+          pending_telemetry = pending_login = 0;
+          pending_status = tag;  // match this in onContactResponse()
           out_frame[0] = RESP_CODE_SENT;
           out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
-          memcpy(&out_frame[2], &pending_status, 4);
+          memcpy(&out_frame[2], &tag, 4);
+          memcpy(&out_frame[6], &est_timeout, 4);
+          _serial->writeFrame(out_frame, 10);
+        }
+      } else {
+        writeErrFrame(ERR_CODE_NOT_FOUND);  // contact not found
+      }
+    } else if (cmd_frame[0] == CMD_SEND_TELEMETRY_REQ && len >= 4+PUB_KEY_SIZE) {
+      uint8_t* pub_key = &cmd_frame[4];
+      ContactInfo* recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+      if (recipient) {
+        uint32_t tag, est_timeout;
+        int result = sendRequest(*recipient, REQ_TYPE_GET_TELEMETRY_DATA, tag, est_timeout);
+        if (result == MSG_SEND_FAILED) {
+          writeErrFrame(ERR_CODE_TABLE_FULL);
+        } else {
+          pending_status = pending_login = 0;
+          pending_telemetry = tag;  // match this in onContactResponse()
+          out_frame[0] = RESP_CODE_SENT;
+          out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
+          memcpy(&out_frame[2], &tag, 4);
           memcpy(&out_frame[6], &est_timeout, 4);
           _serial->writeFrame(out_frame, 10);
         }
