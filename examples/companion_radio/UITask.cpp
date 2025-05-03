@@ -1,8 +1,10 @@
 #include "UITask.h"
 #include <Arduino.h>
 #include <helpers/TxtDataHelpers.h>
+#include "NodePrefs.h"
 
-#define AUTO_OFF_MILLIS   15000   // 15 seconds
+#define AUTO_OFF_MILLIS     15000   // 15 seconds
+#define BOOT_SCREEN_MILLIS   4000   // 4 seconds
 
 #ifdef PIN_STATUS_LED
 #define LED_ON_MILLIS     20
@@ -31,11 +33,11 @@ static const uint8_t meshcore_logo [] PROGMEM = {
     0xe3, 0xe3, 0x8f, 0xff, 0x1f, 0xfc, 0x3c, 0x0e, 0x1f, 0xf8, 0xff, 0xf8, 0x70, 0x3c, 0x7f, 0xf8, 
 };
 
-void UITask::begin(DisplayDriver* display, const char* node_name, const char* build_date, const char* firmware_version, uint32_t pin_code) {
+void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs, const char* build_date, const char* firmware_version, uint32_t pin_code) {
   _display = display;
   _auto_off = millis() + AUTO_OFF_MILLIS;
   clearMsgPreview();
-  _node_name = node_name;
+  _node_prefs = node_prefs;
   _pin_code = pin_code;
   if (_display != NULL) {
     _display->turnOn();
@@ -83,16 +85,42 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   }
 }
 
+void renderBatteryIndicator(DisplayDriver* _display, uint16_t batteryMilliVolts) {
+  // Convert millivolts to percentage
+  const int minMilliVolts = 3000; // Minimum voltage (e.g., 3.0V)
+  const int maxMilliVolts = 4200; // Maximum voltage (e.g., 4.2V)
+  int batteryPercentage = ((batteryMilliVolts - minMilliVolts) * 100) / (maxMilliVolts - minMilliVolts);
+  if (batteryPercentage < 0) batteryPercentage = 0; // Clamp to 0%
+  if (batteryPercentage > 100) batteryPercentage = 100; // Clamp to 100%
+
+  // battery icon
+  int iconWidth = 24;
+  int iconHeight = 12;
+  int iconX = _display->width() - iconWidth - 5; // Position the icon near the top-right corner
+  int iconY = 0;
+  _display->setColor(DisplayDriver::GREEN);
+
+  // battery outline
+  _display->drawRect(iconX, iconY, iconWidth, iconHeight);
+
+  // battery "cap"
+  _display->fillRect(iconX + iconWidth, iconY + (iconHeight / 4), 3, iconHeight / 2);
+
+  // fill the battery based on the percentage
+  int fillWidth = (batteryPercentage * (iconWidth - 2)) / 100;
+  _display->fillRect(iconX + 1, iconY + 1, fillWidth, iconHeight - 2);
+}
+
 void UITask::renderCurrScreen() {
   if (_display == NULL) return;  // assert() ??
 
   char tmp[80];
-  if (_origin[0] && _msg[0]) {
+  if (_origin[0] && _msg[0]) { // message preview
     // render message preview
     _display->setCursor(0, 0);
     _display->setTextSize(1);
     _display->setColor(DisplayDriver::GREEN);
-    _display->print(_node_name);
+    _display->print(_node_prefs->node_name);
 
     _display->setCursor(0, 12);
     _display->setColor(DisplayDriver::YELLOW);
@@ -106,28 +134,50 @@ void UITask::renderCurrScreen() {
     _display->setColor(DisplayDriver::ORANGE);
     sprintf(tmp, "%d", _msgcount);
     _display->print(tmp);
-  } else {
-    // render 'home' screen
+    _display->setColor(DisplayDriver::YELLOW); // last color will be kept on T114
+  } else if (millis() < BOOT_SCREEN_MILLIS) { // boot screen
+    // meshcore logo
     _display->setColor(DisplayDriver::BLUE);
-    _display->drawXbm(0, 0, meshcore_logo, 128, 13);
-    _display->setCursor(0, 20);
-    _display->setTextSize(1);
+    int logoWidth = 128;
+    _display->drawXbm((_display->width() - logoWidth) / 2, 3, meshcore_logo, logoWidth, 13);
 
+    // version info
     _display->setColor(DisplayDriver::LIGHT);
-    _display->print(_node_name);
-    
-    _display->setCursor(0, 32);
+    _display->setTextSize(1);
+    int textWidth = strlen(_version_info) * 5; // Assuming each character is 5 pixels wide
+    _display->setCursor((_display->width() - textWidth) / 2, 22);
     _display->print(_version_info);
+  } else {  // home screen
+    // node name
+    _display->setCursor(0, 0);
+    _display->setTextSize(1);
+    _display->setColor(DisplayDriver::GREEN);
+    _display->print(_node_prefs->node_name);
 
-    if (_connected) {
-      //_display->printf("freq : %03.2f sf %d\n", _prefs.freq, _prefs.sf);
-      //_display->printf("bw   : %03.2f cr %d\n", _prefs.bw, _prefs.cr);
-    } else if (_pin_code != 0) {
+    // battery voltage
+    renderBatteryIndicator(_display, _board->getBattMilliVolts());
+
+    // freq / sf
+    _display->setCursor(0, 20);
+    _display->setColor(DisplayDriver::YELLOW);
+    sprintf(tmp, "FREQ: %06.3f SF%d", _node_prefs->freq, _node_prefs->sf);
+    _display->print(tmp);
+
+    // bw / cr
+    _display->setCursor(0, 30);
+    sprintf(tmp, "BW: %03.2f CR: %d", _node_prefs->bw, _node_prefs->cr);
+    _display->print(tmp);
+
+    // BT pin
+    if (!_connected && _pin_code != 0) {
       _display->setColor(DisplayDriver::RED);
       _display->setTextSize(2);
       _display->setCursor(0, 43);
       sprintf(tmp, "Pin:%d", _pin_code);
       _display->print(tmp);
+      _display->setColor(DisplayDriver::GREEN);
+    } else {
+      _display->setColor(DisplayDriver::LIGHT); 
     }
   }
   _need_refresh = false;
@@ -199,6 +249,11 @@ void UITask::loop() {
   userLedHandler();
 
   if (_display != NULL && _display->isOn()) {
+    static bool _firstBoot = true;
+    if(_firstBoot && millis() >= BOOT_SCREEN_MILLIS) {
+      _need_refresh = true;
+      _firstBoot = false;
+    }
     if (millis() >= _next_refresh && _need_refresh) {
       _display->startFrame();
       renderCurrScreen();

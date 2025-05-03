@@ -161,6 +161,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       } else {
         strcpy(reply, "(ERR: clock cannot go backwards)");
       }
+    } else if (memcmp(command, "neighbors", 9) == 0) {
+      _callbacks->formatNeighborsReply(reply);
     } else if (memcmp(command, "password ", 9) == 0) {
       // change admin password
       StrHelper::strncpy(_prefs->password, &command[9], sizeof(_prefs->password));

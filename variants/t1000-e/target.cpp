@@ -8,6 +8,7 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BU
 WRAPPER_CLASS radio_driver(radio, board);
 
 VolatileRTCClock rtc_clock;
+T1000SensorManager sensors;
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -83,4 +84,20 @@ void radio_set_tx_power(uint8_t dbm) {
 mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
   return mesh::LocalIdentity(&rng);  // create new random identity
+}
+
+bool T1000SensorManager::begin() {
+  // TODO: init GPS
+  return true;
+}
+
+bool T1000SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
+  if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
+    telemetry.addGPS(TELEM_CHANNEL_SELF, _lat, _lon, _alt);
+  }
+  return true;
+}
+
+void T1000SensorManager::loop() {
+  // TODO: poll GPS serial,  set _lat, _lon, _alt
 }
