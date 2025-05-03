@@ -184,6 +184,10 @@ static uint32_t _atoi(const char* sp) {
 
 /* -------------------------------------------------------------------------------------- */
 
+#define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
+#define REQ_TYPE_KEEP_ALIVE          0x02
+#define REQ_TYPE_GET_TELEMETRY_DATA  0x03
+
 #define MAX_SIGN_DATA_LEN    (8*1024)   // 8K
 
 class MyMesh : public BaseChatMesh {
@@ -203,6 +207,7 @@ class MyMesh : public BaseChatMesh {
   uint32_t sign_data_len;
   uint8_t cmd_frame[MAX_FRAME_SIZE+1];
   uint8_t out_frame[MAX_FRAME_SIZE+1];
+  CayenneLPP telemetry;
 
   struct Frame {
     uint8_t len;
@@ -644,6 +649,22 @@ protected:
   #endif
   }
 
+  uint8_t onContactRequest(const ContactInfo& contact, uint32_t sender_timestamp, const uint8_t* data, uint8_t len, uint8_t* reply) override {
+    if (data[0] == REQ_TYPE_GET_TELEMETRY_DATA) {
+      telemetry.reset();
+      telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
+      // query other sensors -- target specific
+      sensors.querySensors(contact.flags, telemetry);
+
+      memcpy(reply, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
+
+      uint8_t tlen = telemetry.getSize();
+      memcpy(&reply[4], telemetry.getBuffer(), tlen);
+      return 4 + tlen;
+    }
+    return 0;  // unknown
+  }
+
   void onContactResponse(const ContactInfo& contact, const uint8_t* data, uint8_t len) override {
     uint32_t sender_timestamp;
     memcpy(&sender_timestamp, data, 4);
@@ -734,7 +755,8 @@ protected:
 public:
 
   MyMesh(mesh::Radio& radio, mesh::RNG& rng, mesh::RTCClock& rtc, SimpleMeshTables& tables)
-     : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables), _serial(NULL)
+     : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables), _serial(NULL),
+       telemetry(MAX_PACKET_PAYLOAD - 4)
   {
     _iter_started = false;
     offline_queue_len = 0;
@@ -1592,6 +1614,8 @@ void setup() {
   #error "need to define filesystem"
 #endif
 
+  sensors.begin();
+
 #ifdef HAS_UI
   ui_task.begin(disp, the_mesh.getNodePrefs(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
 #endif
@@ -1599,4 +1623,5 @@ void setup() {
 
 void loop() {
   the_mesh.loop();
+  sensors.loop();
 }

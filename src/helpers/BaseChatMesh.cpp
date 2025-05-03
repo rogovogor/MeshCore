@@ -178,6 +178,27 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
     } else {
       MESH_DEBUG_PRINTLN("onPeerDataRecv: unsupported message type: %u", (uint32_t) flags);
     }
+  } else if (type == PAYLOAD_TYPE_REQ && len > 4) {
+    uint32_t sender_timestamp;
+    memcpy(&sender_timestamp, data, 4);
+    uint8_t reply_len = onContactRequest(from, sender_timestamp, &data[4], len - 4, temp_buf);
+    if (reply_len > 0) {
+      if (packet->isRouteFlood()) {
+        // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
+        mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
+                                              PAYLOAD_TYPE_RESPONSE, temp_buf, reply_len);
+        if (path) sendFlood(path);
+      } else {
+        mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, from.id, secret, temp_buf, reply_len);
+        if (reply) {
+          if (from.out_path_len >= 0) {  // we have an out_path, so send DIRECT
+            sendDirect(reply, from.out_path, from.out_path_len);
+          } else {
+            sendFlood(reply);
+          }
+        }
+      }
+    }
   } else if (type == PAYLOAD_TYPE_RESPONSE && len > 0) {
     onContactResponse(from, data, len);
   }

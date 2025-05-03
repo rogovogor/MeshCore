@@ -74,7 +74,9 @@
 
 /* ------------------------------ Code -------------------------------- */
 
-#define CMD_GET_STATUS      0x01
+#define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
+#define REQ_TYPE_KEEP_ALIVE          0x02
+#define REQ_TYPE_GET_TELEMETRY_DATA  0x03
 
 #define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
 
@@ -126,6 +128,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 #if MAX_NEIGHBOURS
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
 #endif
+  CayenneLPP telemetry;
 
   ClientInfo* putClient(const mesh::Identity& id) {
     uint32_t min_time = 0xFFFFFFFF;
@@ -172,12 +175,13 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   #endif
   }
 
-  int handleRequest(ClientInfo* sender, uint8_t* payload, size_t payload_len) {
-    uint32_t now = getRTCClock()->getCurrentTimeUnique();
-    memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
+  int handleRequest(ClientInfo* sender, uint32_t sender_timestamp, uint8_t* payload, size_t payload_len) {
+   // uint32_t now = getRTCClock()->getCurrentTimeUnique();
+   // memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
+    memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
     switch (payload[0]) {
-      case CMD_GET_STATUS: {   // guests can also access this now
+      case REQ_TYPE_GET_STATUS: {   // guests can also access this now
         RepeaterStats stats;
         stats.batt_milli_volts = board.getBattMilliVolts();
         stats.curr_tx_queue_len = _mgr->getOutboundCount();
@@ -200,9 +204,18 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 
         return 4 + sizeof(stats);  //  reply_len
       }
+      case REQ_TYPE_GET_TELEMETRY_DATA: {
+        telemetry.reset();
+        telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
+        // query other sensors -- target specific
+        sensors.querySensors(sender->is_admin ? 0xFF : 0x00, telemetry);
+
+        uint8_t tlen = telemetry.getSize();
+        memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
+        return 4 + tlen;  // reply_len
+      }
     }
-    // unknown command
-    return 0;  // reply_len
+    return 0;  // unknown command
   }
 
   mesh::Packet* createSelfAdvert() {
@@ -422,7 +435,7 @@ protected:
       memcpy(&timestamp, data, 4);
 
       if (timestamp > client->last_timestamp) {  // prevent replay attacks
-        int reply_len = handleRequest(client, &data[4], len - 4);
+        int reply_len = handleRequest(client, timestamp, &data[4], len - 4);
         if (reply_len == 0) return;  // invalid command
 
         client->last_timestamp = timestamp;
@@ -527,7 +540,7 @@ protected:
 public:
   MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, this, &_prefs, this)
+      _cli(board, this, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
   {
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
@@ -754,6 +767,8 @@ void setup() {
 
   command[0] = 0;
 
+  sensors.begin();
+
   the_mesh.begin(fs);
 
 #ifdef DISPLAY_CLASS
@@ -790,4 +805,5 @@ void loop() {
   }
 
   the_mesh.loop();
+  sensors.loop();
 }
