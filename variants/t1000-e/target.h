@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MicroNMEALocationProvider.h"
+
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
@@ -8,13 +10,18 @@
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 
-class T1000SensorManager : public SensorManager {
+class T1000SensorManager: public SensorManager {
   float _lat, _lon, _alt;
+  bool gps_active = false;
+  LocationProvider * _nmea;
 public:
-  T1000SensorManager(): _lat(0), _lon(0), _alt(0) { }
+  T1000SensorManager(LocationProvider &nmea): _nmea(&nmea), _lat(0), _lon(0), _alt(0) { }
   bool begin() override;
   bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;
   void loop() override;
+  void start_gps();
+  void sleep_gps();
+  void stop_gps();
 };
 
 extern T1000eBoard board;
