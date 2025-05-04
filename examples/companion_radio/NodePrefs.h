@@ -6,7 +6,6 @@
 struct NodePrefs {  // persisted to file
   float airtime_factor;
   char node_name[32];
-  double node_lat, node_lon;
   float freq;
   uint8_t sf;
   uint8_t cr;

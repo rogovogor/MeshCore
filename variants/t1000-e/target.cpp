@@ -137,7 +137,7 @@ void T1000SensorManager::stop_gps() {
 
 
 bool T1000SensorManager::begin() {
-  // TODO: init GPS
+  // init GPS
   Serial1.begin(115200);
 
   // make sure gps pin are off
@@ -148,31 +148,50 @@ bool T1000SensorManager::begin() {
   pinMode(GPS_RESETB, OUTPUT);
   digitalWrite(GPS_RESETB, LOW);
 
-  start_gps();
-
-
   return true;
 }
 
 bool T1000SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
-    telemetry.addGPS(TELEM_CHANNEL_SELF, _lat, _lon, _alt);
+    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, 0.0f);
   }
   return true;
 }
 
 void T1000SensorManager::loop() {
-  // TODO: poll GPS serial,  set _lat, _lon, _alt
   static long next_gps_update = 0;
 
   _nmea->loop();
 
   if (millis() > next_gps_update) {
     if (_nmea->isValid()) {
-      _lat = ((double)_nmea->getLatitude())/1000000.;
-      _lon = ((double)_nmea->getLongitude())/1000000.;
+      node_lat = ((double)_nmea->getLatitude())/1000000.;
+      node_lon = ((double)_nmea->getLongitude())/1000000.;
       //Serial.printf("lat %f lon %f\r\n", _lat, _lon);
     }
-    next_gps_update = millis() + 5000;
+    next_gps_update = millis() + 1000;
   }
+}
+
+int T1000SensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
+
+const char* T1000SensorManager::getSettingName(int i) const {
+  return i == 0 ? "gps" : NULL;
+}
+const char* T1000SensorManager::getSettingValue(int i) const {
+  if (i == 0) {
+    return gps_active ? "1" : "0";
+  }
+  return NULL;
+}
+bool T1000SensorManager::setSettingValue(const char* name, const char* value) {
+  if (strcmp(name, "gps") == 0) {
+    if (strcmp(value, "0") == 0) {
+      stop_gps();   // or should this be sleep_gps() ??
+    } else {
+      start_gps();
+    }
+    return true;
+  }
+  return false;  // not supported
 }

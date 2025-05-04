@@ -140,6 +140,8 @@ static uint32_t _atoi(const char* sp) {
 #define CMD_SET_DEVICE_PIN        37
 #define CMD_SET_OTHER_PARAMS      38
 #define CMD_SEND_TELEMETRY_REQ    39
+#define CMD_GET_CUSTOM_VARS       40
+#define CMD_SET_CUSTOM_VAR        41
 
 #define RESP_CODE_OK                0
 #define RESP_CODE_ERR               1
@@ -162,6 +164,7 @@ static uint32_t _atoi(const char* sp) {
 #define RESP_CODE_CHANNEL_INFO     18   // a reply to CMD_GET_CHANNEL
 #define RESP_CODE_SIGN_START       19
 #define RESP_CODE_SIGNATURE        20
+#define RESP_CODE_CUSTOM_VARS      21
 
 // these are _pushed_ to client app at any time
 #define PUSH_CODE_ADVERT            0x80
@@ -801,8 +804,8 @@ public:
       file.read((uint8_t *) &_prefs.airtime_factor, sizeof(float));  // 0
       file.read((uint8_t *) _prefs.node_name, sizeof(_prefs.node_name));  // 4
       file.read(pad, 4);   // 36
-      file.read((uint8_t *) &_prefs.node_lat, sizeof(_prefs.node_lat));  // 40
-      file.read((uint8_t *) &_prefs.node_lon, sizeof(_prefs.node_lon));  // 48
+      file.read((uint8_t *) &sensors.node_lat, sizeof(sensors.node_lat));  // 40
+      file.read((uint8_t *) &sensors.node_lon, sizeof(sensors.node_lon));  // 48
       file.read((uint8_t *) &_prefs.freq, sizeof(_prefs.freq));   // 56
       file.read((uint8_t *) &_prefs.sf, sizeof(_prefs.sf));  // 60
       file.read((uint8_t *) &_prefs.cr, sizeof(_prefs.cr));  // 61
@@ -910,8 +913,8 @@ public:
       file.write((uint8_t *) &_prefs.airtime_factor, sizeof(float));  // 0
       file.write((uint8_t *) _prefs.node_name, sizeof(_prefs.node_name));  // 4
       file.write(pad, 4);   // 36
-      file.write((uint8_t *) &_prefs.node_lat, sizeof(_prefs.node_lat));  // 40
-      file.write((uint8_t *) &_prefs.node_lon, sizeof(_prefs.node_lon));  // 48
+      file.write((uint8_t *) &sensors.node_lat, sizeof(sensors.node_lat));  // 40
+      file.write((uint8_t *) &sensors.node_lon, sizeof(sensors.node_lon));  // 48
       file.write((uint8_t *) &_prefs.freq, sizeof(_prefs.freq));   // 56
       file.write((uint8_t *) &_prefs.sf, sizeof(_prefs.sf));  // 60
       file.write((uint8_t *) &_prefs.cr, sizeof(_prefs.cr));  // 61
@@ -958,8 +961,8 @@ public:
       memcpy(&out_frame[i], self_id.pub_key, PUB_KEY_SIZE); i += PUB_KEY_SIZE;
 
       int32_t lat, lon;
-      lat = (_prefs.node_lat * 1000000.0);
-      lon = (_prefs.node_lon * 1000000.0);
+      lat = (sensors.node_lat * 1000000.0);
+      lon = (sensors.node_lon * 1000000.0);
       memcpy(&out_frame[i], &lat, 4); i += 4;
       memcpy(&out_frame[i], &lon, 4); i += 4;
       out_frame[i++] = 0;  // reserved
@@ -1072,8 +1075,8 @@ public:
         memcpy(&alt, &cmd_frame[9], 4);  // for FUTURE support
       }
       if (lat <= 90*1E6 && lat >= -90*1E6 && lon <= 180*1E6 && lon >= -180*1E6) {
-        _prefs.node_lat = ((double)lat) / 1000000.0;
-        _prefs.node_lon = ((double)lon) / 1000000.0;
+        sensors.node_lat = ((double)lat) / 1000000.0;
+        sensors.node_lon = ((double)lon) / 1000000.0;
         savePrefs();
         writeOKFrame();
       } else {
@@ -1096,7 +1099,7 @@ public:
         writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else if (cmd_frame[0] == CMD_SEND_SELF_ADVERT) {
-      auto pkt = createSelfAdvert(_prefs.node_name, _prefs.node_lat, _prefs.node_lon);
+      auto pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
       if (pkt) {
         if (len >= 2 && cmd_frame[1] == 1) {   // optional param (1 = flood, 0 = zero hop)
           sendFlood(pkt);
@@ -1170,7 +1173,7 @@ public:
     } else if (cmd_frame[0] == CMD_EXPORT_CONTACT) {
       if (len < 1 + PUB_KEY_SIZE) {
         // export SELF
-        auto pkt = createSelfAdvert(_prefs.node_name, _prefs.node_lat, _prefs.node_lon);
+        auto pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
         if (pkt) {
           pkt->header |= ROUTE_TYPE_FLOOD;  // would normally be sent in this mode
 
@@ -1456,6 +1459,30 @@ public:
       memcpy(&_prefs.ble_pin, &cmd_frame[1], 4);
       savePrefs();
       writeOKFrame();
+    } else if (cmd_frame[0] == CMD_GET_CUSTOM_VARS) {
+      out_frame[0] = RESP_CODE_CUSTOM_VARS;
+      char* dp = (char *) &out_frame[1];
+      for (int i = 0; i < sensors.getNumSettings() && dp - (char *) &out_frame[1] < 140; i++) {
+        if (i > 0) { *dp++ = ','; }
+        strcpy(dp, sensors.getSettingName(i)); dp = strchr(dp, 0);
+        *dp++ = ':';
+        strcpy(dp, sensors.getSettingValue(i)); dp = strchr(dp, 0);
+      }
+      _serial->writeFrame(out_frame, dp - (char *)out_frame);
+    } else if (cmd_frame[0] == CMD_SET_CUSTOM_VAR && len >= 4) {
+      char* sp = (char *) &cmd_frame[1];
+      char* np = strchr(sp, ':');  // look for separator char
+      if (np) {
+        *np++ = 0;   // modify 'cmd_frame', replace ':' with null
+        bool success = sensors.setSettingValue(sp, np);
+        if (success) {
+          writeOKFrame();
+        } else {
+          writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+        }
+      } else {
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+      }
     } else {
       writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
       MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
