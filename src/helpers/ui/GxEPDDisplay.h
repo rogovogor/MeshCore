@@ -14,11 +14,11 @@
 #define GxEPD2_DISPLAY_CLASS GxEPD2_BW
 #define GxEPD2_DRIVER_CLASS GxEPD2_150_BN  // DEPG0150BN 200x200, SSD1681, (FPC8101), TTGO T5 V2.4.1
 
-#include <epd/GxEPD2_150_BN.h>  // 1.54" b/w 
+#include <epd/GxEPD2_150_BN.h>  // 1.54" b/w
 
 #include "DisplayDriver.h"
 
-//GxEPD2_BW<GxEPD2_150_BN, 200> display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)); // DEPG0150BN 200x200, SSD1681, TTGO T5 V2.4.1                 
+//GxEPD2_BW<GxEPD2_150_BN, 200> display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)); // DEPG0150BN 200x200, SSD1681, TTGO T5 V2.4.1
 
 
 class GxEPDDisplay : public DisplayDriver {
@@ -29,12 +29,12 @@ class GxEPDDisplay : public DisplayDriver {
 
 public:
   // there is a margin in y...
-  GxEPDDisplay() : DisplayDriver(128, 64), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) { 
+  GxEPDDisplay() : DisplayDriver(128, 128), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) {
   }
 
   bool begin();
 
-  bool isOn() override {return _isOn;}; 
+  bool isOn() override {return _isOn;};
   void turnOn() override;
   void turnOff() override;
   void clear() override;
