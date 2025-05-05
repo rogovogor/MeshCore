@@ -366,9 +366,8 @@ class ST7789Spi : public OLEDDisplay {
   private:
 
    void setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
-    // For landscape orientation (240x135)
-    x += (320-displayWidth)/2;  // Center horizontally in 320 pixels
-    y += (240-displayHeight)/2; // Center vertically in 240 pixels
+    x += (320-displayWidth)/2;
+    y += (240-displayHeight)/2;
     
     uint32_t xa = ((uint32_t)x << 16) | (x + w - 1);
     uint32_t ya = ((uint32_t)y << 16) | (y + h - 1);
