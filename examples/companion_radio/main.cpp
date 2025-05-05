@@ -713,7 +713,10 @@ protected:
       }
       memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       _serial->writeFrame(out_frame, i);
-    } else if (len > 4 && tag == pending_status) { // check for status response
+    } else if (len > 4 &&   // check for status response
+      pending_status && memcmp(&pending_status, contact.id.pub_key, 4) == 0   // legacy matching scheme
+      // FUTURE: tag == pending_status
+    ) {
       pending_status = 0;
 
       int i = 0;
@@ -1360,7 +1363,8 @@ public:
           writeErrFrame(ERR_CODE_TABLE_FULL);
         } else {
           pending_telemetry = pending_login = 0;
-          pending_status = tag;  // match this in onContactResponse()
+          // FUTURE:  pending_status = tag;  // match this in onContactResponse()
+          memcpy(&pending_status, recipient->id.pub_key, 4);  // legacy matching scheme
           out_frame[0] = RESP_CODE_SENT;
           out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
           memcpy(&out_frame[2], &tag, 4);
