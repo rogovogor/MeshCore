@@ -11,7 +11,6 @@ class ST7789Display : public DisplayDriver {
   bool _isOn;
   uint16_t _color;
   int _x=0, _y=0;
-  int _textSize=1; // Track the current text size
 
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:
