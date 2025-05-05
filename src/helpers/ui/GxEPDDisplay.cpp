@@ -1,11 +1,15 @@
 
 #include "GxEPDDisplay.h"
 
+#ifndef DISPLAY_ROTATION
+  #define DISPLAY_ROTATION 3
+#endif
+
 bool GxEPDDisplay::begin() {
   display.epd2.selectSPI(SPI1, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   SPI1.begin();
   display.init(115200, true, 2, false);
-  display.setRotation(3);
+  display.setRotation(DISPLAY_ROTATION);
   #ifdef TECHO_ZOOM
     display.setFont(&FreeMono9pt7b);
   #endif
