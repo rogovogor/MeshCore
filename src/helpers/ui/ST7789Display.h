@@ -14,9 +14,8 @@ class ST7789Display : public DisplayDriver {
 
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:
-  ST7789Display() : DisplayDriver(240, 135), display(&SPI1, PIN_TFT_RST, PIN_TFT_DC, PIN_TFT_CS, GEOMETRY_RAWMODE, 240, 135) {_isOn = false;}
+  ST7789Display() : DisplayDriver(128, 64), display(&SPI1, PIN_TFT_RST, PIN_TFT_DC, PIN_TFT_CS, GEOMETRY_RAWMODE, 240, 135) {_isOn = false;}
 
-//  ST7789Display() : DisplayDriver(135, 240), display(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_SDA, PIN_TFT_SCL, PIN_TFT_RST) { _isOn = false; }
   bool begin();
 
   bool isOn() override { return _isOn; }

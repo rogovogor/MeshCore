@@ -10,6 +10,9 @@
 #define Y_OFFSET 1  // Vertical offset to prevent top row cutoff
 #endif
 
+#define SCALE_X  1.875f     // 240 / 128
+#define SCALE_Y  2.109375f   // 135 / 64
+
 bool ST7789Display::begin() {
   if(!_isOn) {
     pinMode(PIN_TFT_VDD_CTL, OUTPUT);
@@ -50,13 +53,13 @@ void ST7789Display::startFrame(Color bkg) {
 void ST7789Display::setTextSize(int sz) {
   switch(sz) {
     case 1 :
-      display.setFont(ArialMT_Plain_10);
+      display.setFont(ArialMT_Plain_16);
       break;
     case 2 :
       display.setFont(ArialMT_Plain_24);
       break;
     default:
-      display.setFont(ArialMT_Plain_10);
+      display.setFont(ArialMT_Plain_16);
   }
 }
 
@@ -91,8 +94,8 @@ void ST7789Display::setColor(Color c) {
 }
 
 void ST7789Display::setCursor(int x, int y) {
-  _x = x + X_OFFSET;
-  _y = y + Y_OFFSET;
+  _x = x*SCALE_X + X_OFFSET;
+  _y = y*SCALE_Y + Y_OFFSET;
 }
 
 void ST7789Display::print(const char* str) {
@@ -100,19 +103,19 @@ void ST7789Display::print(const char* str) {
 }
 
 void ST7789Display::fillRect(int x, int y, int w, int h) {
-  display.fillRect(x + X_OFFSET, y + Y_OFFSET, w, h);
+  display.fillRect(x*SCALE_X + X_OFFSET, y*SCALE_Y + Y_OFFSET, w*SCALE_X, h*SCALE_Y);
 }
 
 void ST7789Display::drawRect(int x, int y, int w, int h) {
-  display.drawRect(x + X_OFFSET, y + Y_OFFSET, w, h);
+  display.drawRect(x*SCALE_X + X_OFFSET, y*SCALE_Y + Y_OFFSET, w*SCALE_X, h*SCALE_Y);
 }
 
 void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
-  display.drawBitmap(x + X_OFFSET, y + Y_OFFSET, w, h, bits);
+  display.drawBitmap(x*SCALE_X + X_OFFSET, y*SCALE_Y + Y_OFFSET, w, h, bits);
 }
 
 uint16_t ST7789Display::getTextWidth(const char* str) {
-  return display.getStringWidth(str);
+  return display.getStringWidth(str) / SCALE_X;
 }
 
 void ST7789Display::endFrame() {

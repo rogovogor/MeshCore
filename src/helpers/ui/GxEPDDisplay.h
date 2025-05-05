@@ -29,8 +29,7 @@ class GxEPDDisplay : public DisplayDriver {
 
 public:
   // there is a margin in y...
-  GxEPDDisplay() : DisplayDriver(200, 200-10), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) { 
-
+  GxEPDDisplay() : DisplayDriver(128, 64), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) { 
   }
 
   bool begin();
