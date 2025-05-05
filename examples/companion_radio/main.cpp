@@ -91,7 +91,7 @@ static uint32_t _atoi(const char* sp) {
 
 /*------------ Frame Protocol --------------*/
 
-#define FIRMWARE_VER_CODE    4
+#define FIRMWARE_VER_CODE    5
 
 #ifndef FIRMWARE_BUILD_DATE
   #define FIRMWARE_BUILD_DATE   "21 Apr 2025"
@@ -657,16 +657,33 @@ protected:
 
   uint8_t onContactRequest(const ContactInfo& contact, uint32_t sender_timestamp, const uint8_t* data, uint8_t len, uint8_t* reply) override {
     if (data[0] == REQ_TYPE_GET_TELEMETRY_DATA) {
-      telemetry.reset();
-      telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
-      // query other sensors -- target specific
-      sensors.querySensors(contact.flags, telemetry);
+      uint8_t permissions = 0;
+      uint8_t cp = contact.flags >> 1;   // LSB used as 'favourite' bit (so only use upper bits)
 
-      memcpy(reply, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
+      if (_prefs.telemetry_mode_base == TELEM_MODE_ALLOW_ALL) {
+        permissions = TELEM_PERM_BASE;
+      } else if (_prefs.telemetry_mode_base == TELEM_MODE_ALLOW_FLAGS) {
+        permissions = cp & TELEM_PERM_BASE;
+      }
 
-      uint8_t tlen = telemetry.getSize();
-      memcpy(&reply[4], telemetry.getBuffer(), tlen);
-      return 4 + tlen;
+      if (_prefs.telemetry_mode_loc == TELEM_MODE_ALLOW_ALL) {
+        permissions |= TELEM_PERM_LOCATION;
+      } else if (_prefs.telemetry_mode_loc == TELEM_MODE_ALLOW_FLAGS) {
+        permissions |= cp & TELEM_PERM_LOCATION;
+      }
+
+      if (permissions & TELEM_PERM_BASE) {   // only respond if base permission bit is set
+        telemetry.reset();
+        telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
+        // query other sensors -- target specific
+        sensors.querySensors(permissions, telemetry);
+
+        memcpy(reply, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
+
+        uint8_t tlen = telemetry.getSize();
+        memcpy(&reply[4], telemetry.getBuffer(), tlen);
+        return 4 + tlen;
+      }
     }
     return 0;  // unknown
   }
@@ -813,7 +830,9 @@ public:
       file.read((uint8_t *) &_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts));  // 63
       file.read((uint8_t *) &_prefs.bw, sizeof(_prefs.bw));  // 64
       file.read((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
-      file.read((uint8_t *) _prefs.unused, sizeof(_prefs.unused));  // 69
+      file.read((uint8_t *) &_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base));  // 69
+      file.read((uint8_t *) &_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));  // 70
+      file.read(pad, 1);  // 71
       file.read((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
       file.read(pad, 4);   // 76
       file.read((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
@@ -922,7 +941,9 @@ public:
       file.write((uint8_t *) &_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts));  // 63
       file.write((uint8_t *) &_prefs.bw, sizeof(_prefs.bw));  // 64
       file.write((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
-      file.write((uint8_t *) _prefs.unused, sizeof(_prefs.unused));  // 69
+      file.write((uint8_t *) &_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base));  // 69
+      file.write((uint8_t *) &_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));  // 70
+      file.write(pad, 1);  // 71
       file.write((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
       file.write(pad, 4);   // 76
       file.write((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
@@ -967,7 +988,7 @@ public:
       memcpy(&out_frame[i], &lon, 4); i += 4;
       out_frame[i++] = 0;  // reserved
       out_frame[i++] = 0;  // reserved
-      out_frame[i++] = 0;  // reserved
+      out_frame[i++] = (_prefs.telemetry_mode_loc << 2) | (_prefs.telemetry_mode_base);  // v5+
       out_frame[i++] = _prefs.manual_add_contacts;
 
       uint32_t freq = _prefs.freq * 1000;
@@ -1256,6 +1277,10 @@ public:
       writeOKFrame();
     } else if (cmd_frame[0] == CMD_SET_OTHER_PARAMS) {
       _prefs.manual_add_contacts = cmd_frame[1];
+      if (len >= 3) {
+        _prefs.telemetry_mode_base = cmd_frame[2] & 0x03;       // v5+
+        _prefs.telemetry_mode_loc = (cmd_frame[2] >> 2) & 0x03;
+      }
       savePrefs();
       writeOKFrame();
     } else if (cmd_frame[0] == CMD_REBOOT && memcmp(&cmd_frame[1], "reboot", 6) == 0) {
