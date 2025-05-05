@@ -56,7 +56,7 @@ void UITask::renderCurrScreen() {
     _display->print(_version_info);
 
     // node type
-    const char* node_type = "< Repeater >";
+    const char* node_type = "< Room Server >";
     uint16_t typeWidth = _display->getTextWidth(node_type);
     _display->setCursor((_display->width() - typeWidth) / 2, 35);
     _display->print(node_type);
