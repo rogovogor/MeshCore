@@ -7,10 +7,10 @@
 
 #ifdef TECHO_ZOOM
   #define SCALE_X   (1.5625f * 1.5f)   //  200 / 128  (with 1.5 scale)
-  #define SCALE_Y   (2.9687f * 1.5f)   //  190 / 64   (with 1.5 scale)
+  #define SCALE_Y   (1.5625f * 1.5f)   //  200 / 128  (with 1.5 scale)
 #else
   #define SCALE_X   1.5625f   //  200 / 128
-  #define SCALE_Y   2.9687f   //  190 / 64
+  #define SCALE_Y   1.5625f   //  200 / 128
 #endif
 
 bool GxEPDDisplay::begin() {
