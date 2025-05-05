@@ -44,6 +44,7 @@ void ST7789Display::startFrame(Color bkg) {
 }
 
 void ST7789Display::setTextSize(int sz) {
+  _textSize = sz; // Store the text size
   switch(sz) {
     case 1 :
       display.setFont(ArialMT_Plain_10);
@@ -105,6 +106,10 @@ void ST7789Display::drawRect(int x, int y, int w, int h) {
 
 void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
   display.drawBitmap(x+X_OFFSET, y, w, h, bits);
+}
+
+uint16_t ST7789Display::getTextWidth(const char* str) {
+  return display.getStringWidth(str);
 }
 
 void ST7789Display::endFrame() {

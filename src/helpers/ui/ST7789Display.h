@@ -11,6 +11,7 @@ class ST7789Display : public DisplayDriver {
   bool _isOn;
   uint16_t _color;
   int _x=0, _y=0;
+  int _textSize=1; // Track the current text size
 
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:
@@ -31,5 +32,6 @@ public:
   void fillRect(int x, int y, int w, int h) override;
   void drawRect(int x, int y, int w, int h) override;
   void drawXbm(int x, int y, const uint8_t* bits, int w, int h) override;
+  uint16_t getTextWidth(const char* str) override;
   void endFrame() override;
 };
