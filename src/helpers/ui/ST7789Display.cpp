@@ -3,7 +3,11 @@
 #include "ST7789Display.h"
 
 #ifndef X_OFFSET
-#define X_OFFSET 16
+#define X_OFFSET 0  // No offset needed for landscape
+#endif
+
+#ifndef Y_OFFSET
+#define Y_OFFSET 1  // Vertical offset to prevent top row cutoff
 #endif
 
 bool ST7789Display::begin() {
@@ -88,7 +92,7 @@ void ST7789Display::setColor(Color c) {
 
 void ST7789Display::setCursor(int x, int y) {
   _x = x + X_OFFSET;
-  _y = y;
+  _y = y + Y_OFFSET;
 }
 
 void ST7789Display::print(const char* str) {
@@ -96,15 +100,15 @@ void ST7789Display::print(const char* str) {
 }
 
 void ST7789Display::fillRect(int x, int y, int w, int h) {
-  display.fillRect(x + X_OFFSET, y, w, h);
+  display.fillRect(x + X_OFFSET, y + Y_OFFSET, w, h);
 }
 
 void ST7789Display::drawRect(int x, int y, int w, int h) {
-  display.drawRect(x + X_OFFSET, y, w, h);
+  display.drawRect(x + X_OFFSET, y + Y_OFFSET, w, h);
 }
 
 void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
-  display.drawBitmap(x+X_OFFSET, y, w, h, bits);
+  display.drawBitmap(x + X_OFFSET, y + Y_OFFSET, w, h, bits);
 }
 
 uint16_t ST7789Display::getTextWidth(const char* str) {
