@@ -94,6 +94,13 @@ void GxEPDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
   display.drawBitmap(x*1.5, (y*1.5) + 10, bits, w, h, GxEPD_BLACK);
 }
 
+uint16_t GxEPDDisplay::getTextWidth(const char* str) {
+  int16_t x1, y1;
+  uint16_t w, h;
+  display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
+  return w;
+}
+
 void GxEPDDisplay::endFrame() {
   display.display(true);
 }

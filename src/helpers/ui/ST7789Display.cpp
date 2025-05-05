@@ -107,6 +107,10 @@ void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
   display.drawBitmap(x+X_OFFSET, y, w, h, bits);
 }
 
+uint16_t ST7789Display::getTextWidth(const char* str) {
+  return display.getStringWidth(str);
+}
+
 void ST7789Display::endFrame() {
   display.display();
 }
