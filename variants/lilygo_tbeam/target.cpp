@@ -55,13 +55,13 @@ bool TBeamBoard::power_init()
     PMU = new XPowersAXP2101(PMU_WIRE_PORT);
     if (!PMU->init())
     {
-      Serial.println("Warning: Failed to find AXP2101 power management");
+      // Serial.println("Warning: Failed to find AXP2101 power management");
       delete PMU;
       PMU = NULL;
     }
     else
     {
-      Serial.println("AXP2101 PMU init succeeded, using AXP2101 PMU");
+      // Serial.println("AXP2101 PMU init succeeded, using AXP2101 PMU");
     }
   }
   if (!PMU)
@@ -69,72 +69,46 @@ bool TBeamBoard::power_init()
     PMU = new XPowersAXP192(PMU_WIRE_PORT);
     if (!PMU->init())
     {
-      Serial.println("Warning: Failed to find AXP192 power management");
+      // Serial.println("Warning: Failed to find AXP192 power management");
       delete PMU;
       PMU = NULL;
     }
     else
     {
-      Serial.println("AXP192 PMU init succeeded, using AXP192 PMU");
+      // Serial.println("AXP192 PMU init succeeded, using AXP192 PMU");
     }
   }
 
   if (!PMU)
   {
+    Serial.println("PMU init failed.");
     return false;
   }
 
-  Serial.printf("PMU  ID:0x%x\n", PMU->getChipID());
-  printPMU();
+  // Serial.printf("PMU  ID:0x%x\n", PMU->getChipID());
+  // printPMU();
   if (PMU->getChipModel() == XPOWERS_AXP192)
   {
-
     // lora radio power channel
     PMU->setPowerChannelVoltage(XPOWERS_LDO2, 3300);
     PMU->enablePowerOutput(XPOWERS_LDO2);
-
     // oled module power channel,
     // disable it will cause abnormal communication between boot and AXP power supply,
     // do not turn it off
     PMU->setPowerChannelVoltage(XPOWERS_DCDC1, 3300);
     // enable oled power
     PMU->enablePowerOutput(XPOWERS_DCDC1);
-
     // gnss module power channel
     PMU->setPowerChannelVoltage(XPOWERS_LDO3, 3300);
     // power->enablePowerOutput(XPOWERS_LDO3);
-
     // protected oled power source
     PMU->setProtectedChannel(XPOWERS_DCDC1);
     // protected esp32 power source
     PMU->setProtectedChannel(XPOWERS_DCDC3);
-
     // disable not use channel
     PMU->disablePowerOutput(XPOWERS_DCDC2);
-
     // disable all axp chip interrupt
     PMU->disableIRQ(XPOWERS_AXP192_ALL_IRQ);
-
-    //
-    /*  Set the constant current charging current of AXP192
-        opt:
-        XPOWERS_AXP192_CHG_CUR_100MA,
-        XPOWERS_AXP192_CHG_CUR_190MA,
-        XPOWERS_AXP192_CHG_CUR_280MA,
-        XPOWERS_AXP192_CHG_CUR_360MA,
-        XPOWERS_AXP192_CHG_CUR_450MA,
-        XPOWERS_AXP192_CHG_CUR_550MA,
-        XPOWERS_AXP192_CHG_CUR_630MA,
-        XPOWERS_AXP192_CHG_CUR_700MA,
-        XPOWERS_AXP192_CHG_CUR_780MA,
-        XPOWERS_AXP192_CHG_CUR_880MA,
-        XPOWERS_AXP192_CHG_CUR_960MA,
-        XPOWERS_AXP192_CHG_CUR_1000MA,
-        XPOWERS_AXP192_CHG_CUR_1080MA,
-        XPOWERS_AXP192_CHG_CUR_1160MA,
-        XPOWERS_AXP192_CHG_CUR_1240MA,
-        XPOWERS_AXP192_CHG_CUR_1320MA,
-    */
     PMU->setChargerConstantCurr(XPOWERS_AXP192_CHG_CUR_550MA);
   }
   else if (PMU->getChipModel() == XPOWERS_AXP2101)
@@ -142,53 +116,31 @@ bool TBeamBoard::power_init()
     // gnss module power channel
     PMU->setPowerChannelVoltage(XPOWERS_ALDO4, 3300);
     PMU->enablePowerOutput(XPOWERS_ALDO4);
-
     // lora radio power channel
     PMU->setPowerChannelVoltage(XPOWERS_ALDO3, 3300);
     PMU->enablePowerOutput(XPOWERS_ALDO3);
-
     // m.2 interface
     PMU->setPowerChannelVoltage(XPOWERS_DCDC3, 3300);
     PMU->enablePowerOutput(XPOWERS_DCDC3);
-
     // power->setPowerChannelVoltage(XPOWERS_DCDC4, 3300);
     // power->enablePowerOutput(XPOWERS_DCDC4);
-
     // not use channel
     PMU->disablePowerOutput(XPOWERS_DCDC2); // not elicited
     PMU->disablePowerOutput(XPOWERS_DCDC5); // not elicited
     PMU->disablePowerOutput(XPOWERS_DLDO1); // Invalid power channel, it does not exist
     PMU->disablePowerOutput(XPOWERS_DLDO2); // Invalid power channel, it does not exist
     PMU->disablePowerOutput(XPOWERS_VBACKUP);
-
     // disable all axp chip interrupt
     PMU->disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
-
-    /*  Set the constant current charging current of AXP2101
-        opt:
-        XPOWERS_AXP2101_CHG_CUR_100MA,
-        XPOWERS_AXP2101_CHG_CUR_125MA,
-        XPOWERS_AXP2101_CHG_CUR_150MA,
-        XPOWERS_AXP2101_CHG_CUR_175MA,
-        XPOWERS_AXP2101_CHG_CUR_200MA,
-        XPOWERS_AXP2101_CHG_CUR_300MA,
-        XPOWERS_AXP2101_CHG_CUR_400MA,
-        XPOWERS_AXP2101_CHG_CUR_500MA,
-        XPOWERS_AXP2101_CHG_CUR_600MA,
-        XPOWERS_AXP2101_CHG_CUR_700MA,
-        XPOWERS_AXP2101_CHG_CUR_800MA,
-        XPOWERS_AXP2101_CHG_CUR_900MA,
-        XPOWERS_AXP2101_CHG_CUR_1000MA,
-    */
-   PMU->setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_500MA);
+    PMU->setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_500MA);
 
     // Set up PMU interrupts
-    Serial.println("Setting up PMU interrupts");
+    // Serial.println("Setting up PMU interrupts");
     pinMode(PIN_PMU_IRQ, INPUT_PULLUP);
     attachInterrupt(PIN_PMU_IRQ, setPMUIntFlag, FALLING);
 
     // Reset and re-enable PMU interrupts
-    Serial.println("Re-enable interrupts");
+    // Serial.println("Re-enable interrupts");
     PMU->disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
     PMU->clearIrqStatus();
     PMU->enableIRQ(
