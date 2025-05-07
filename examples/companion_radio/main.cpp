@@ -1490,9 +1490,20 @@ public:
         writeErrFrame(ERR_CODE_TABLE_FULL);
       }
     } else if (cmd_frame[0] == CMD_SET_DEVICE_PIN && len >= 5) {
-      memcpy(&_prefs.ble_pin, &cmd_frame[1], 4);
-      savePrefs();
-      writeOKFrame();
+
+      // get pin from command frame
+      uint32_t pin;
+      memcpy(&pin, &cmd_frame[1], 4);
+
+      // ensure pin is zero, or a valid 6 digit pin
+      if(pin == 0 || (pin >= 100000 && pin <= 999999)){
+        _prefs.ble_pin = pin;
+        savePrefs();
+        writeOKFrame();
+      } else {
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+      }
+      
     } else if (cmd_frame[0] == CMD_GET_CUSTOM_VARS) {
       out_frame[0] = RESP_CODE_CUSTOM_VARS;
       char* dp = (char *) &out_frame[1];
