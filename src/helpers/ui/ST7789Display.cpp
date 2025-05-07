@@ -111,7 +111,35 @@ void ST7789Display::drawRect(int x, int y, int w, int h) {
 }
 
 void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
-  display.drawBitmap(x*SCALE_X + X_OFFSET, y*SCALE_Y + Y_OFFSET, w, h, bits);
+  // Calculate the base position in display coordinates
+  uint16_t startX = x * SCALE_X + X_OFFSET;
+  uint16_t startY = y * SCALE_Y + Y_OFFSET;
+  
+  // Width in bytes for bitmap processing
+  uint16_t widthInBytes = (w + 7) / 8;
+  
+  // Process the bitmap row by row
+  for (uint16_t by = 0; by < h; by++) {
+    // Scan across the row bit by bit
+    for (uint16_t bx = 0; bx < w; bx++) {
+      // Get the current bit
+      uint16_t byteOffset = (by * widthInBytes) + (bx / 8);
+      uint8_t bitMask = 0x80 >> (bx & 7);
+      bool bitSet = pgm_read_byte(bits + byteOffset) & bitMask;
+      
+      // If the bit is set, draw pixels using setPixel with scaling
+      if (bitSet) {
+        // Apply scaling - draw multiple pixels for each original bitmap pixel
+        for (uint16_t scaleY = 0; scaleY <= (uint16_t)SCALE_Y; scaleY++) {
+          for (uint16_t scaleX = 0; scaleX <= (uint16_t)SCALE_X; scaleX++) {
+            uint16_t pixelX = startX + (uint16_t)(bx * SCALE_X) + scaleX;
+            uint16_t pixelY = startY + (uint16_t)(by * SCALE_Y) + scaleY;
+            display.setPixel(pixelX, pixelY);
+          }
+        }
+      }
+    }
+  }
 }
 
 uint16_t ST7789Display::getTextWidth(const char* str) {
