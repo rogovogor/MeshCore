@@ -60,7 +60,7 @@
 
 #define  PUBLIC_GROUP_PSK  "izOH6cXN6mrJ5e26oRXNcg=="
 
-#ifdef DISPLAY_CLASS
+#ifdef DISPLAY_CLASS      // TODO: refactor this -- move to variants/*/target
   #include "UITask.h"
   #ifdef ST7735
     #include <helpers/ui/ST7735Display.h>
@@ -71,7 +71,13 @@
   #else
     #include <helpers/ui/SSD1306Display.h>
   #endif
-  static DISPLAY_CLASS display;
+
+  #if defined(HELTEC_LORA_V3) && defined(ST7735)
+    static DISPLAY_CLASS display(&board.periph_power);   // peripheral power pin is shared
+  #else
+    static DISPLAY_CLASS display;
+  #endif
+
   #define HAS_UI
 #endif
 

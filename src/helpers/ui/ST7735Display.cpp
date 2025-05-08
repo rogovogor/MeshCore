@@ -19,10 +19,10 @@ bool ST7735Display::i2c_probe(TwoWire& wire, uint8_t addr) {
 }
 
 bool ST7735Display::begin() {
-  if(!_isOn) {
-    pinMode(PIN_TFT_VDD_CTL, OUTPUT);
+  if (!_isOn) {
+    if (_peripher_power) _peripher_power->claim();
+
     pinMode(PIN_TFT_LEDA_CTL, OUTPUT);
-    digitalWrite(PIN_TFT_VDD_CTL, HIGH);
     digitalWrite(PIN_TFT_LEDA_CTL, HIGH);
     digitalWrite(PIN_TFT_RST, HIGH);
 
@@ -40,18 +40,18 @@ bool ST7735Display::begin() {
 }
 
 void ST7735Display::turnOn() {
-
   ST7735Display::begin();
-
 }
 
 void ST7735Display::turnOff() {
-  digitalWrite(PIN_TFT_VDD_CTL, HIGH);
-  digitalWrite(PIN_TFT_LEDA_CTL, HIGH);
-  digitalWrite(PIN_TFT_RST, LOW);
-  digitalWrite(PIN_TFT_VDD_CTL, LOW);
-  digitalWrite(PIN_TFT_LEDA_CTL, LOW);
-  _isOn = false;
+  if (_isOn) {
+    digitalWrite(PIN_TFT_LEDA_CTL, HIGH);
+    digitalWrite(PIN_TFT_RST, LOW);
+    digitalWrite(PIN_TFT_LEDA_CTL, LOW);
+    _isOn = false;
+
+    if (_peripher_power) _peripher_power->release();
+  }
 }
 
 void ST7735Display::clear() {

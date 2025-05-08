@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "target.h"
+
 #include <helpers/sensors/MicroNMEALocationProvider.h>
 
 HeltecV3Board board;
@@ -78,18 +79,25 @@ mesh::LocalIdentity radio_new_identity() {
 }
 
 void HWTSensorManager::start_gps() {
-  gps_active = true;
-  // init GPS
-  Serial1.begin(115200, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
-  Serial1.println("$CFGSYS,h35155*68");
+  if (!gps_active) {
+    board.periph_power.claim();
+
+    gps_active = true;
+    Serial1.println("$CFGSYS,h35155*68");
+  }
 }
 
 void HWTSensorManager::stop_gps() {
-  gps_active = false;
-  Serial1.end();
+  if (gps_active) {
+    gps_active = false;
+
+    board.periph_power.release();
+  }
 }
 
 bool HWTSensorManager::begin() {
+  // init GPS port
+  Serial1.begin(115200, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
   return true;
 }
 
@@ -106,10 +114,10 @@ void HWTSensorManager::loop() {
   _location->loop();
 
   if (millis() > next_gps_update) {
-    if (_location->isValid()) {
+    if (gps_active && _location->isValid()) {
       node_lat = ((double)_location->getLatitude())/1000000.;
       node_lon = ((double)_location->getLongitude())/1000000.;
-      //Serial.printf("lat %f lon %f\r\n", _lat, _lon);
+      MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
     }
     next_gps_update = millis() + 1000;
   }
