@@ -118,6 +118,13 @@ void ST7735Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
   display.drawBitmap(x, y, bits, w, h, _color);
 }
 
+uint16_t ST7735Display::getTextWidth(const char* str) {
+  int16_t x1, y1;
+  uint16_t w, h;
+  display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
+  return w;
+}
+
 void ST7735Display::endFrame() {
   // display.display();
 }
