@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "target.h"
+#include <helpers/sensors/MicroNMEALocationProvider.h>
 
 HeltecV3Board board;
 
@@ -14,7 +15,8 @@ WRAPPER_CLASS radio_driver(radio, board);
 
 ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
-SensorManager sensors;
+MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
+HWTSensorManager sensors = HWTSensorManager(nmea);
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -73,4 +75,65 @@ void radio_set_tx_power(uint8_t dbm) {
 mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
   return mesh::LocalIdentity(&rng);  // create new random identity
+}
+
+void HWTSensorManager::start_gps() {
+  gps_active = true;
+  // init GPS
+  Serial1.begin(115200, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+  Serial1.println("$CFGSYS,h35155*68");
+}
+
+void HWTSensorManager::stop_gps() {
+  gps_active = false;
+  Serial1.end();
+}
+
+bool HWTSensorManager::begin() {
+  return true;
+}
+
+bool HWTSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
+  if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
+    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, 0.0f);
+  }
+  return true;
+}
+
+void HWTSensorManager::loop() {
+  static long next_gps_update = 0;
+
+  _location->loop();
+
+  if (millis() > next_gps_update) {
+    if (_location->isValid()) {
+      node_lat = ((double)_location->getLatitude())/1000000.;
+      node_lon = ((double)_location->getLongitude())/1000000.;
+      //Serial.printf("lat %f lon %f\r\n", _lat, _lon);
+    }
+    next_gps_update = millis() + 1000;
+  }
+}
+
+int HWTSensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
+
+const char* HWTSensorManager::getSettingName(int i) const {
+  return i == 0 ? "gps" : NULL;
+}
+const char* HWTSensorManager::getSettingValue(int i) const {
+  if (i == 0) {
+    return gps_active ? "1" : "0";
+  }
+  return NULL;
+}
+bool HWTSensorManager::setSettingValue(const char* name, const char* value) {
+  if (strcmp(name, "gps") == 0) {
+    if (strcmp(value, "0") == 0) {
+      stop_gps();
+    } else {
+      start_gps();
+    }
+    return true;
+  }
+  return false;  // not supported
 }
