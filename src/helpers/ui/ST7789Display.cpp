@@ -120,23 +120,27 @@ void ST7789Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
   
   // Process the bitmap row by row
   for (uint16_t by = 0; by < h; by++) {
+    // Calculate the target y-coordinates for this logical row
+    int y1 = startY + (int)(by * SCALE_Y);
+    int y2 = startY + (int)((by + 1) * SCALE_Y);
+    int block_h = y2 - y1;
+    
     // Scan across the row bit by bit
     for (uint16_t bx = 0; bx < w; bx++) {
+      // Calculate the target x-coordinates for this logical column
+      int x1 = startX + (int)(bx * SCALE_X);
+      int x2 = startX + (int)((bx + 1) * SCALE_X);
+      int block_w = x2 - x1;
+      
       // Get the current bit
       uint16_t byteOffset = (by * widthInBytes) + (bx / 8);
       uint8_t bitMask = 0x80 >> (bx & 7);
       bool bitSet = pgm_read_byte(bits + byteOffset) & bitMask;
       
-      // If the bit is set, draw pixels using setPixel with scaling
+      // If the bit is set, draw a block of pixels
       if (bitSet) {
-        // Apply scaling - draw multiple pixels for each original bitmap pixel
-        for (uint16_t scaleY = 0; scaleY <= (uint16_t)SCALE_Y; scaleY++) {
-          for (uint16_t scaleX = 0; scaleX <= (uint16_t)SCALE_X; scaleX++) {
-            uint16_t pixelX = startX + (uint16_t)(bx * SCALE_X) + scaleX;
-            uint16_t pixelY = startY + (uint16_t)(by * SCALE_Y) + scaleY;
-            display.setPixel(pixelX, pixelY);
-          }
-        }
+        // Draw the block as a filled rectangle
+        display.fillRect(x1, y1, block_w, block_h);
       }
     }
   }
