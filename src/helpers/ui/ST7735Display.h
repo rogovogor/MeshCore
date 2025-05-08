@@ -14,9 +14,9 @@ class ST7735Display : public DisplayDriver {
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:
 #ifdef USE_PIN_TFT
-  ST7735Display() : DisplayDriver(80, 160), display(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_SDA, PIN_TFT_SCL, PIN_TFT_RST) { _isOn = false; }
+  ST7735Display() : DisplayDriver(128, 64), display(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_SDA, PIN_TFT_SCL, PIN_TFT_RST) { _isOn = false; }
 #else
-  ST7735Display() : DisplayDriver(80, 160), display(&SPI1, PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST) { _isOn = false; }
+  ST7735Display() : DisplayDriver(128, 64), display(&SPI1, PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST) { _isOn = false; }
 #endif
   bool begin();
 
