@@ -1,7 +1,5 @@
 #pragma once
 
-#include "MicroNMEALocationProvider.h"
-
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
@@ -9,6 +7,7 @@
 #include <helpers/CustomLR1110Wrapper.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
+#include <helpers/sensors/LocationProvider.h>
 
 class T1000SensorManager: public SensorManager {
   bool gps_active = false;
