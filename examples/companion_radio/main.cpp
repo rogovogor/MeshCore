@@ -62,7 +62,9 @@
 
 #ifdef DISPLAY_CLASS
   #include "UITask.h"
-  #ifdef ST7789
+  #ifdef ST7735
+    #include <helpers/ui/ST7735Display.h>
+  #elif ST7789
     #include <helpers/ui/ST7789Display.h>
   #elif defined(HAS_GxEPD)
     #include <helpers/ui/GxEPDDisplay.h>
