@@ -69,7 +69,7 @@
 #define LED_BUILTIN             (35)
 #define PIN_LED                 LED_BUILTIN
 #define LED_RED                 LED_BUILTIN
-#define LED_BLUE                LED_BUILTIN
+#define LED_BLUE                (-1)            // No blue led, prevents Bluefruit flashing the green LED during advertising
 #define LED_PIN                 LED_BUILTIN
 
 #define LED_STATE_ON            HIGH
