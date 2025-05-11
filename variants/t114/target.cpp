@@ -87,6 +87,25 @@ void T114SensorManager::stop_gps() {
 
 bool T114SensorManager::begin() {
   Serial1.begin(9600);
+
+  // Try to detect if GPS is physically connected to determine if we should expose the setting
+  pinMode(GPS_EN, OUTPUT);
+  digitalWrite(GPS_EN, HIGH);  // Power on GPS
+
+  // Give GPS a moment to power up and send data
+  delay(500);
+
+  // We'll consider GPS detected if we see any data on Serial1
+  gps_detected = (Serial1.available() > 0);
+
+  if (gps_detected) {
+    MESH_DEBUG_PRINTLN("GPS detected");
+    digitalWrite(GPS_EN, LOW);  // Power off GPS until the setting is changed
+  } else {
+    MESH_DEBUG_PRINTLN("No GPS detected");
+    digitalWrite(GPS_EN, LOW);
+  }
+
   return true;
 }
 
@@ -112,21 +131,23 @@ void T114SensorManager::loop() {
   }
 }
 
-int T114SensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
+int T114SensorManager::getNumSettings() const {
+  return gps_detected ? 1 : 0;  // only show GPS setting if GPS is detected
+}
 
 const char* T114SensorManager::getSettingName(int i) const {
-  return i == 0 ? "gps" : NULL;
+  return (gps_detected && i == 0) ? "gps" : NULL;
 }
 
 const char* T114SensorManager::getSettingValue(int i) const {
-  if (i == 0) {
+  if (gps_detected && i == 0) {
     return gps_active ? "1" : "0";
   }
   return NULL;
 }
 
 bool T114SensorManager::setSettingValue(const char* name, const char* value) {
-  if (strcmp(name, "gps") == 0) {
+  if (gps_detected && strcmp(name, "gps") == 0) {
     if (strcmp(value, "0") == 0) {
       stop_gps();
     } else {
