@@ -47,15 +47,17 @@
 #define I2C_RTC_ADD       0x51  //RTC I2C address on Wire1
 #define I2C_PMU_ADD       0x34  //AXP2101 I2C address on Wire1
 
-
+#define PMU_WIRE_PORT               Wire1
+#define XPOWERS_CHIP_AXP2101
 
 class TBeamS3SupremeBoard : public ESP32Board {
-
+  XPowersAXP2101 PMU;
 public:
+#ifdef MESH_DEBUG
+  void printPMU();
+#endif
+  bool power_init();
   void begin() {
-    
-    bool power_init();
-    
     ESP32Board::begin();
 
     esp_reset_reason_t reason = esp_reset_reason();
@@ -68,6 +70,7 @@ public:
       rtc_gpio_hold_dis((gpio_num_t)P_LORA_NSS);
       rtc_gpio_deinit((gpio_num_t)P_LORA_DIO_1);
     }
+    power_init();
   }
 
   void enterDeepSleep(uint32_t secs, int pin_wake_btn = -1) {
@@ -94,12 +97,14 @@ public:
   }
 
   uint16_t getBattMilliVolts() override {
-
-    return 0;
+    return PMU.getBattVoltage();
   }
 
-  uint16_t getBattPercent();
-
+  uint16_t getBattPercent() {
+    //Read the PMU fuel guage for battery %
+    uint16_t battPercent = PMU.getBatteryPercent();
+    return battPercent;
+  }
   const char* getManufacturerName() const override {
     return "LilyGo T-Beam S3 Supreme SX1262";
   }
