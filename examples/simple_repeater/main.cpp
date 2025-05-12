@@ -1,7 +1,7 @@
 #include <Arduino.h>   // needed for PlatformIO
 #include <Mesh.h>
 
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #include <InternalFileSystem.h>
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
@@ -230,7 +230,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   }
 
   File openAppend(const char* fname) {
-  #if defined(NRF52_PLATFORM)
+  #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     return _fs->open(fname, FILE_O_WRITE);
   #elif defined(RP2040_PLATFORM)
     return _fs->open(fname, "a");
@@ -597,7 +597,7 @@ public:
   }
 
   bool formatFileSystem() override {
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     return InternalFS.format();
 #elif defined(RP2040_PLATFORM)
     return LittleFS.format();
@@ -675,7 +675,8 @@ public:
       mesh::Utils::toHex(hex, neighbour->id.pub_key, 4);
 
       // add next neighbour
-      sprintf(dp, "%s:%d:%d", hex, neighbour->advert_timestamp, neighbour->snr);
+      uint32_t secs_ago = getRTCClock()->getCurrentTime() - neighbour->heard_timestamp;
+      sprintf(dp, "%s:%d:%d", hex, secs_ago, neighbour->snr);
       while (*dp) dp++;   // find end of string
     }
 #endif
@@ -738,7 +739,7 @@ void setup() {
   fast_rng.begin(radio_get_rng_seed());
 
   FILESYSTEM* fs;
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   InternalFS.begin();
   fs = &InternalFS;
   IdentityStore store(InternalFS, "");
