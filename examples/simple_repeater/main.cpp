@@ -675,7 +675,8 @@ public:
       mesh::Utils::toHex(hex, neighbour->id.pub_key, 4);
 
       // add next neighbour
-      sprintf(dp, "%s:%d:%d", hex, neighbour->advert_timestamp, neighbour->snr);
+      uint32_t secs_ago = getRTCClock()->getCurrentTime() - neighbour->heard_timestamp;
+      sprintf(dp, "%s:%d:%d", hex, secs_ago, neighbour->snr);
       while (*dp) dp++;   // find end of string
     }
 #endif
