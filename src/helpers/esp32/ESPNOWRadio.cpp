@@ -67,18 +67,19 @@ uint32_t ESPNOWRadio::intID() {
   return n + m;
 }
 
-void ESPNOWRadio::startSendRaw(const uint8_t* bytes, int len) {
+bool ESPNOWRadio::startSendRaw(const uint8_t* bytes, int len) {
   // Send message via ESP-NOW
   is_send_complete = false;
   esp_err_t result = esp_now_send(broadcastAddress, bytes, len);
   if (result == ESP_OK) {
     n_sent++;
     ESPNOW_DEBUG_PRINTLN("Send success");
-  } else {
-    last_send_result = result;
-    is_send_complete = true;
-    ESPNOW_DEBUG_PRINTLN("Send failed: %d", result);
+    return true;
   }
+  last_send_result = result;
+  is_send_complete = true;
+  ESPNOW_DEBUG_PRINTLN("Send failed: %d", result);
+  return false;
 }
 
 bool ESPNOWRadio::isSendComplete() {

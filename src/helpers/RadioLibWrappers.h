@@ -19,7 +19,7 @@ public:
   void begin() override;
   int recvRaw(uint8_t* bytes, int sz) override;
   uint32_t getEstAirtimeFor(int len_bytes) override;
-  void startSendRaw(const uint8_t* bytes, int len) override;
+  bool startSendRaw(const uint8_t* bytes, int len) override;
   bool isSendComplete() override;
   void onSendFinished() override;
 

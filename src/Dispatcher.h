@@ -42,8 +42,9 @@ public:
    * \brief  starts the raw packet send. (no wait)
    * \param  bytes   the raw packet data
    * \param  len  the length in bytes
+   * \returns true if successfully started
   */
-  virtual void startSendRaw(const uint8_t* bytes, int len) = 0;
+  virtual bool startSendRaw(const uint8_t* bytes, int len) = 0;
 
   /**
    * \returns true if the previous 'startSendRaw()' completed successfully.
