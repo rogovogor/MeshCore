@@ -13,7 +13,7 @@ namespace mesh {
 void Dispatcher::begin() {
   n_sent_flood = n_sent_direct = 0;
   n_recv_flood = n_recv_direct = 0;
-  n_full_events = 0;
+  _err_flags = 0;
 
   _radio->begin();
 }
@@ -34,6 +34,18 @@ uint32_t Dispatcher::getCADFailMaxDuration() const {
 }
 
 void Dispatcher::loop() {
+  // check for radio 'stuck' in mode other than Rx
+  bool is_recv = _radio->isInRecvMode();
+  if (is_recv != prev_isrecv_mode) {
+    prev_isrecv_mode = is_recv;
+    if (!is_recv) {
+      radio_nonrx_start = _ms->getMillis();
+    }
+  }
+  if (!is_recv && _ms->getMillis() - radio_nonrx_start > 8000) {   // radio has not been in Rx mode for 8 seconds!
+    _err_flags |= ERR_EVENT_STARTRX_TIMEOUT;
+  }
+
   if (outbound) {  // waiting for outbound send to be completed
     if (_radio->isSendComplete()) {
       long t = _ms->getMillis() - outbound_start;
@@ -199,6 +211,8 @@ void Dispatcher::checkSend() {
     }
 
     if (_ms->getMillis() - cad_busy_start > getCADFailMaxDuration()) {
+      _err_flags |= ERR_EVENT_CAD_TIMEOUT;
+
       MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): CAD busy max duration reached!", getLogDateTime());
       // channel activity has gone on too long... (Radio might be in a bad state)
       // force the pending transmit below...
@@ -264,7 +278,7 @@ void Dispatcher::checkSend() {
 Packet* Dispatcher::obtainNewPacket() {
   auto pkt = _mgr->allocNew();  // TODO: zero out all fields
   if (pkt == NULL) {
-    n_full_events++;
+    _err_flags |= ERR_EVENT_FULL;
   } else {
     pkt->payload_len = pkt->path_len = 0;
     pkt->_snr = 0;

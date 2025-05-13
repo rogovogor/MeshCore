@@ -5,7 +5,7 @@
 
 static uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 static esp_now_peer_info_t peerInfo;
-static bool is_send_complete = false;
+static volatile bool is_send_complete = false;
 static esp_err_t last_send_result;
 static uint8_t rx_buf[256];
 static uint8_t last_rx_len = 0;
@@ -43,6 +43,8 @@ void ESPNOWRadio::init() {
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
+
+  is_send_complete = true;
 
   // Add peer        
   if (esp_now_add_peer(&peerInfo) == ESP_OK) {
@@ -86,6 +88,11 @@ bool ESPNOWRadio::isSendComplete() {
   return is_send_complete;
 }
 void ESPNOWRadio::onSendFinished() {
+  is_send_complete = true;
+}
+
+bool ESPNOWRadio::isInRecvMode() const {
+  return is_send_complete;    // if NO send in progress, then we're in Rx mode
 }
 
 float ESPNOWRadio::getLastRSSI() const { return 0; }

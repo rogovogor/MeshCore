@@ -56,6 +56,8 @@ public:
   */
   virtual void onSendFinished() = 0;
 
+  virtual bool isInRecvMode() const = 0;
+
   /**
    * \returns  true if the radio is currently mid-receive of a packet.
   */
@@ -91,6 +93,10 @@ typedef uint32_t  DispatcherAction;
 #define ACTION_RETRANSMIT(pri)   (((uint32_t)1 + (pri))<<24)
 #define ACTION_RETRANSMIT_DELAYED(pri, _delay)  ((((uint32_t)1 + (pri))<<24) | (_delay))
 
+#define ERR_EVENT_FULL              (1 << 0)
+#define ERR_EVENT_CAD_TIMEOUT       (1 << 1)
+#define ERR_EVENT_STARTRX_TIMEOUT   (1 << 2)
+
 /**
  * \brief  The low-level task that manages detecting incoming Packets, and the queueing
  *      and scheduling of outbound Packets.
@@ -100,9 +106,10 @@ class Dispatcher {
   unsigned long outbound_expiry, outbound_start, total_air_time;
   unsigned long next_tx_time;
   unsigned long cad_busy_start;
+  unsigned long radio_nonrx_start;
+  bool  prev_isrecv_mode;
   uint32_t n_sent_flood, n_sent_direct;
   uint32_t n_recv_flood, n_recv_direct;
-  uint32_t n_full_events;
 
   void processRecvPacket(Packet* pkt);
 
@@ -110,12 +117,16 @@ protected:
   PacketManager* _mgr;
   Radio* _radio;
   MillisecondClock* _ms;
+  uint16_t _err_flags;
 
   Dispatcher(Radio& radio, MillisecondClock& ms, PacketManager& mgr)
     : _radio(&radio), _ms(&ms), _mgr(&mgr)
   {
     outbound = NULL; total_air_time = 0; next_tx_time = 0;
     cad_busy_start = 0;
+    _err_flags = 0;
+    radio_nonrx_start = 0;
+    prev_isrecv_mode = true;
   }
 
   virtual DispatcherAction onRecvPacket(Packet* pkt) = 0;
@@ -145,7 +156,6 @@ public:
   uint32_t getNumSentDirect() const { return n_sent_direct; }
   uint32_t getNumRecvFlood() const { return n_recv_flood; }
   uint32_t getNumRecvDirect() const { return n_recv_direct; }
-  uint32_t getNumFullEvents() const { return n_full_events; }
 
   // helper methods
   bool millisHasNowPassed(unsigned long timestamp) const;

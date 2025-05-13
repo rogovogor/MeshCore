@@ -22,6 +22,7 @@ public:
   bool startSendRaw(const uint8_t* bytes, int len) override;
   bool isSendComplete() override;
   void onSendFinished() override;
+  bool isInRecvMode() const override;
 
   uint32_t getPacketsRecv() const { return n_recv; }
   uint32_t getPacketsSent() const { return n_sent; }

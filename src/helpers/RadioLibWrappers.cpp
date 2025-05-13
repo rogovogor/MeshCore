@@ -44,6 +44,10 @@ void RadioLibWrapper::startRecv() {
   }
 }
 
+bool RadioLibWrapper::isInRecvMode() const {
+  return (state & ~STATE_INT_READY) == STATE_RX;
+}
+
 int RadioLibWrapper::recvRaw(uint8_t* bytes, int sz) {
   if (state & STATE_INT_READY) {
     int len = _radio->getPacketLength();
