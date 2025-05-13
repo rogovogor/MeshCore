@@ -169,6 +169,9 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       checkAdvertInterval();
       savePrefs();
       sprintf(reply, "password now: %s", _prefs->password);   // echo back just to let admin know for sure!!
+    } else if (memcmp(command, "clear stats", 11) == 0) {
+      _callbacks->clearStats();
+      strcpy(reply, "(OK - stats reset)");
     } else if (memcmp(command, "get ", 4) == 0) {
       const char* config = &command[4];
       if (memcmp(config, "af", 2) == 0) {

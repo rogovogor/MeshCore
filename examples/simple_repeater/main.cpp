@@ -686,7 +686,13 @@ public:
     *dp = 0;  // null terminator
   }
 
-  const uint8_t* getSelfIdPubKey() { return self_id.pub_key; }
+  const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
+
+  void clearStats() override {
+    radio_driver.resetStats();
+    resetStats();
+    ((SimpleMeshTables *)getTables())->resetStats();
+  }
 
   void loop() {
     mesh::Mesh::loop();

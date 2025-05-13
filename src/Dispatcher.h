@@ -156,6 +156,10 @@ public:
   uint32_t getNumSentDirect() const { return n_sent_direct; }
   uint32_t getNumRecvFlood() const { return n_recv_flood; }
   uint32_t getNumRecvDirect() const { return n_recv_direct; }
+  void resetStats() {
+    n_sent_flood = n_sent_direct = n_recv_flood = n_recv_direct = 0;
+    _err_flags = 0;
+  }
 
   // helper methods
   bool millisHasNowPassed(unsigned long timestamp) const;

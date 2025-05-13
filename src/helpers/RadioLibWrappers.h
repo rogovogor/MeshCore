@@ -26,6 +26,8 @@ public:
 
   uint32_t getPacketsRecv() const { return n_recv; }
   uint32_t getPacketsSent() const { return n_sent; }
+  void resetStats() { n_recv = n_sent = 0; }
+
   virtual float getLastRSSI() const override;
   virtual float getLastSNR() const override;
 

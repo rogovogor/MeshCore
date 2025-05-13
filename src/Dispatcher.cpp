@@ -14,8 +14,10 @@ void Dispatcher::begin() {
   n_sent_flood = n_sent_direct = 0;
   n_recv_flood = n_recv_direct = 0;
   _err_flags = 0;
+  radio_nonrx_start = _ms->getMillis();
 
   _radio->begin();
+  prev_isrecv_mode = _radio->isInRecvMode();
 }
 
 float Dispatcher::getAirtimeBudgetFactor() const {

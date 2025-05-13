@@ -83,4 +83,5 @@ public:
   uint32_t getNumDirectDups() const { return _direct_dups; }
   uint32_t getNumFloodDups() const { return _flood_dups; }
 
+  void resetStats() { _direct_dups = _flood_dups = 0; }
 };
