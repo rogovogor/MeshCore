@@ -75,34 +75,26 @@ mesh::LocalIdentity radio_new_identity() {
   return mesh::LocalIdentity(&rng);  // create new random identity
 }
 
-INA3221 INA_3221(TELEM_INA3221_ADDRESS, &Wire);
+static INA3221 INA_3221(TELEM_INA3221_ADDRESS, &Wire);
 
 bool PromicroSensorManager::begin() {
   if (INA_3221.begin() ) {
-    Serial.print("Found INA3221 at address ");
-    Serial.print(INA_3221.getAddress());
-    Serial.println();
-    Serial.print(INA_3221.getDieID(), HEX);
-    Serial.print(INA_3221.getManufacturerID(), HEX);
-    Serial.print(INA_3221.getConfiguration(), HEX);
-    Serial.println();
+    MESH_DEBUG_PRINTLN("Found INA3221 at address: %02X", INA_3221.getAddress());
+    MESH_DEBUG_PRINTLN("%04X %04X %04X", INA_3221.getDieID(), INA_3221.getManufacturerID(), INA_3221.getConfiguration());
 
     for(int i = 0; i < 3; i++) {
       INA_3221.setShuntR(i, TELEM_INA3221_SHUNT_VALUE);
     }
     INA3221initialized = true;
-  }
-  else {
+  } else {
     INA3221initialized = false;
-    Serial.print("INA3221 was not found at I2C address ");
-    Serial.print(TELEM_INA3221_ADDRESS, HEX);
-    Serial.println();
+    MESH_DEBUG_PRINTLN("INA3221 was not found at I2C address %02X", TELEM_INA3221_ADDRESS);
   }
   return true;
 }
 
 bool PromicroSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
-  if (requester_permissions && TELEM_PERM_ENVIRONMENT) {
+  if (requester_permissions & TELEM_PERM_ENVIRONMENT) {
     if (INA3221initialized) {
       for(int i = 0; i < 3; i++) {
         // add only enabled INA3221 channels to telemetry

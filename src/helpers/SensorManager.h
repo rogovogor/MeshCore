@@ -8,12 +8,6 @@
 
 #define TELEM_CHANNEL_SELF   1   // LPP data channel for 'self' device
 
-#define TELEM_INA3221_ADDRESS 0x42      // INA3221 3 channel current, voltage, power sensor I2C address
-#define TELEM_INA3221_SHUNT_VALUE 0.100 // most variants will have a 0.1 ohm shunts
-#define TELEM_INA3221_SETTING_CH1 "INA3221 Channel 1"
-#define TELEM_INA3221_SETTING_CH2 "INA3221 Channel 2"
-#define TELEM_INA3221_SETTING_CH3 "INA3221 Channel 3"
-
 class SensorManager {
 public:
   double node_lat, node_lon;  // modify these, if you want to affect Advert location
