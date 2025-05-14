@@ -290,7 +290,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
       case REQ_TYPE_GET_STATUS: {
         ServerStats stats;
         stats.batt_milli_volts = board.getBattMilliVolts();
-        stats.curr_tx_queue_len = _mgr->getOutboundCount();
+        stats.curr_tx_queue_len = _mgr->getOutboundCount(0xFFFFFFFF);
         stats.curr_free_queue_len = _mgr->getFreeCount();
         stats.last_rssi = (int16_t) radio_driver.getLastRSSI();
         stats.n_packets_recv = radio_driver.getPacketsRecv();
