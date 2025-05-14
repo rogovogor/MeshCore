@@ -76,9 +76,10 @@ mesh::LocalIdentity radio_new_identity() {
 }
 
 static INA3221 INA_3221(TELEM_INA3221_ADDRESS, &Wire);
+static INA219 INA_219(TELEM_INA219_ADDRESS, &Wire);
 
 bool PromicroSensorManager::begin() {
-  if (INA_3221.begin() ) {
+  if (INA_3221.begin()) {
     MESH_DEBUG_PRINTLN("Found INA3221 at address: %02X", INA_3221.getAddress());
     MESH_DEBUG_PRINTLN("%04X %04X %04X", INA_3221.getDieID(), INA_3221.getManufacturerID(), INA_3221.getConfiguration());
 
@@ -89,6 +90,15 @@ bool PromicroSensorManager::begin() {
   } else {
     INA3221initialized = false;
     MESH_DEBUG_PRINTLN("INA3221 was not found at I2C address %02X", TELEM_INA3221_ADDRESS);
+  }
+  if (INA_219.begin()) {
+    MESH_DEBUG_PRINTLN("Found INA219 at address: %02X", INA_219.getAddress());
+    INA219_CHANNEL = INA3221initialized ? TELEM_CHANNEL_SELF + 4 : TELEM_CHANNEL_SELF + 1;
+    INA_219.setMaxCurrentShunt(TELEM_INA219_MAX_CURRENT, TELEM_INA219_SHUNT_VALUE);
+    INA219initialized = true;
+  } else {
+    INA219initialized = false;
+    MESH_DEBUG_PRINTLN("INA219 was not found at I2C address %02X", TELEM_INA219_ADDRESS);
   }
   return true;
 }
@@ -104,6 +114,11 @@ bool PromicroSensorManager::querySensors(uint8_t requester_permissions, CayenneL
           telemetry.addPower(INA3221_CHANNELS[i], INA_3221.getPower(i));
         }
       }
+    }
+    if(INA219initialized) {
+      telemetry.addVoltage(INA219_CHANNEL, INA_219.getBusVoltage());
+      telemetry.addCurrent(INA219_CHANNEL, INA_219.getCurrent());
+      telemetry.addPower(INA219_CHANNEL, INA_219.getPower());
     }
   }
 
