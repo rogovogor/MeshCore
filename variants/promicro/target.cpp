@@ -102,23 +102,11 @@ bool PromicroSensorManager::begin() {
 }
 
 bool PromicroSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
-  // TODO: what is the correct permission here?
   if (requester_permissions && TELEM_PERM_ENVIRONMENT) {
     if (INA3221initialized) {
       for(int i = 0; i < 3; i++) {
         // add only enabled INA3221 channels to telemetry
         if (INA3221_CHANNEL_ENABLED[i]) {
-          // TODO: remove when telemetry support gets properly added
-          // Serial.print("CH");
-          // Serial.print(i);
-          // Serial.print(" Voltage: ");
-          // Serial.print(INA_3221.getBusVoltage(i));
-          // Serial.print("V Current: ");
-          // Serial.print(INA_3221.getCurrent(i));
-          // Serial.print("A Power: ");
-          // Serial.print(INA_3221.getPower(i));
-          // Serial.println();
-
           telemetry.addVoltage(INA3221_CHANNELS[i], INA_3221.getBusVoltage(i));
           telemetry.addCurrent(INA3221_CHANNELS[i], INA_3221.getCurrent(i));
           telemetry.addPower(INA3221_CHANNELS[i], INA_3221.getPower(i));
