@@ -10,7 +10,7 @@ WRAPPER_CLASS radio_driver(radio, board);
 
 VolatileRTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
-SensorManager sensors;
+PromicroSensorManager sensors;
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -73,4 +73,86 @@ void radio_set_tx_power(uint8_t dbm) {
 mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
   return mesh::LocalIdentity(&rng);  // create new random identity
+}
+
+INA3221 INA_3221(TELEM_INA3221_ADDRESS, &Wire);
+
+bool PromicroSensorManager::begin() {
+  if (INA_3221.begin() ) {
+    Serial.print("Found INA3221 at address ");
+    Serial.print(INA_3221.getAddress());
+    Serial.println();
+    Serial.print(INA_3221.getDieID(), HEX);
+    Serial.print(INA_3221.getManufacturerID(), HEX);
+    Serial.print(INA_3221.getConfiguration(), HEX);
+    Serial.println();
+
+    for(int i = 0; i < 3; i++) {
+      INA_3221.setShuntR(i, TELEM_INA3221_SHUNT_VALUE);
+    }
+    INA3221initialized = true;
+  }
+  else {
+    INA3221initialized = false;
+    Serial.print("INA3221 was not found at I2C address ");
+    Serial.print(TELEM_INA3221_ADDRESS, HEX);
+    Serial.println();
+  }
+  return true;
+}
+
+bool PromicroSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
+  if (requester_permissions && TELEM_PERM_ENVIRONMENT) {
+    if (INA3221initialized) {
+      for(int i = 0; i < 3; i++) {
+        // add only enabled INA3221 channels to telemetry
+        if (INA3221_CHANNEL_ENABLED[i]) {
+          telemetry.addVoltage(INA3221_CHANNELS[i], INA_3221.getBusVoltage(i));
+          telemetry.addCurrent(INA3221_CHANNELS[i], INA_3221.getCurrent(i));
+          telemetry.addPower(INA3221_CHANNELS[i], INA_3221.getPower(i));
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+int PromicroSensorManager::getNumSettings() const {
+  return NUM_SENSOR_SETTINGS;
+}
+
+const char* PromicroSensorManager::getSettingName(int i) const {
+  if (i >= 0 && i < NUM_SENSOR_SETTINGS) {
+    return INA3221_CHANNEL_NAMES[i];
+  }
+  return NULL;
+}
+
+const char* PromicroSensorManager::getSettingValue(int i) const {
+  if (i >= 0 && i < NUM_SENSOR_SETTINGS) {
+    return INA3221_CHANNEL_ENABLED[i] ? "1" : "0";
+  }
+  return NULL;
+}
+
+bool PromicroSensorManager::setSettingValue(const char* name, const char* value) {
+  for (int i = 0; i < NUM_SENSOR_SETTINGS; i++) {
+    if (strcmp(name, INA3221_CHANNEL_NAMES[i]) == 0) {
+      int channelEnabled = INA_3221.getEnableChannel(i);
+      if (strcmp(value, "1") == 0) {
+        INA3221_CHANNEL_ENABLED[i] = true;
+        if (!channelEnabled) {
+          INA_3221.enableChannel(i);
+        }
+      } else {
+        INA3221_CHANNEL_ENABLED[i] = false;
+        if (channelEnabled) {
+          INA_3221.disableChannel(i);
+        }
+      }
+      return true;
+    }
+  }
+  return false;
 }
