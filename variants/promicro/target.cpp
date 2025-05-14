@@ -103,7 +103,7 @@ bool PromicroSensorManager::begin() {
 
 bool PromicroSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   // TODO: what is the correct permission here?
-  if (requester_permissions && TELEM_PERM_BASE) {
+  if (requester_permissions && TELEM_PERM_ENVIRONMENT) {
     if (INA3221initialized) {
       for(int i = 0; i < 3; i++) {
         // add only enabled INA3221 channels to telemetry

@@ -2,8 +2,9 @@
 
 #include <CayenneLPP.h>
 
-#define TELEM_PERM_BASE       0x01   // 'base' permission includes battery
-#define TELEM_PERM_LOCATION   0x02
+#define TELEM_PERM_BASE         0x01   // 'base' permission includes battery
+#define TELEM_PERM_LOCATION     0x02
+#define TELEM_PERM_ENVIRONMENT  0x04   // permission to access environment sensors
 
 #define TELEM_CHANNEL_SELF   1   // LPP data channel for 'self' device
 
