@@ -149,7 +149,23 @@ bool TBeamS3SupremeBoard::power_init()
   return true;
 }
 
-bool l76kProbe()
+static bool readStringUntil(Stream& s, char dest[], size_t max_len, char term, unsigned int timeout_millis) {
+  unsigned long timeout = millis() + timeout_millis;
+  char *dp = dest;
+  while (millis() < timeout && dp - dest < max_len - 1) {
+    if (s.available()) {
+      char c = s.read();
+      if (c == term) break;
+      *dp++ = c;  // append to dest[]
+    } else {
+      delay(1);
+    }
+  }
+  *dp = 0;  // null terminator
+  return millis() < timeout;   // false, if timed out
+}
+
+static bool l76kProbe()
 {
     bool result = false;
     uint32_t startTimeout ;
@@ -170,22 +186,19 @@ bool l76kProbe()
             return false;
         }
     };
-    Serial.println();
+
     Serial1.flush();
     delay(200);
 
     Serial1.write("$PCAS06,0*1B\r\n");
-    startTimeout = millis() + 500;
-    String ver = "";
-    while (!Serial1.available()) {
-        if (millis() > startTimeout) {
-            MESH_DEBUG_PRINTLN("Get L76K timeout!");
-            return false;
-        }
+
+    char ver[100];
+    if (!readStringUntil(Serial1, ver, sizeof(ver), '\n', 500)) {
+      MESH_DEBUG_PRINTLN("Get L76K timeout!");
+      return false;
     }
-    Serial1.setTimeout(10);
-    ver = Serial1.readStringUntil('\n');
-    if (ver.startsWith("$GPTXT,01,01,02")) {
+
+    if (memcmp(ver, "$GPTXT,01,01,02", 15) == 0) {
         MESH_DEBUG_PRINTLN("L76K GNSS init succeeded, using L76K GNSS Module\n");
         result = true;
     }
