@@ -105,7 +105,9 @@ struct ClientInfo {
   uint8_t out_path[MAX_PATH_SIZE];
 };
 
-#define MAX_CLIENTS   4
+#ifndef MAX_CLIENTS
+  #define MAX_CLIENTS           32
+#endif
 
 struct NeighbourInfo {
   mesh::Identity id;
