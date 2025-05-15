@@ -36,7 +36,7 @@
 #define P_GPS_RX    9   //GPS RX pin
 #define P_GPS_TX    8   //GPS TX pin
 #define P_GPS_WAKE  7   //GPS Wakeup pin
-#define P_GPS_1PPS  6   //GPS 1PPS pin
+//#define P_GPS_1PPS  6   //GPS 1PPS pin - repurposed for lora tx led
 #define GPS_BAUD_RATE 9600
 
 //I2C Wire addresses
@@ -59,6 +59,9 @@ public:
 #endif
   bool power_init();
   void begin() {
+
+    power_init();
+
     ESP32Board::begin();
 
     esp_reset_reason_t reason = esp_reset_reason();
@@ -71,7 +74,6 @@ public:
       rtc_gpio_hold_dis((gpio_num_t)P_LORA_NSS);
       rtc_gpio_deinit((gpio_num_t)P_LORA_DIO_1);
     }
-    power_init();
   }
 
   void enterDeepSleep(uint32_t secs, int pin_wake_btn = -1) {
