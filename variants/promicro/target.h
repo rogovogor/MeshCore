@@ -10,6 +10,7 @@
 #include <helpers/SensorManager.h>
 #include <INA3221.h>
 #include <INA219.h>
+#include <Adafruit_AHTX0.h>
 
 #define NUM_SENSOR_SETTINGS 3
 
@@ -26,6 +27,7 @@ mesh::LocalIdentity radio_new_identity();
 
 #define TELEM_INA3221_ADDRESS 0x42      // INA3221 3 channel current sensor I2C address
 #define TELEM_INA219_ADDRESS  0x40      // INA219 single channel current sensor I2C address
+#define TELEM_AHTX_ADDRESS    0x38      // AHT10, AHT20 temperature and humidity sensor I2C address
 
 #define TELEM_INA3221_SHUNT_VALUE 0.100 // most variants will have a 0.1 ohm shunts
 #define TELEM_INA3221_SETTING_CH1 "INA3221-1"
@@ -38,13 +40,15 @@ mesh::LocalIdentity radio_new_identity();
 class PromicroSensorManager: public SensorManager {
   bool INA3221initialized = false;
   bool INA219initialized = false;
+  bool AHTXinitialized = false;
 
   // INA3221 channels in telemetry
-  int INA3221_CHANNELS[NUM_SENSOR_SETTINGS] = {TELEM_CHANNEL_SELF + 1, TELEM_CHANNEL_SELF + 2, TELEM_CHANNEL_SELF+ 3};
   const char * INA3221_CHANNEL_NAMES[NUM_SENSOR_SETTINGS] = { TELEM_INA3221_SETTING_CH1, TELEM_INA3221_SETTING_CH2, TELEM_INA3221_SETTING_CH3};
   bool INA3221_CHANNEL_ENABLED[NUM_SENSOR_SETTINGS] = {true, true, true};
   
-  int INA219_CHANNEL;
+  void initINA3221();
+  void initINA219();
+  void initAHTX();
 public:
   PromicroSensorManager(){};
   bool begin() override;
