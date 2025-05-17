@@ -87,6 +87,7 @@ MeshCore is designed for use with:
 * LilyGo TLora32 v1.6
 
 ## 📜 License
+
 MeshCore is open-source software released under the MIT License. You are free to use, modify, and distribute it for personal and commercial projects.
 
 ## Contributing
