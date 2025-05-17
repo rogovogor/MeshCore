@@ -38,6 +38,36 @@ Monitor & Communicate using the Serial Monitor (e.g., Serial USB Terminal on And
 * 📡 Companion Radio: For use with an external chat app, over BLE or USB.
 * 📡 Room Server: A simple BBS server for shared Posts.
 
+## ⚡️ MeshCore Flasher
+
+We have prebuilt firmware ready to flash on supported devices.
+
+- Launch https://flasher.meshcore.co.uk
+- Select a supported device
+- Flash one of the firmware types:
+  - Companion, Repeater or Room Server
+- Once flashing is complete, you can connect with one of the MeshCore clients below.
+
+## 📱 MeshCore Clients
+
+**Companion Firmware**
+
+The companion firmware can be connected to via BLE, USB or WiFi depending on the firmware type you flashed.
+
+- Web: https://app.meshcore.nz
+- Android: https://play.google.com/store/apps/details?id=com.liamcottle.meshcore.android
+- iOS: https://apps.apple.com/us/app/meshcore/id6742354151?platform=iphone
+- NodeJS: https://github.com/liamcottle/meshcore.js
+- Python: https://github.com/fdlamotte/meshcore-cli
+
+**Repeater and Room Server Firmware**
+
+The repeater and room server firmwares can be setup via USB in the web config tool.
+
+- https://config.meshcore.dev
+
+They can also be managed via LoRa in the mobile app by using the Remote Management feature.
+
 ## 🛠 Hardware Compatibility
 
 MeshCore is designed for use with:
