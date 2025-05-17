@@ -66,6 +66,8 @@
     #include <helpers/ui/ST7735Display.h>
   #elif ST7789
     #include <helpers/ui/ST7789Display.h>
+  #elif SH1106
+    #include <helpers/ui/SH1106Display.h>
   #elif defined(HAS_GxEPD)
     #include <helpers/ui/GxEPDDisplay.h>
   #else
