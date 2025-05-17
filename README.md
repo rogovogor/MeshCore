@@ -27,17 +27,20 @@ MeshCore provides the ability to create wireless mesh networks, similar to Mesht
 
 - Watch the [MeshCore Intro Video](https://www.youtube.com/watch?v=t1qne8uJBAc) by Andy Kirby.
 - Read through our [Frequently Asked Questions](./docs/faq.md) section.
+- Flash the MeshCore firmware on a supported device.
+- Connect with a supported client.
 
-For developers, install [PlatformIO](https://docs.platformio.org) in Visual Studio Code.
-Download & Open the MeshCore repository.
-Select a Sample Application: Choose from chat, repeater, other example app.
-Monitor & Communicate using the Serial Monitor (e.g., Serial USB Terminal on Android).
+For developers;
 
-📁 Included Example Applications
-* 📡 Terminal Chat: Secure text communication between devices.
-* 📡 Simple Repeater: Extends network coverage by relaying messages.
-* 📡 Companion Radio: For use with an external chat app, over BLE or USB.
-* 📡 Room Server: A simple BBS server for shared Posts.
+- Install [PlatformIO](https://docs.platformio.org) in [Visual Studio Code](https://code.visualstudio.com).
+- Clone and open the MeshCore repository in Visual Studio Code.
+- See the example applications you can modify and run:
+  - [Companion Radio](./examples/companion_radio) - For use with an external chat app, over BLE, USB or WiFi.
+  - [Simple Repeater](./examples/simple_repeater) - Extends network coverage by relaying messages.
+  - [Simple Room Server](./examples/simple_room_server) - A simple BBS server for shared Posts.
+  - [Simple Secure Chat](./examples/simple_secure_chat) - Secure terminal based text communication between devices.
+
+The Simple Secure Chat example can be interacted with through the Serial Monitor in Visual Studio Code, or with a Serial USB Terminal on Android.
 
 ## ⚡️ MeshCore Flasher
 
