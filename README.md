@@ -25,7 +25,8 @@ MeshCore provides the ability to create wireless mesh networks, similar to Mesht
 
 ## 🚀 How to Get Started
 
-Andy Kirby has published a very useful [intro video](https://www.youtube.com/watch?v=t1qne8uJBAc) which explains the steps for beginners.
+- Watch the [MeshCore Intro Video](https://www.youtube.com/watch?v=t1qne8uJBAc) by Andy Kirby.
+- Read through our [Frequently Asked Questions](./docs/faq.md) section.
 
 For developers, install [PlatformIO](https://docs.platformio.org) in Visual Studio Code.
 Download & Open the MeshCore repository.
