@@ -28,8 +28,8 @@ static void setPMUIntFlag(){
   pmuIntFlag = true;
 }
 
+#ifdef MESH_DEBUG
 uint32_t deviceOnline = 0x00;
-
 void scanDevices(TwoWire *w)
 {
     uint8_t err, addr;
@@ -89,8 +89,6 @@ void scanDevices(TwoWire *w)
     Serial.println("Scan for devices is complete.");
     Serial.println("\n");
 }
-
-#ifdef MESH_DEBUG
 void TBeamS3SupremeBoard::printPMU()
 {
     Serial.print("isCharging:"); Serial.println(PMU.isCharging() ? "YES" : "NO");
