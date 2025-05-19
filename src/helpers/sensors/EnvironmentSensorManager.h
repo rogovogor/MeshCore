@@ -4,6 +4,7 @@
 #include "INA3221Sensor.h"
 #include "INA219Sensor.h"
 #include "AHTX0Sensor.h"
+#include "BME280Sensor.h"
 
 #define NUM_SENSOR_SETTINGS 3
 #define TELEM_INA3221_SETTING_CH1 "INA3221-1"
@@ -19,6 +20,7 @@ protected:
   INA3221Sensor INA3221_sensor;
   AHTX0Sensor AHTX0_sensor;
   INA219Sensor INA219_sensor;
+  BME280Sensor BME280_sensor;
 public:
   EnvironmentSensorManager(){};
   bool begin() override;

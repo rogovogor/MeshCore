@@ -4,6 +4,7 @@ bool EnvironmentSensorManager::begin() {
   INA3221_sensor.begin();
   INA219_sensor.begin();
   AHTX0_sensor.begin();
+  BME280_sensor.begin();
 
   return true;
 }
@@ -31,6 +32,12 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
     if (AHTX0_sensor.isInitialized()) {
         telemetry.addTemperature(TELEM_CHANNEL_SELF, AHTX0_sensor.getTemperature());
         telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, AHTX0_sensor.getRelativeHumidity());
+    }
+    if (BME280_sensor.isInitialized()) {
+        telemetry.addTemperature(TELEM_CHANNEL_SELF, BME280_sensor.getTemperature());
+        telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, BME280_sensor.getRelativeHumidity());
+        telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BME280_sensor.getBarometricPressure());
+        telemetry.addAltitude(TELEM_CHANNEL_SELF, BME280_sensor.getAltitude());
     }
   }
 
