@@ -8,8 +8,6 @@
       memcpy(&app_data[i], &_lat, 4); i += 4;
       memcpy(&app_data[i], &_lon, 4); i += 4;
     }
-    // TODO:  BATTERY encoding
-    // TODO:  TEMPERATURE encoding
     if (_name && *_name != 0) { 
       app_data[0] |= ADV_NAME_MASK;
       const char* sp = _name;
@@ -30,12 +28,6 @@
     if (_flags & ADV_LATLON_MASK) {
       memcpy(&_lat, &app_data[i], 4); i += 4;
       memcpy(&_lon, &app_data[i], 4); i += 4;
-    }
-    if (_flags & ADV_BATTERY_MASK) {
-      /* TODO: somewhere to store battery volts? */ i += 2;
-    }
-    if (_flags & ADV_TEMPERATURE_MASK) {
-      /* TODO: somewhere to store temperature? */ i += 2;
     }
 
     if (app_data_len >= i) {

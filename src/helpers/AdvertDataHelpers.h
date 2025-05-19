@@ -11,8 +11,8 @@
 //FUTURE: 4..15
 
 #define ADV_LATLON_MASK       0x10
-#define ADV_BATTERY_MASK      0x20
-#define ADV_TEMPERATURE_MASK  0x40
+#define ADV_FEAT1_MASK        0x20   // FUTURE
+#define ADV_FEAT2_MASK        0x40   // FUTURE
 #define ADV_NAME_MASK         0x80
 
 class AdvertDataBuilder {
@@ -24,6 +24,9 @@ public:
   AdvertDataBuilder(uint8_t adv_type, const char* name) : _type(adv_type), _name(name), _lat(0), _lon(0)  { }
   AdvertDataBuilder(uint8_t adv_type, const char* name, double lat, double lon) : 
       _type(adv_type), _name(name), _lat(lat * 1E6), _lon(lon * 1E6)  { }
+
+  void setFeat1(bool enabled) { if (enabled) _type |= ADV_FEAT1_MASK; else _type &= ~ADV_FEAT1_MASK; }
+  void setFeat2(bool enabled) { if (enabled) _type |= ADV_FEAT2_MASK; else _type &= ~ADV_FEAT2_MASK; }
 
   /**
    * \brief  encode the given advertisement data.
@@ -43,6 +46,8 @@ public:
 
   bool isValid() const { return _valid; }
   uint8_t getType() const { return _flags & 0x0F; }
+  bool hasFeat1() const { return (_flags & ADV_FEAT1_MASK) != 0; }
+  bool hasFeat2() const { return (_flags & ADV_FEAT2_MASK) != 0; }
 
   bool hasName() const { return _name[0] != 0; }
   const char* getName() const { return _name; }
