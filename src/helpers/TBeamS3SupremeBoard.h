@@ -15,8 +15,8 @@
 #define  P_LORA_MISO    13  //SX1262 MISO pin
 #define  P_LORA_MOSI    11  //SX1262 MOSI pin
 
-#define PIN_BOARD_SDA 17  //SDA for OLED, BME280, and QMC6310U (0x1C)
-#define PIN_BOARD_SCL 18  //SCL for OLED, BME280, and QMC6310U (0x1C)
+//#define PIN_BOARD_SDA 17  //SDA for OLED, BME280, and QMC6310U (0x1C)
+//#define PIN_BOARD_SCL 18  //SCL for OLED, BME280, and QMC6310U (0x1C)
 
 #define PIN_BOARD_SDA1 42  //SDA for PMU and PFC8563 (RTC)
 #define PIN_BOARD_SCL1 41  //SCL for PMU and PFC8563 (RTC)
@@ -58,6 +58,7 @@ public:
   void printPMU();
 #endif
   bool power_init();
+
   void begin() {
 
     power_init();
