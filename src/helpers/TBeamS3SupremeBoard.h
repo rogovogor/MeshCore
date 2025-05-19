@@ -22,7 +22,7 @@
 #define PIN_BOARD_SCL1 41  //SCL for PMU and PFC8563 (RTC)
 #define PIN_PMU_IRQ 40     //IRQ pin for PMU
 
-#define PIN_USER_BTN 0
+//#define PIN_USER_BTN 0
 
 #define P_BOARD_SPI_MOSI 35  //SPI for SD Card and QMI8653 (IMU)
 #define P_BOARD_SPI_MISO 37  //SPI for SD Card and QMI8653 (IMU)
@@ -55,7 +55,9 @@ class TBeamS3SupremeBoard : public ESP32Board {
   XPowersAXP2101 PMU;
 public:
 #ifdef MESH_DEBUG
+  void scanDevices(TwoWire *w);
   void printPMU();
+  void printBMEValues();
 #endif
   bool power_init();
 

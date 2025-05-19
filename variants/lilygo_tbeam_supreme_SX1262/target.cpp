@@ -1,10 +1,16 @@
 #include <Arduino.h>
 #include "target.h"
 #include <helpers/sensors/MicroNMEALocationProvider.h>
+#include <Adafruit_BME280.h>
 
 TBeamS3SupremeBoard board;
 
+#ifdef DISPLAY_CLASS
+  DISPLAY_CLASS display;
+#endif
+
 bool pmuIntFlag;
+//#define SEALEVELPRESSURE_HPA (1013.25)
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -23,6 +29,7 @@ ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
 TbeamSupSensorManager sensors = TbeamSupSensorManager(nmea);
+Adafruit_BME280 bme;
 
 static void setPMUIntFlag(){
   pmuIntFlag = true;
@@ -46,7 +53,7 @@ void scanDevices(TwoWire *w)
             switch (addr) {
             case 0x77:
             case 0x76:
-                Serial.println("\tFound BMX280 Sensor");
+                Serial.println("\tFound BME280 Sensor");
                 deviceOnline |= BME280_ONLINE;
                 break;
             case 0x34:
@@ -106,6 +113,26 @@ void TBeamS3SupremeBoard::printPMU()
     }
 
     Serial.println();
+}
+void printBMEValues() {  
+  Serial.print("Temperature = ");
+  Serial.print(bme.readTemperature());
+  Serial.println(" *C");
+
+  Serial.print("Pressure = ");
+
+  Serial.print(bme.readPressure() / 100.0F);
+  Serial.println(" hPa");
+
+  Serial.print("Approx. Altitude = ");
+  Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA));
+  Serial.println(" m");
+
+  Serial.print("Humidity = ");
+  Serial.print(bme.readHumidity());
+  Serial.println(" %");
+
+  Serial.println();
 }
 #endif
 
@@ -289,6 +316,10 @@ bool radio_init() {
   fallback_clock.begin();
 
   rtc_clock.begin(Wire1);
+
+  // #ifdef MESH_DEBUG
+  // printBMEValues();
+  // #endif
   
 #ifdef SX126X_DIO3_TCXO_VOLTAGE
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
@@ -340,8 +371,14 @@ void TbeamSupSensorManager::sleep_gps() {
 }
 
 bool TbeamSupSensorManager::begin() {
+  //init BME280
+    if (! bme.begin(0x77, &Wire)) {
+        MESH_DEBUG_PRINTLN("Could not find a valid BME280 sensor, check wiring!");
+    }
+    else
+      MESH_DEBUG_PRINTLN("BME280 found and init!");
+  
   // init GPS port
-
   Serial1.begin(GPS_BAUD_RATE, SERIAL_8N1, P_GPS_RX, P_GPS_TX);
 
   bool result = false;
@@ -359,22 +396,53 @@ bool TbeamSupSensorManager::querySensors(uint8_t requester_permissions, CayenneL
   if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
     telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
   }
+  if (requester_permissions & TELEM_PERM_ENVIRONMENT) {   // does requester have permission?
+    telemetry.addTemperature(TELEM_CHANNEL_SELF, node_temp);
+    telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, node_hum);
+    telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, node_pres);
+    //telemetry.addAltitude(TELEM_CHANNEL_SELF, node_alt);
+  }
   return true;
 }
 
 void TbeamSupSensorManager::loop() {
-  static long next_gps_update = 0;
+  static long next_update = 0;
 
   _nmea->loop();
 
-  if (millis() > next_gps_update) {
+  if (millis() > next_update) {
     if (_nmea->isValid()) {
       node_lat = ((double)_nmea->getLatitude())/1000000.;
       node_lon = ((double)_nmea->getLongitude())/1000000.;
       node_altitude = ((double)_nmea->getAltitude()) / 1000.0;
       //Serial.printf("lat %f lon %f\r\n", _lat, _lon);
     }
-    next_gps_update = millis() + 1000;
+
+    //read BME280 values
+    //node_alt = bme.readAltitude(SEALEVELPRESSURE_HPA);
+    node_temp = bme.readTemperature();
+    node_hum = bme.readHumidity();
+    node_pres = (bme.readPressure() / 100.0F);
+
+    #ifdef MESH_DEBUG
+      Serial.print("Temperature = ");
+      Serial.print(node_temp);
+      Serial.println(" *C");
+
+      Serial.print("Humidity = ");
+      Serial.print(node_hum);
+      Serial.println(" %");
+
+      Serial.print("Pressure = ");
+      Serial.print(node_pres);
+      Serial.println(" hPa");
+
+      // Serial.print("Approx. Altitude = ");
+      // Serial.print(node_alt);
+      // Serial.println(" m");
+    #endif
+
+    next_update = millis() + 1000;
   }
 }
 

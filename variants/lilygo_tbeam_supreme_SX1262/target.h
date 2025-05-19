@@ -31,6 +31,11 @@ extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 extern TbeamSupSensorManager sensors;
 
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SH1106Display.h>
+  extern DISPLAY_CLASS display;
+#endif
+
 enum {
   POWERMANAGE_ONLINE  = _BV(0),
   DISPLAY_ONLINE      = _BV(1),
