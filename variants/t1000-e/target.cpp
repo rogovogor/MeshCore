@@ -12,6 +12,10 @@ VolatileRTCClock rtc_clock;
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
 T1000SensorManager sensors = T1000SensorManager(nmea);
 
+#ifdef DISPLAY_CLASS
+  NullDisplayDriver display;
+#endif
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif

@@ -1,5 +1,3 @@
-#ifdef ST7735
-
 #include "ST7735Display.h"
 
 #ifndef DISPLAY_ROTATION
@@ -130,5 +128,3 @@ uint16_t ST7735Display::getTextWidth(const char* str) {
 void ST7735Display::endFrame() {
   // display.display();
 }
-
-#endif

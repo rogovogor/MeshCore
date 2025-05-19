@@ -11,6 +11,9 @@
 #include <INA3221.h>
 #include <INA219.h>
 #include <Adafruit_AHTX0.h>
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SSD1306Display.h>
+#endif
 
 #define NUM_SENSOR_SETTINGS 3
 
@@ -18,6 +21,9 @@ extern PromicroBoard board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 
+#ifdef DISPLAY_CLASS
+  extern DISPLAY_CLASS display;
+#endif
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

@@ -60,30 +60,7 @@
 
 #define  PUBLIC_GROUP_PSK  "izOH6cXN6mrJ5e26oRXNcg=="
 
-#ifdef DISPLAY_CLASS      // TODO: refactor this -- move to variants/*/target
-  #include "UITask.h"
-  #ifdef ST7735
-    #include <helpers/ui/ST7735Display.h>
-  #elif ST7789
-    #include <helpers/ui/ST7789Display.h>
-  #elif SH1106
-    #include <helpers/ui/SH1106Display.h>
-  #elif defined(HAS_GxEPD)
-    #include <helpers/ui/GxEPDDisplay.h>
-  #else
-    #include <helpers/ui/SSD1306Display.h>
-  #endif
-
-  #if defined(HELTEC_LORA_V3) && defined(ST7735)
-    static DISPLAY_CLASS display(&board.periph_power);   // peripheral power pin is shared
-  #else
-    static DISPLAY_CLASS display;
-  #endif
-
-  #define HAS_UI
-#endif
-
-#if defined(HAS_UI)
+#ifdef DISPLAY_CLASS
   #include "UITask.h"
 
   static UITask ui_task(&board);
@@ -609,7 +586,7 @@ protected:
     } else {
       soundBuzzer();
     }
-  #ifdef HAS_UI
+  #ifdef DISPLAY_CLASS
     ui_task.newMsg(path_len, from.name, text, offline_queue_len);
   #endif
   }
@@ -660,7 +637,7 @@ protected:
     } else {
       soundBuzzer();
     }
-  #ifdef HAS_UI
+  #ifdef DISPLAY_CLASS
     ui_task.newMsg(path_len, "Public", text, offline_queue_len);
   #endif
   }
@@ -895,7 +872,7 @@ public:
 
   #ifdef BLE_PIN_CODE
     if (_prefs.ble_pin == 0) {
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
       if (has_display) {
         StdRNG  rng;
         _active_ble_pin = rng.nextInt(100000, 999999);  // random pin each session
@@ -1244,7 +1221,7 @@ public:
       int out_len;
       if ((out_len = getFromOfflineQueue(out_frame)) > 0) {
         _serial->writeFrame(out_frame, out_len);
-        #ifdef HAS_UI
+        #ifdef DISPLAY_CLASS
           ui_task.msgRead(offline_queue_len);
         #endif
       } else {
@@ -1572,7 +1549,7 @@ public:
       checkConnections();
     }
 
-  #ifdef HAS_UI
+  #ifdef DISPLAY_CLASS
     ui_task.setHasConnection(_serial->isConnected());
     ui_task.loop();
   #endif
@@ -1643,16 +1620,14 @@ void setup() {
 
   board.begin();
 
-#ifdef HAS_UI
+#ifdef DISPLAY_CLASS
   DisplayDriver* disp = NULL;
- #ifdef DISPLAY_CLASS
   if (display.begin()) {
     disp = &display;
     disp->startFrame();
     disp->print("Please wait...");
     disp->endFrame();
   }
- #endif
 #endif
 
   if (!radio_init()) { halt(); }
@@ -1662,7 +1637,7 @@ void setup() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   InternalFS.begin();
   the_mesh.begin(InternalFS,
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
         disp != NULL
     #else
         false
@@ -1680,7 +1655,7 @@ void setup() {
 #elif defined(RP2040_PLATFORM)
   LittleFS.begin();
   the_mesh.begin(LittleFS,
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
         disp != NULL
     #else
         false
@@ -1705,7 +1680,7 @@ void setup() {
 #elif defined(ESP32)
   SPIFFS.begin(true);
   the_mesh.begin(SPIFFS,
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
         disp != NULL
     #else
         false
@@ -1733,7 +1708,7 @@ void setup() {
 
   sensors.begin();
 
-#ifdef HAS_UI
+#ifdef DISPLAY_CLASS
   ui_task.begin(disp, the_mesh.getNodePrefs(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
 #endif
 }

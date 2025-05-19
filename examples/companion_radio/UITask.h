@@ -22,6 +22,7 @@ class UITask {
   void renderCurrScreen();
   void buttonHandler();
   void userLedHandler();
+  void renderBatteryIndicator(uint16_t batteryMilliVolts);
 
 public:
 

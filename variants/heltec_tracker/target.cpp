@@ -19,6 +19,10 @@ AutoDiscoverRTCClock rtc_clock(fallback_clock);
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
 HWTSensorManager sensors = HWTSensorManager(nmea);
 
+#ifdef DISPLAY_CLASS
+  DISPLAY_CLASS display(&board.periph_power);   // peripheral power pin is shared
+#endif
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif

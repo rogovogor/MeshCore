@@ -85,7 +85,7 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   }
 }
 
-void renderBatteryIndicator(DisplayDriver* _display, uint16_t batteryMilliVolts) {
+void UITask::renderBatteryIndicator(uint16_t batteryMilliVolts) {
   // Convert millivolts to percentage
   const int minMilliVolts = 3000; // Minimum voltage (e.g., 3.0V)
   const int maxMilliVolts = 4200; // Maximum voltage (e.g., 4.2V)
@@ -155,7 +155,7 @@ void UITask::renderCurrScreen() {
     _display->print(_node_prefs->node_name);
 
     // battery voltage
-    renderBatteryIndicator(_display, _board->getBattMilliVolts());
+    renderBatteryIndicator(_board->getBattMilliVolts());
 
     // freq / sf
     _display->setCursor(0, 20);

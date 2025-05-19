@@ -60,10 +60,6 @@
 #endif
 
 #ifdef DISPLAY_CLASS
-  #include <helpers/ui/SSD1306Display.h>
-
-  static DISPLAY_CLASS  display;
-
   #include "UITask.h"
   static UITask ui_task(display);
 #endif
@@ -735,7 +731,7 @@ void setup() {
   board.begin();
 
 #ifdef DISPLAY_CLASS
-  if(display.begin()){
+  if (display.begin()) {
     display.startFrame();
     display.print("Please wait...");
     display.endFrame();
