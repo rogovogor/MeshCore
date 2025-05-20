@@ -66,11 +66,6 @@
   static UITask ui_task(&board);
 #endif
 
-#ifdef PIN_BUZZER
-  #include "buzzer.h"
-  genericBuzzer buzzer;
-#endif
-
 // Believe it or not, this std C function is busted on some platforms!
 static uint32_t _atoi(const char* sp) {
   uint32_t n = 0;
@@ -488,15 +483,6 @@ class MyMesh : public BaseChatMesh {
     return 0;  // queue is empty
   }
 
-  void soundBuzzer() {
-  #if defined(PIN_BUZZER)
-    // gemini's pick
-    buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
-    //Serial.println("DBG:  Buzzzzzz");
-  #endif
-
-  }
-
 protected:
   float getAirtimeBudgetFactor() const override {
     return _prefs.airtime_factor;
@@ -533,7 +519,9 @@ protected:
         _serial->writeFrame(out_frame, 1 + PUB_KEY_SIZE);
       }
     } else {
-      soundBuzzer();
+    #ifdef DISPLAY_CLASS
+      ui_task.soundBuzzer();
+    #endif
     }
 
     saveContacts();
@@ -594,7 +582,9 @@ protected:
       frame[0] = PUSH_CODE_MSG_WAITING;  // send push 'tickle'
       _serial->writeFrame(frame, 1);
     } else {
-      soundBuzzer();
+    #ifdef DISPLAY_CLASS
+      ui_task.soundBuzzer();
+    #endif
     }
   #ifdef DISPLAY_CLASS
     ui_task.newMsg(path_len, from.name, text, offline_queue_len);
@@ -645,7 +635,9 @@ protected:
       frame[0] = PUSH_CODE_MSG_WAITING;  // send push 'tickle'
       _serial->writeFrame(frame, 1);
     } else {
-      soundBuzzer();
+    #ifdef DISPLAY_CLASS
+      ui_task.soundBuzzer();
+    #endif
     }
   #ifdef DISPLAY_CLASS
     ui_task.newMsg(path_len, "Public", text, offline_queue_len);
@@ -1563,10 +1555,6 @@ public:
     ui_task.setHasConnection(_serial->isConnected());
     ui_task.loop();
   #endif
-
-  #ifdef PIN_BUZZER
-    if (buzzer.isPlaying())  buzzer.loop();
-  #endif
   }
 };
 
@@ -1633,10 +1621,6 @@ void setup() {
   Serial.begin(115200);
 
   board.begin();
-
-#ifdef PIN_BUZZER
-  buzzer.begin();
-#endif
 
 #ifdef DISPLAY_CLASS
   DisplayDriver* disp = NULL;

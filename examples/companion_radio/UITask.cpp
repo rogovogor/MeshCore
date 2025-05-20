@@ -53,6 +53,18 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs, const char* bu
 
   // v1.2.3 (1 Jan 2025)
   sprintf(_version_info, "%s (%s)", version, build_date);
+
+#ifdef PIN_BUZZER
+  buzzer.begin();
+#endif
+}
+
+void UITask::soundBuzzer() {
+#if defined(PIN_BUZZER)
+  // gemini's pick
+  buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
+  //Serial.println("DBG:  Buzzzzzz");
+#endif
 }
 
 void UITask::msgRead(int msgcount) {
@@ -247,6 +259,10 @@ void UITask::buttonHandler() {
 void UITask::loop() {
   buttonHandler();
   userLedHandler();
+
+#ifdef PIN_BUZZER
+  if (buzzer.isPlaying())  buzzer.loop();
+#endif
 
   if (_display != NULL && _display->isOn()) {
     static bool _firstBoot = true;
