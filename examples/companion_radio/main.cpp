@@ -1,7 +1,7 @@
 #include <Arduino.h>   // needed for PlatformIO
 #include <Mesh.h>
 
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #include <InternalFileSystem.h>
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
@@ -66,6 +66,8 @@
     #include <helpers/ui/ST7735Display.h>
   #elif ST7789
     #include <helpers/ui/ST7789Display.h>
+  #elif SH1106
+    #include <helpers/ui/SH1106Display.h>
   #elif defined(HAS_GxEPD)
     #include <helpers/ui/GxEPDDisplay.h>
   #else
@@ -102,11 +104,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    5
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "9 May 2025"
+  #define FIRMWARE_BUILD_DATE   "17 May 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.0"
+  #define FIRMWARE_VERSION   "v1.6.1"
 #endif
 
 #define CMD_APP_START              1
@@ -291,7 +293,7 @@ class MyMesh : public BaseChatMesh {
   }
 
   void saveContacts() {
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     File file = _fs->open("/contacts3", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
@@ -356,7 +358,7 @@ class MyMesh : public BaseChatMesh {
   }
 
   void saveChannels() {
-  #if defined(NRF52_PLATFORM)
+  #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     File file = _fs->open("/channels2", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
   #elif defined(RP2040_PLATFORM)
@@ -413,7 +415,7 @@ class MyMesh : public BaseChatMesh {
     mesh::Utils::toHex(fname, key, key_len);
     sprintf(path, "/bl/%s", fname);
 
-  #if defined(NRF52_PLATFORM)
+  #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     File f = _fs->open(path, FILE_O_WRITE);
     if (f) { f.seek(0); f.truncate(); }
   #elif defined(RP2040_PLATFORM)
@@ -866,7 +868,7 @@ public:
 
     BaseChatMesh::begin();
 
-  #if defined(NRF52_PLATFORM)
+  #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     _identity_store = new IdentityStore(fs, "");
   #elif defined(RP2040_PLATFORM)
     _identity_store = new IdentityStore(fs, "/identity");
@@ -933,7 +935,7 @@ public:
   }
 
   void savePrefs() {
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     File file = _fs->open("/new_prefs", FILE_O_WRITE);
     if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
@@ -1621,6 +1623,9 @@ public:
     #include <helpers/ArduinoSerialInterface.h>
     ArduinoSerialInterface serial_interface;
   #endif
+#elif defined(STM32_PLATFORM)
+  #include <helpers/ArduinoSerialInterface.h>
+  ArduinoSerialInterface serial_interface;
 #else
   #error "need to define a serial interface"
 #endif
@@ -1654,7 +1659,7 @@ void setup() {
 
   fast_rng.begin(radio_get_rng_seed());
 
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   InternalFS.begin();
   the_mesh.begin(InternalFS,
     #ifdef HAS_UI

@@ -1,7 +1,7 @@
 #include <Arduino.h>   // needed for PlatformIO
 #include <Mesh.h>
 
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #include <InternalFileSystem.h>
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "9 May 2025"
+  #define FIRMWARE_BUILD_DATE   "17 May 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.0"
+  #define FIRMWARE_VERSION   "v1.6.1"
 #endif
 
 #ifndef LORA_FREQ
@@ -91,7 +91,7 @@ struct RepeaterStats {
   uint32_t total_up_time_secs;
   uint32_t n_sent_flood, n_sent_direct;
   uint32_t n_recv_flood, n_recv_direct;
-  uint16_t n_full_events;
+  uint16_t err_events;                // was 'n_full_events'
   int16_t  last_snr;   // x 4
   uint16_t n_direct_dups, n_flood_dups;
 };
@@ -105,7 +105,9 @@ struct ClientInfo {
   uint8_t out_path[MAX_PATH_SIZE];
 };
 
-#define MAX_CLIENTS   4
+#ifndef MAX_CLIENTS
+  #define MAX_CLIENTS           32
+#endif
 
 struct NeighbourInfo {
   mesh::Identity id;
@@ -184,7 +186,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
       case REQ_TYPE_GET_STATUS: {   // guests can also access this now
         RepeaterStats stats;
         stats.batt_milli_volts = board.getBattMilliVolts();
-        stats.curr_tx_queue_len = _mgr->getOutboundCount();
+        stats.curr_tx_queue_len = _mgr->getOutboundCount(0xFFFFFFFF);
         stats.curr_free_queue_len = _mgr->getFreeCount();
         stats.last_rssi = (int16_t) radio_driver.getLastRSSI();
         stats.n_packets_recv = radio_driver.getPacketsRecv();
@@ -195,7 +197,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         stats.n_sent_direct = getNumSentDirect();
         stats.n_recv_flood = getNumRecvFlood();
         stats.n_recv_direct = getNumRecvDirect();
-        stats.n_full_events = getNumFullEvents();
+        stats.err_events = _err_flags;
         stats.last_snr = (int16_t)(radio_driver.getLastSNR() * 4);
         stats.n_direct_dups = ((SimpleMeshTables *)getTables())->getNumDirectDups();
         stats.n_flood_dups = ((SimpleMeshTables *)getTables())->getNumFloodDups();
@@ -230,7 +232,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   }
 
   File openAppend(const char* fname) {
-  #if defined(NRF52_PLATFORM)
+  #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     return _fs->open(fname, FILE_O_WRITE);
   #elif defined(RP2040_PLATFORM)
     return _fs->open(fname, "a");
@@ -597,7 +599,7 @@ public:
   }
 
   bool formatFileSystem() override {
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     return InternalFS.format();
 #elif defined(RP2040_PLATFORM)
     return LittleFS.format();
@@ -675,7 +677,8 @@ public:
       mesh::Utils::toHex(hex, neighbour->id.pub_key, 4);
 
       // add next neighbour
-      sprintf(dp, "%s:%d:%d", hex, neighbour->advert_timestamp, neighbour->snr);
+      uint32_t secs_ago = getRTCClock()->getCurrentTime() - neighbour->heard_timestamp;
+      sprintf(dp, "%s:%d:%d", hex, secs_ago, neighbour->snr);
       while (*dp) dp++;   // find end of string
     }
 #endif
@@ -685,7 +688,13 @@ public:
     *dp = 0;  // null terminator
   }
 
-  const uint8_t* getSelfIdPubKey() { return self_id.pub_key; }
+  const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
+
+  void clearStats() override {
+    radio_driver.resetStats();
+    resetStats();
+    ((SimpleMeshTables *)getTables())->resetStats();
+  }
 
   void loop() {
     mesh::Mesh::loop();
@@ -738,7 +747,7 @@ void setup() {
   fast_rng.begin(radio_get_rng_seed());
 
   FILESYSTEM* fs;
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   InternalFS.begin();
   fs = &InternalFS;
   IdentityStore store(InternalFS, "");

@@ -6,3 +6,5 @@
 .vscode/ipch
 out/
 .direnv/
+.DS_Store
+.vscode/settings.json

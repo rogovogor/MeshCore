@@ -44,6 +44,10 @@ void RadioLibWrapper::startRecv() {
   }
 }
 
+bool RadioLibWrapper::isInRecvMode() const {
+  return (state & ~STATE_INT_READY) == STATE_RX;
+}
+
 int RadioLibWrapper::recvRaw(uint8_t* bytes, int sz) {
   if (state & STATE_INT_READY) {
     int len = _radio->getPacketLength();
@@ -77,13 +81,16 @@ uint32_t RadioLibWrapper::getEstAirtimeFor(int len_bytes) {
   return _radio->getTimeOnAir(len_bytes) / 1000;
 }
 
-void RadioLibWrapper::startSendRaw(const uint8_t* bytes, int len) {
-  state = STATE_TX_WAIT;
+bool RadioLibWrapper::startSendRaw(const uint8_t* bytes, int len) {
   _board->onBeforeTransmit();
   int err = _radio->startTransmit((uint8_t *) bytes, len);
-  if (err != RADIOLIB_ERR_NONE) {
-    MESH_DEBUG_PRINTLN("RadioLibWrapper: error: startTransmit(%d)", err);
+  if (err == RADIOLIB_ERR_NONE) {
+    state = STATE_TX_WAIT;
+    return true;
   }
+  MESH_DEBUG_PRINTLN("RadioLibWrapper: error: startTransmit(%d)", err);
+  idle();   // trigger another startRecv()
+  return false;
 }
 
 bool RadioLibWrapper::isSendComplete() {
