@@ -271,8 +271,8 @@ class MyMesh : public BaseChatMesh {
 
   void saveContacts() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove("/contacts3");
     File file = _fs->open("/contacts3", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
     File file = _fs->open("/contacts3", "w");
 #else
@@ -336,8 +336,8 @@ class MyMesh : public BaseChatMesh {
 
   void saveChannels() {
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove("/channels2");
     File file = _fs->open("/channels2", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
   #elif defined(RP2040_PLATFORM)
     File file = _fs->open("/channels2", "w");
   #else
@@ -393,8 +393,8 @@ class MyMesh : public BaseChatMesh {
     sprintf(path, "/bl/%s", fname);
 
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove(path);
     File f = _fs->open(path, FILE_O_WRITE);
-    if (f) { f.seek(0); f.truncate(); }
   #elif defined(RP2040_PLATFORM)
     File f = _fs->open(path, "w");
   #else
@@ -915,8 +915,8 @@ public:
 
   void savePrefs() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove("/new_prefs");
     File file = _fs->open("/new_prefs", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
     File file = _fs->open("/new_prefs", "w");
 #else
