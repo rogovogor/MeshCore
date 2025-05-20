@@ -27,11 +27,10 @@ void NanoG2Ultra::begin()
   // for future use, sub-classes SHOULD call this from their begin()
   startup_reason = BD_STARTUP_NORMAL;
 
+  // set user button
   pinMode(PIN_BUTTON1, INPUT);
+
   // the external notification circuit is shared for both buzzer and led
-  // need to find out the switch state or somehow write a function that can
-  // sound the buzzer or signal the led. the led will stay on once brought HIGH
-  // and can be then brought LOW. It turns off with a hardware btn.
   pinMode(EXT_NOTIFY_OUT, OUTPUT);
   digitalWrite(EXT_NOTIFY_OUT, LOW);
 
