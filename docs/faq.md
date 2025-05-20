@@ -40,7 +40,7 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [4.11. Q: What is the 'Import from Clipboard' feature on the t-deck and is there a way to manually add nodes without having to receive adverts?](#411-q-what-is-the-import-from-clipboard-feature-on-the-t-deck-and-is-there-a-way-to-manually-add-nodes-without-having-to-receive-adverts)
 - [5. General](#5-general)
   - [5.1. Q: What are BW, SF, and CR?](#51-q-what-are-bw-sf-and-cr)
-  - [5.2. Q: Do MeshCore clients repeat?](#52-q-do--clients-repeat)
+  - [5.2. Q: Do MeshCore clients repeat?](#52-q-do-meshcore-clients-repeat)
   - [5.3. Q: What happens when a node learns a route via a mobile repeater, and that repeater is gone?](#53-q-what-happens-when-a-node-learns-a-route-via-a-mobile-repeater-and-that-repeater-is-gone)
   - [5.4. Q: How does a node discovery a path to its destination and then use it to send messages in the future, instead of flooding every message it sends like Meshtastic?](#54-q-how-does-a-node-discovery-a-path-to-its-destination-and-then-use-it-to-send-messages-in-the-future-instead-of-flooding-every-message-it-sends-like-meshtastic)
   - [5.5. Q: Do public channels always flood? Do private channels always flood?](#55-q-do-public-channels-always-flood-do-private-channels-always-flood)
@@ -342,7 +342,7 @@ things network is mainly focused on LoRaWAN, but the LoRa low-level stuff still 
 
 ### 5.2. Q: Do MeshCore clients repeat?
 **A:** No, MeshCore clients do not repeat.  This is the core of MeshCore's messaging-first design.  This is to avoid devices flooding the air ware and create endless collisions, so messages sent aren't received.  
-In MeshCore, only repeaters and room server with '`set repeat on` repeat.  
+In MeshCore, only repeaters and room server with `set repeat on` repeat.  
 
 ### 5.3. Q: What happens when a node learns a route via a mobile repeater, and that repeater is gone?
 
@@ -352,7 +352,7 @@ In the case if users are moving around frequently, and the paths are breaking, t
 
 ### 5.4. Q: How does a node discovery a path to its destination and then use it to send messages in the future, instead of flooding every message it sends like Meshtastic?
 
-Routes are stored in sender's contact list.  When you send a message the first time, the message  first gets to your destination by flood routing, when your destination node gets the message, it  sends back to the sender a delivery report with all repeaters that the original message went through. This delivery report is flood-routed back to you the sender and is a basis for future direct path. when you send the next message, the path will get embedded into the packet and be evaluated by repeaters. if the hop and address of the repeater matches, it will retransmit the message, otherwise it will not retransmit, hence minimizing utilization.
+Routes are stored in sender's contact list.  When you send a message the first time, the message first gets to your destination by flood routing. When your destination node gets the message, it will send back a delivery report to the sender with all repeaters that the original message went through. This delivery report is flood-routed back to you the sender and is a basis for future direct path. When you send the next message, the path will get embedded into the packet and be evaluated by repeaters. If the hop and address of the repeater matches, it will retransmit the message, otherwise it will not retransmit, hence minimizing utilization.
 
 [Source](https://discord.com/channels/826570251612323860/1330643963501351004/1351279141630119996)
 
