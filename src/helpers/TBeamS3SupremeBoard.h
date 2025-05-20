@@ -55,9 +55,7 @@ class TBeamS3SupremeBoard : public ESP32Board {
   XPowersAXP2101 PMU;
 public:
 #ifdef MESH_DEBUG
-  void scanDevices(TwoWire *w);
   void printPMU();
-  void printBMEValues();
 #endif
   bool power_init();
 

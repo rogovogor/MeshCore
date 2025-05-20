@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "target.h"
 #include <helpers/sensors/MicroNMEALocationProvider.h>
-#include <Adafruit_BME280.h>
 
 TBeamS3SupremeBoard board;
 
@@ -10,7 +9,6 @@ TBeamS3SupremeBoard board;
 #endif
 
 bool pmuIntFlag;
-//#define SEALEVELPRESSURE_HPA (1013.25)
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -29,7 +27,6 @@ ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
 TbeamSupSensorManager sensors = TbeamSupSensorManager(nmea);
-Adafruit_BME280 bme;
 
 static void setPMUIntFlag(){
   pmuIntFlag = true;
@@ -114,7 +111,7 @@ void TBeamS3SupremeBoard::printPMU()
 
     Serial.println();
 }
-void printBMEValues() {  
+void TbeamSupSensorManager::printBMEValues() {  
   Serial.print("Temperature = ");
   Serial.print(bme.readTemperature());
   Serial.println(" *C");
