@@ -16,15 +16,6 @@
 
 */
 
-enum class buzzerEventType
-{
-    noBuzzer,
-    contactMessage,
-    channelMessage,
-    roomMessage,
-    newContactMessage
-};
-
 class genericBuzzer
 {
     public:
