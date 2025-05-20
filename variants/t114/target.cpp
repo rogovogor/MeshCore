@@ -97,7 +97,7 @@ bool T114SensorManager::begin() {
   digitalWrite(GPS_EN, HIGH);  // Power on GPS
 
   // Give GPS a moment to power up and send data
-  delay(500);
+  delay(1500);
 
   // We'll consider GPS detected if we see any data on Serial1
   gps_detected = (Serial1.available() > 0);
