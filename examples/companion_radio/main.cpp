@@ -520,7 +520,7 @@ protected:
       }
     } else {
     #ifdef DISPLAY_CLASS
-      ui_task.soundBuzzer();
+      ui_task.soundBuzzer(buzzerEventType::newContactMessage);
     #endif
     }
 
@@ -583,7 +583,7 @@ protected:
       _serial->writeFrame(frame, 1);
     } else {
     #ifdef DISPLAY_CLASS
-      ui_task.soundBuzzer();
+      ui_task.soundBuzzer(buzzerEventType::contactMessage);
     #endif
     }
   #ifdef DISPLAY_CLASS

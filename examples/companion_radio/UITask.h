@@ -44,6 +44,6 @@ public:
   void clearMsgPreview();
   void msgRead(int msgcount);
   void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount);
-  void soundBuzzer();
+  void soundBuzzer(buzzerEventType bet = buzzerEventType::noBuzzer);
   void loop();
 };

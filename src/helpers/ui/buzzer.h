@@ -15,6 +15,16 @@
     - make message ring tone configurable
 
 */
+
+enum class buzzerEventType
+{
+    noBuzzer,
+    contactMessage,
+    channelMessage,
+    roomMessage,
+    newContactMessage
+};
+
 class genericBuzzer
 {
     public:
