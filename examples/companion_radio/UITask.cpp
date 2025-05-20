@@ -209,7 +209,7 @@ void UITask::userLedHandler() {
 }
 
 void UITask::buttonHandler() {
-  #ifdef PIN_USER_BTN || PIN_USER_BTN_ANA
+  #if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
     static int prev_btn_state = !USER_BTN_PRESSED;
     static int prev_btn_state_ana = !USER_BTN_PRESSED;
     static unsigned long btn_state_change_time = 0;
@@ -224,7 +224,6 @@ void UITask::buttonHandler() {
       #ifdef PIN_USER_BTN_ANA
       btn_state_ana = (analogRead(PIN_USER_BTN_ANA) < 20); // analogRead returns a value hopefully below 20 when button is pressed. 
       #endif
-      //Serial.println(analogRead(PIN_USER_BTN_ANA));
       if (btn_state != prev_btn_state || btn_state_ana != prev_btn_state_ana) { // check for either digital or analogue button change of state
         if (btn_state == USER_BTN_PRESSED || btn_state_ana == USER_BTN_PRESSED) {  // pressed?
           if (_display != NULL) {
