@@ -15,6 +15,7 @@
     - make message ring tone configurable
 
 */
+
 class genericBuzzer
 {
     public:

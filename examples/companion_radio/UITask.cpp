@@ -59,12 +59,23 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs, const char* bu
 #endif
 }
 
-void UITask::soundBuzzer() {
+void UITask::soundBuzzer(UIEventType bet) {
 #if defined(PIN_BUZZER)
-  // gemini's pick
-  buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
-  //Serial.println("DBG:  Buzzzzzz");
+switch(bet){
+  case UIEventType::contactMessage:
+    // gemini's pick
+    buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
+    break;
+  case UIEventType::channelMessage:
+  case UIEventType::roomMessage:
+  case UIEventType::newContactMessage:
+  case UIEventType::none:
+  default:
+    break;
+}
 #endif
+//  Serial.print("DBG:  Buzzzzzz -> ");
+//  Serial.println((int) bet);
 }
 
 void UITask::msgRead(int msgcount) {

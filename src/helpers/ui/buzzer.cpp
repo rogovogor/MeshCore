@@ -2,8 +2,8 @@
 #include "buzzer.h"
 
 void genericBuzzer::begin() {
-    Serial.print("DBG: Setting up buzzer on pin ");
-    Serial.println(PIN_BUZZER);
+//    Serial.print("DBG: Setting up buzzer on pin ");
+//    Serial.println(PIN_BUZZER);
     #ifdef PIN_BUZZER_EN
       pinMode(PIN_BUZZER_EN, OUTPUT);
       digitalWrite(PIN_BUZZER_EN, HIGH);

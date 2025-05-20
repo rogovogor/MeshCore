@@ -10,6 +10,15 @@
 
 #include "NodePrefs.h"
 
+ enum class UIEventType
+{
+    none,
+    contactMessage,
+    channelMessage,
+    roomMessage,
+    newContactMessage
+};
+
 class UITask {
   DisplayDriver* _display;
   mesh::MainBoard* _board;
@@ -31,6 +40,7 @@ class UITask {
   void userLedHandler();
   void renderBatteryIndicator(uint16_t batteryMilliVolts);
 
+ 
 public:
 
   UITask(mesh::MainBoard* board) : _board(board), _display(NULL) {
@@ -44,6 +54,6 @@ public:
   void clearMsgPreview();
   void msgRead(int msgcount);
   void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount);
-  void soundBuzzer();
+  void soundBuzzer(UIEventType bet = UIEventType::none);
   void loop();
 };
