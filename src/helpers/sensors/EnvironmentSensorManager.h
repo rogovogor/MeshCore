@@ -7,8 +7,6 @@
 #include <Adafruit_AHTX0.h>
 #include <Adafruit_BME280.h>
 
-#define NUM_SENSOR_SETTINGS 3
-
 #define TELEM_AHTX_ADDRESS      0x38      // AHT10, AHT20 temperature and humidity sensor I2C address
 #define TELEM_BME280_ADDRESS    0x76      // BME280 environmental sensor I2C address
 #define TELEM_INA3221_ADDRESS   0x42      // INA3221 3 channel current sensor I2C address
