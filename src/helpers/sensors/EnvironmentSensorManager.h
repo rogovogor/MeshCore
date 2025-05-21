@@ -17,9 +17,6 @@
 #define TELEM_INA3221_SHUNT_VALUE 0.100 // most variants will have a 0.1 ohm shunts
 #define TELEM_INA3221_NUM_CHANNELS 3
 
-#define TELEM_INA219_SHUNT_VALUE 0.100  // shunt value in ohms (may differ between manufacturers)
-#define TELEM_INA219_MAX_CURRENT 5
-
 #define TELEM_BME280_SEALEVELPRESSURE_HPA (1013.25)    // Athmospheric pressure at sea level
 
 class EnvironmentSensorManager : public SensorManager {
