@@ -1,6 +1,7 @@
 #pragma once
 
 #include <helpers/SensorManager.h>
+#include <helpers/sensors/LocationProvider.h>
 #include <Mesh.h>
 #include <Adafruit_INA3221.h>
 #include <Adafruit_INA219.h>
@@ -25,8 +26,22 @@ protected:
   bool INA219_initialized = false;
   bool BME280_initialized = false;
   bool AHTX0_initialized = false;
+  
+  bool gps_active = false;
+  bool gps_detected = false;
+  LocationProvider* _location;
+
+  void start_gps();
+  void stop_gps();
+  void initSerialGPS();
+
 public:
-  EnvironmentSensorManager(){};
+  EnvironmentSensorManager(LocationProvider &location): _location(&location){};
   bool begin() override;
-  bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;
+  bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;  
+  void loop() override;
+  int getNumSettings() const override;
+  const char* getSettingName(int i) const override;
+  const char* getSettingValue(int i) const override;
+  bool setSettingValue(const char* name, const char* value) override;
 };

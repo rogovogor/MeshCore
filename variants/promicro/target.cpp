@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "target.h"
 #include <helpers/ArduinoHelpers.h>
+#include <helpers/sensors/MicroNMEALocationProvider.h>
 
 PromicroBoard board;
 
@@ -10,7 +11,8 @@ WRAPPER_CLASS radio_driver(radio, board);
 
 VolatileRTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
-EnvironmentSensorManager sensors;
+MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
+EnvironmentSensorManager sensors = EnvironmentSensorManager(nmea);
 
 #ifdef DISPLAY_CLASS
   DISPLAY_CLASS display;
