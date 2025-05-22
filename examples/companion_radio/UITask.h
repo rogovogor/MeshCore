@@ -4,11 +4,27 @@
 #include <helpers/ui/DisplayDriver.h>
 #include <stddef.h>
 
+#ifdef PIN_BUZZER
+  #include <helpers/ui/buzzer.h>
+#endif
+
 #include "NodePrefs.h"
+
+ enum class UIEventType
+{
+    none,
+    contactMessage,
+    channelMessage,
+    roomMessage,
+    newContactMessage
+};
 
 class UITask {
   DisplayDriver* _display;
   mesh::MainBoard* _board;
+#ifdef PIN_BUZZER
+  genericBuzzer buzzer;
+#endif
   unsigned long _next_refresh, _auto_off;
   bool _connected;
   uint32_t _pin_code;
@@ -24,6 +40,7 @@ class UITask {
   void userLedHandler();
   void renderBatteryIndicator(uint16_t batteryMilliVolts);
 
+ 
 public:
 
   UITask(mesh::MainBoard* board) : _board(board), _display(NULL) {
@@ -37,5 +54,6 @@ public:
   void clearMsgPreview();
   void msgRead(int msgcount);
   void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount);
+  void soundBuzzer(UIEventType bet = UIEventType::none);
   void loop();
 };
