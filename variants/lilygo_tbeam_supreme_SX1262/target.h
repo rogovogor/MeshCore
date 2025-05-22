@@ -12,9 +12,11 @@
 
 class TbeamSupSensorManager: public SensorManager {
     bool gps_active = false;
+    bool bme_active = false;
     LocationProvider * _nmea;
     Adafruit_BME280 bme;
     double node_temp, node_hum, node_pres;
+    int sensorNum = 2;
     
     #define SEALEVELPRESSURE_HPA (1013.25)
     

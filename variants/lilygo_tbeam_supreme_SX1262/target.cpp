@@ -370,23 +370,28 @@ void TbeamSupSensorManager::sleep_gps() {
 bool TbeamSupSensorManager::begin() {
   //init BME280
     if (! bme.begin(0x77, &Wire)) {
-        MESH_DEBUG_PRINTLN("Could not find a valid BME280 sensor, check wiring!");
+        MESH_DEBUG_PRINTLN("Could not find a valid BME280 sensor");
+        bme_active = false;
     }
     else
       MESH_DEBUG_PRINTLN("BME280 found and init!");
+      bme_active = true;
   
   // init GPS port
   Serial1.begin(GPS_BAUD_RATE, SERIAL_8N1, P_GPS_RX, P_GPS_TX);
 
-  bool result = false;
+  bool gps_alive = false;
     for ( int i = 0; i < 3; ++i) {
-      result = l76kProbe();
-      if (result) {
-        gps_active = true;
-        return result;
+      gps_alive = l76kProbe();
+      if (gps_alive) {
+        MESH_DEBUG_PRINTLN("GPS is init and active. Shutting down for initial state.");
+        sleep_gps();
+        return gps_alive;
       }
     }
-  return result;
+    gps_active = gps_alive;
+    MESH_DEBUG_PRINTLN("GPS init failed and GPS is not active");
+  return gps_alive;
 }
 
 bool TbeamSupSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
@@ -422,17 +427,17 @@ void TbeamSupSensorManager::loop() {
     node_pres = (bme.readPressure() / 100.0F);
 
     #ifdef MESH_DEBUG
-      Serial.print("Temperature = ");
-      Serial.print(node_temp);
-      Serial.println(" *C");
+      // Serial.print("Temperature = ");
+      // Serial.print(node_temp);
+      // Serial.println(" *C");
 
-      Serial.print("Humidity = ");
-      Serial.print(node_hum);
-      Serial.println(" %");
+      // Serial.print("Humidity = ");
+      // Serial.print(node_hum);
+      // Serial.println(" %");
 
-      Serial.print("Pressure = ");
-      Serial.print(node_pres);
-      Serial.println(" hPa");
+      // Serial.print("Pressure = ");
+      // Serial.print(node_pres);
+      // Serial.println(" hPa");
 
       // Serial.print("Approx. Altitude = ");
       // Serial.print(node_alt);
@@ -443,17 +448,24 @@ void TbeamSupSensorManager::loop() {
   }
 }
 
-int TbeamSupSensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
+int TbeamSupSensorManager::getNumSettings() const {
+  return sensorNum; 
+}
 
 const char* TbeamSupSensorManager::getSettingName(int i) const {
-  return i == 0 ? "gps" : NULL;
+  switch(i){
+    case 0: return "gps";
+    case 1: return "bme280";
+    default: NULL;
+  }
 }
 
 const char* TbeamSupSensorManager::getSettingValue(int i) const {
-  if (i == 0) {
-    return gps_active ? "1" : "0";
+  switch(i){
+    case 0: return gps_active == true ? "1" : "0";
+    case 1: return bme_active == true ? "1" : "0";
+    default: NULL;
   }
-  return NULL;
 }
 
 bool TbeamSupSensorManager::setSettingValue(const char* name, const char* value) {
