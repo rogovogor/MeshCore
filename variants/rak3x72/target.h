@@ -8,14 +8,14 @@
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 
-class WIOE5Board : public STM32Board {
+class RAK3x72Board : public STM32Board {
 public:
     const char* getManufacturerName() const override {
-        return "Seeed Wio E5";
+        return "RAK 3x72";
     }
 };
 
-extern WIOE5Board board;
+extern RAK3x72Board board;
 extern WRAPPER_CLASS radio_driver;
 extern VolatileRTCClock rtc_clock;
 extern SensorManager sensors;

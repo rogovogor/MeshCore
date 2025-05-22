@@ -126,6 +126,9 @@ InternalFileSystem::InternalFileSystem(void)
 
 bool InternalFileSystem::begin(void)
 {
+  #ifdef FORMAT_FS
+  this->format();
+  #endif
   // failed to mount, erase all sector then format and mount again
   if ( !Adafruit_LittleFS::begin() )
   {
