@@ -8,10 +8,18 @@
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 
+#define  PIN_VBAT_READ    A0
+#define  ADC_MULTIPLIER   (5 * 1.73 * 1000)
+
 class RAK3x72Board : public STM32Board {
 public:
     const char* getManufacturerName() const override {
         return "RAK 3x72";
+    }
+
+    uint16_t getBattMilliVolts() override {
+        uint32_t raw = analogRead(PIN_VBAT_READ);            
+        return (ADC_MULTIPLIER * raw) / 1024;
     }
 };
 
