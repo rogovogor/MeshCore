@@ -67,6 +67,8 @@ switch(bet){
     buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
     break;
   case UIEventType::channelMessage:
+    buzzer.play("kerplop:d=16,o=6,b=120:32g#,32c#");
+    break;
   case UIEventType::roomMessage:
   case UIEventType::newContactMessage:
   case UIEventType::none:
