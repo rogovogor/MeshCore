@@ -1,15 +1,29 @@
 #include "EnvironmentSensorManager.h"
 
 #if ENV_INCLUDE_AHTX0
+#define TELEM_AHTX_ADDRESS      0x38      // AHT10, AHT20 temperature and humidity sensor I2C address
+#include <Adafruit_AHTX0.h>
 static Adafruit_AHTX0 AHTX0;
 #endif
+
 #if ENV_INCLUDE_BME280
+#define TELEM_BME280_ADDRESS    0x76      // BME280 environmental sensor I2C address
+#define TELEM_BME280_SEALEVELPRESSURE_HPA (1013.25)    // Athmospheric pressure at sea level
+#include <Adafruit_BME280.h>
 static Adafruit_BME280 BME280;
 #endif
+
 #if ENV_INCLUDE_INA3221
+#define TELEM_INA3221_ADDRESS   0x42      // INA3221 3 channel current sensor I2C address
+#define TELEM_INA3221_SHUNT_VALUE 0.100 // most variants will have a 0.1 ohm shunts
+#define TELEM_INA3221_NUM_CHANNELS 3
+#include <Adafruit_INA3221.h>
 static Adafruit_INA3221 INA3221;
 #endif
+
 #if ENV_INCLUDE_INA219
+#define TELEM_INA219_ADDRESS    0x40      // INA219 single channel current sensor I2C address
+#include <Adafruit_INA219.h>
 static Adafruit_INA219 INA219(TELEM_INA219_ADDRESS);
 #endif
 
@@ -128,15 +142,17 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
 int EnvironmentSensorManager::getNumSettings() const {
   #if ENV_INCLUDE_GPS
     return gps_detected ? 1 : 0;  // only show GPS setting if GPS is detected
+  #else
+    return 0;
   #endif
-  return NULL;
 }
 
 const char* EnvironmentSensorManager::getSettingName(int i) const {
   #if ENV_INCLUDE_GPS
     return (gps_detected && i == 0) ? "gps" : NULL;
+  #else  
+    return NULL;
   #endif
-  return NULL;
 }
 
 const char* EnvironmentSensorManager::getSettingValue(int i) const {
@@ -184,9 +200,7 @@ void EnvironmentSensorManager::initBasicGPS() {
     MESH_DEBUG_PRINTLN("No GPS detected");
     digitalWrite(PIN_GPS_EN, LOW);
   }
-
 }
-
 
 void EnvironmentSensorManager::start_gps() {
   gps_active = true;

@@ -4,29 +4,6 @@
 #include <helpers/SensorManager.h>
 #include <helpers/sensors/LocationProvider.h>
 
-
-#if ENV_INCLUDE_AHTX0
-#define TELEM_AHTX_ADDRESS      0x38      // AHT10, AHT20 temperature and humidity sensor I2C address
-#include <Adafruit_AHTX0.h>
-#endif
-#if ENV_INCLUDE_BME280
-#define TELEM_BME280_ADDRESS    0x76      // BME280 environmental sensor I2C address
-#define TELEM_BME280_SEALEVELPRESSURE_HPA (1013.25)    // Athmospheric pressure at sea level
-#include <Adafruit_BME280.h>
-#endif
-#if ENV_INCLUDE_INA3221
-#define TELEM_INA3221_ADDRESS   0x42      // INA3221 3 channel current sensor I2C address
-#define TELEM_INA3221_SHUNT_VALUE 0.100 // most variants will have a 0.1 ohm shunts
-#define TELEM_INA3221_NUM_CHANNELS 3
-#include <Adafruit_INA3221.h>
-#endif
-#if ENV_INCLUDE_INA219
-#define TELEM_INA219_ADDRESS    0x40      // INA219 single channel current sensor I2C address
-#include <Adafruit_INA219.h>
-#endif
-
-
-
 class EnvironmentSensorManager : public SensorManager {
 protected:
   int next_available_channel = TELEM_CHANNEL_SELF + 1;
