@@ -92,7 +92,6 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
     }
   }
 
-  initSerialGPS();
 
   return true;
 }
