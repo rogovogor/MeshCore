@@ -36,11 +36,11 @@ protected:
   bool INA3221_initialized = false;
   bool INA219_initialized = false;
   
-  LocationProvider* _location;
   bool gps_detected = false;
   bool gps_active = false;
 
   #if ENV_INCLUDE_GPS
+  LocationProvider* _location;
   void start_gps();
   void stop_gps();
   void initBasicGPS();
@@ -48,7 +48,11 @@ protected:
 
 
 public:
+  #if ENV_INCLUDE_GPS
   EnvironmentSensorManager(LocationProvider &location): _location(&location){};
+  #else
+  EnvironmentSensorManager(){};
+  #endif
   bool begin() override;
   bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;  
   #if ENV_INCLUDE_GPS
