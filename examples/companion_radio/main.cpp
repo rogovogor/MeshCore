@@ -60,30 +60,7 @@
 
 #define  PUBLIC_GROUP_PSK  "izOH6cXN6mrJ5e26oRXNcg=="
 
-#ifdef DISPLAY_CLASS      // TODO: refactor this -- move to variants/*/target
-  #include "UITask.h"
-  #ifdef ST7735
-    #include <helpers/ui/ST7735Display.h>
-  #elif ST7789
-    #include <helpers/ui/ST7789Display.h>
-  #elif SH1106
-    #include <helpers/ui/SH1106Display.h>
-  #elif defined(HAS_GxEPD)
-    #include <helpers/ui/GxEPDDisplay.h>
-  #else
-    #include <helpers/ui/SSD1306Display.h>
-  #endif
-
-  #if defined(HELTEC_LORA_V3) && defined(ST7735)
-    static DISPLAY_CLASS display(&board.periph_power);   // peripheral power pin is shared
-  #else
-    static DISPLAY_CLASS display;
-  #endif
-
-  #define HAS_UI
-#endif
-
-#if defined(HAS_UI)
+#ifdef DISPLAY_CLASS
   #include "UITask.h"
 
   static UITask ui_task(&board);
@@ -104,11 +81,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    5
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "17 May 2025"
+  #define FIRMWARE_BUILD_DATE   "24 May 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.1"
+  #define FIRMWARE_VERSION   "v1.6.2"
 #endif
 
 #define CMD_APP_START              1
@@ -294,8 +271,8 @@ class MyMesh : public BaseChatMesh {
 
   void saveContacts() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove("/contacts3");
     File file = _fs->open("/contacts3", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
     File file = _fs->open("/contacts3", "w");
 #else
@@ -359,8 +336,8 @@ class MyMesh : public BaseChatMesh {
 
   void saveChannels() {
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove("/channels2");
     File file = _fs->open("/channels2", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
   #elif defined(RP2040_PLATFORM)
     File file = _fs->open("/channels2", "w");
   #else
@@ -416,8 +393,8 @@ class MyMesh : public BaseChatMesh {
     sprintf(path, "/bl/%s", fname);
 
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove(path);
     File f = _fs->open(path, FILE_O_WRITE);
-    if (f) { f.seek(0); f.truncate(); }
   #elif defined(RP2040_PLATFORM)
     File f = _fs->open(path, "w");
   #else
@@ -506,10 +483,6 @@ class MyMesh : public BaseChatMesh {
     return 0;  // queue is empty
   }
 
-  void soundBuzzer() {
-    // TODO
-  }
-
 protected:
   float getAirtimeBudgetFactor() const override {
     return _prefs.airtime_factor;
@@ -546,7 +519,9 @@ protected:
         _serial->writeFrame(out_frame, 1 + PUB_KEY_SIZE);
       }
     } else {
-      soundBuzzer();
+    #ifdef DISPLAY_CLASS
+      ui_task.soundBuzzer(UIEventType::newContactMessage);
+    #endif
     }
 
     saveContacts();
@@ -607,9 +582,11 @@ protected:
       frame[0] = PUSH_CODE_MSG_WAITING;  // send push 'tickle'
       _serial->writeFrame(frame, 1);
     } else {
-      soundBuzzer();
+    #ifdef DISPLAY_CLASS
+      ui_task.soundBuzzer(UIEventType::contactMessage);
+    #endif
     }
-  #ifdef HAS_UI
+  #ifdef DISPLAY_CLASS
     ui_task.newMsg(path_len, from.name, text, offline_queue_len);
   #endif
   }
@@ -658,9 +635,11 @@ protected:
       frame[0] = PUSH_CODE_MSG_WAITING;  // send push 'tickle'
       _serial->writeFrame(frame, 1);
     } else {
-      soundBuzzer();
+    #ifdef DISPLAY_CLASS
+      ui_task.soundBuzzer(UIEventType::channelMessage);
+    #endif
     }
-  #ifdef HAS_UI
+  #ifdef DISPLAY_CLASS
     ui_task.newMsg(path_len, "Public", text, offline_queue_len);
   #endif
   }
@@ -680,6 +659,12 @@ protected:
         permissions |= TELEM_PERM_LOCATION;
       } else if (_prefs.telemetry_mode_loc == TELEM_MODE_ALLOW_FLAGS) {
         permissions |= cp & TELEM_PERM_LOCATION;
+      }
+
+      if (_prefs.telemetry_mode_env == TELEM_MODE_ALLOW_ALL) {
+        permissions |= TELEM_PERM_ENVIRONMENT;
+      } else if (_prefs.telemetry_mode_env == TELEM_MODE_ALLOW_FLAGS) {
+        permissions |= cp & TELEM_PERM_ENVIRONMENT;
       }
 
       if (permissions & TELEM_PERM_BASE) {   // only respond if base permission bit is set
@@ -845,7 +830,7 @@ public:
       file.read((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
       file.read((uint8_t *) &_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base));  // 69
       file.read((uint8_t *) &_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));  // 70
-      file.read(pad, 1);  // 71
+      file.read((uint8_t *) &_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));  // 71
       file.read((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
       file.read(pad, 4);   // 76
       file.read((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
@@ -884,6 +869,11 @@ public:
     mesh::Utils::toHex(pub_key_hex, self_id.pub_key, 4);
     strcpy(_prefs.node_name, pub_key_hex);
 
+    // if name is provided as a build flag, use that as default node name instead
+    #ifdef ADVERT_NAME
+    strcpy(_prefs.node_name, ADVERT_NAME);
+    #endif
+
     // load persisted prefs
     if (_fs->exists("/new_prefs")) {
       loadPrefsInt("/new_prefs");   // new filename
@@ -895,7 +885,7 @@ public:
 
   #ifdef BLE_PIN_CODE
     if (_prefs.ble_pin == 0) {
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
       if (has_display) {
         StdRNG  rng;
         _active_ble_pin = rng.nextInt(100000, 999999);  // random pin each session
@@ -936,8 +926,8 @@ public:
 
   void savePrefs() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    _fs->remove("/new_prefs");
     File file = _fs->open("/new_prefs", FILE_O_WRITE);
-    if (file) { file.seek(0); file.truncate(); }
 #elif defined(RP2040_PLATFORM)
     File file = _fs->open("/new_prefs", "w");
 #else
@@ -961,7 +951,7 @@ public:
       file.write((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
       file.write((uint8_t *) &_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base));  // 69
       file.write((uint8_t *) &_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));  // 70
-      file.write(pad, 1);  // 71
+      file.write((uint8_t *) &_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));  // 71
       file.write((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
       file.write(pad, 4);   // 76
       file.write((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
@@ -1006,7 +996,7 @@ public:
       memcpy(&out_frame[i], &lon, 4); i += 4;
       out_frame[i++] = 0;  // reserved
       out_frame[i++] = 0;  // reserved
-      out_frame[i++] = (_prefs.telemetry_mode_loc << 2) | (_prefs.telemetry_mode_base);  // v5+
+      out_frame[i++] = (_prefs.telemetry_mode_env << 4) | (_prefs.telemetry_mode_loc << 2) | (_prefs.telemetry_mode_base);  // v5+
       out_frame[i++] = _prefs.manual_add_contacts;
 
       uint32_t freq = _prefs.freq * 1000;
@@ -1244,7 +1234,7 @@ public:
       int out_len;
       if ((out_len = getFromOfflineQueue(out_frame)) > 0) {
         _serial->writeFrame(out_frame, out_len);
-        #ifdef HAS_UI
+        #ifdef DISPLAY_CLASS
           ui_task.msgRead(offline_queue_len);
         #endif
       } else {
@@ -1298,6 +1288,7 @@ public:
       if (len >= 3) {
         _prefs.telemetry_mode_base = cmd_frame[2] & 0x03;       // v5+
         _prefs.telemetry_mode_loc = (cmd_frame[2] >> 2) & 0x03;
+        _prefs.telemetry_mode_env = (cmd_frame[2] >> 4) & 0x03;
       }
       savePrefs();
       writeOKFrame();
@@ -1572,7 +1563,7 @@ public:
       checkConnections();
     }
 
-  #ifdef HAS_UI
+  #ifdef DISPLAY_CLASS
     ui_task.setHasConnection(_serial->isConnected());
     ui_task.loop();
   #endif
@@ -1643,16 +1634,14 @@ void setup() {
 
   board.begin();
 
-#ifdef HAS_UI
+#ifdef DISPLAY_CLASS
   DisplayDriver* disp = NULL;
- #ifdef DISPLAY_CLASS
   if (display.begin()) {
     disp = &display;
     disp->startFrame();
     disp->print("Please wait...");
     disp->endFrame();
   }
- #endif
 #endif
 
   if (!radio_init()) { halt(); }
@@ -1662,7 +1651,7 @@ void setup() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   InternalFS.begin();
   the_mesh.begin(InternalFS,
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
         disp != NULL
     #else
         false
@@ -1680,7 +1669,7 @@ void setup() {
 #elif defined(RP2040_PLATFORM)
   LittleFS.begin();
   the_mesh.begin(LittleFS,
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
         disp != NULL
     #else
         false
@@ -1705,7 +1694,7 @@ void setup() {
 #elif defined(ESP32)
   SPIFFS.begin(true);
   the_mesh.begin(SPIFFS,
-    #ifdef HAS_UI
+    #ifdef DISPLAY_CLASS
         disp != NULL
     #else
         false
@@ -1733,7 +1722,7 @@ void setup() {
 
   sensors.begin();
 
-#ifdef HAS_UI
+#ifdef DISPLAY_CLASS
   ui_task.begin(disp, the_mesh.getNodePrefs(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
 #endif
 }

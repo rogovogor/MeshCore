@@ -8,6 +8,9 @@
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 #include <helpers/sensors/LocationProvider.h>
+#ifdef DISPLAY_CLASS
+  #include "NullDisplayDriver.h"
+#endif
 
 class T1000SensorManager: public SensorManager {
   bool gps_active = false;
@@ -26,6 +29,10 @@ public:
   const char* getSettingValue(int i) const override;
   bool setSettingValue(const char* name, const char* value) override;
 };
+
+#ifdef DISPLAY_CLASS
+  extern NullDisplayDriver display;
+#endif
 
 extern T1000eBoard board;
 extern WRAPPER_CLASS radio_driver;

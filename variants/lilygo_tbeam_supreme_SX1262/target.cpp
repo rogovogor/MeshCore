@@ -27,7 +27,68 @@ TbeamSupSensorManager sensors = TbeamSupSensorManager(nmea);
 static void setPMUIntFlag(){
   pmuIntFlag = true;
 }
+
 #ifdef MESH_DEBUG
+uint32_t deviceOnline = 0x00;
+void scanDevices(TwoWire *w)
+{
+    uint8_t err, addr;
+    int nDevices = 0;
+    uint32_t start = 0;
+
+    Serial.println("Scanning I2C for Devices");
+    for (addr = 1; addr < 127; addr++) {
+        start = millis();
+        w->beginTransmission(addr); delay(2);
+        err = w->endTransmission();
+        if (err == 0) {
+            nDevices++;
+            switch (addr) {
+            case 0x77:
+            case 0x76:
+                Serial.println("\tFound BMX280 Sensor");
+                deviceOnline |= BME280_ONLINE;
+                break;
+            case 0x34:
+                Serial.println("\tFound AXP192/AXP2101 PMU");
+                deviceOnline |= POWERMANAGE_ONLINE;
+                break;
+            case 0x3C:
+                Serial.println("\tFound SSD1306/SH1106 dispaly");
+                deviceOnline |= DISPLAY_ONLINE;
+                break;
+            case 0x51:
+                Serial.println("\tFound PCF8563 RTC");
+                deviceOnline |= PCF8563_ONLINE;
+                break;
+            case 0x1C:
+                Serial.println("\tFound QMC6310 MAG Sensor");
+                deviceOnline |= QMC6310_ONLINE;
+                break;
+            default:
+                Serial.print("\tI2C device found at address 0x");
+                if (addr < 16) {
+                    Serial.print("0");
+                }
+                Serial.print(addr, HEX);
+                Serial.println(" !");
+                break;
+            }
+
+        } else if (err == 4) {
+            Serial.print("Unknow error at address 0x");
+            if (addr < 16) {
+                Serial.print("0");
+            }
+            Serial.println(addr, HEX);
+        }
+    }
+    if (nDevices == 0)
+        Serial.println("No I2C devices found\n");
+
+    Serial.println("Scan for devices is complete.");
+    Serial.println("\n");
+}
 void TBeamS3SupremeBoard::printPMU()
 {
     Serial.print("isCharging:"); Serial.println(PMU.isCharging() ? "YES" : "NO");
@@ -58,9 +119,9 @@ bool TBeamS3SupremeBoard::power_init()
   PMU.setChargingLedMode(XPOWERS_CHG_LED_CTRL_CHG);
 
   // Set up PMU interrupts
-  MESH_DEBUG_PRINTLN("Setting up PMU interrupts");
-  pinMode(PIN_PMU_IRQ, INPUT_PULLUP);
-  attachInterrupt(PIN_PMU_IRQ, setPMUIntFlag, FALLING);
+  // MESH_DEBUG_PRINTLN("Setting up PMU interrupts");
+  // pinMode(PIN_PMU_IRQ, INPUT_PULLUP);
+  // attachInterrupt(PIN_PMU_IRQ, setPMUIntFlag, FALLING);
 
   // GPS
   MESH_DEBUG_PRINTLN("Setting and enabling a-ldo4 for GPS");
@@ -73,24 +134,29 @@ bool TBeamS3SupremeBoard::power_init()
   PMU.enableALDO3();
 
   // To avoid SPI bus issues during power up, reset OLED, sensor, and SD card supplies
-  MESH_DEBUG_PRINTLN("Reset a-ldo1&2 and b-ldo1");
-  if (ESP_SLEEP_WAKEUP_UNDEFINED == esp_sleep_get_wakeup_cause())
-  {
-    PMU.disableALDO1();
-    PMU.disableALDO2();
-    PMU.disableBLDO1();
-    delay(250);
-  }
+  // MESH_DEBUG_PRINTLN("Reset a-ldo1&2 and b-ldo1");
+  // if (ESP_SLEEP_WAKEUP_UNDEFINED == esp_sleep_get_wakeup_cause())
+  // {
+  //   PMU.disableALDO1();
+  //   PMU.disableALDO2();
+  //   PMU.disableBLDO1();
+  //   delay(250);
+  // }
 
-  // BME280 and OLED
-  MESH_DEBUG_PRINTLN("Setting and enabling a-ldo1 for oled");
-  PMU.setALDO1Voltage(3300);
-  PMU.enableALDO1();
+  // m.2 interface
+  MESH_DEBUG_PRINTLN("Setting and enabling dcdc3 for m.2 interface");
+  PMU.setDC3Voltage(3300); // doesn't go anywhere in the schematic??
+  PMU.enableDC3();
 
   // QMC6310U
   MESH_DEBUG_PRINTLN("Setting and enabling a-ldo2 for QMC");
   PMU.setALDO2Voltage(3300);
   PMU.enableALDO2(); // disable to save power
+
+  // BME280 and OLED
+  MESH_DEBUG_PRINTLN("Setting and enabling a-ldo1 for oled");
+  PMU.setALDO1Voltage(3300);
+  PMU.enableALDO1();
 
   // SD card
   MESH_DEBUG_PRINTLN("Setting and enabling b-ldo2 for SD card");
@@ -98,49 +164,53 @@ bool TBeamS3SupremeBoard::power_init()
   PMU.enableBLDO1();
 
   // Out to header pins
-  MESH_DEBUG_PRINTLN("Setting and enabling b-ldo2 for output to header");
-  PMU.setBLDO2Voltage(3300);
-  PMU.enableBLDO2();
+  // MESH_DEBUG_PRINTLN("Setting and enabling b-ldo2 for output to header");
+  // PMU.setBLDO2Voltage(3300);
+  // PMU.enableBLDO2();
 
-  MESH_DEBUG_PRINTLN("Setting and enabling dcdc4 for output to header");
-  PMU.setDC4Voltage(XPOWERS_AXP2101_DCDC4_VOL2_MAX); // 1.8V
-  PMU.enableDC4();
+  // MESH_DEBUG_PRINTLN("Setting and enabling dcdc4 for output to header");
+  // PMU.setDC4Voltage(XPOWERS_AXP2101_DCDC4_VOL2_MAX); // 1.8V
+  // PMU.enableDC4();
 
-  MESH_DEBUG_PRINTLN("Setting and enabling dcdc5 for output to header");
-  PMU.setDC5Voltage(3300);
-  PMU.enableDC5();
-
-  // Other power rails
-  MESH_DEBUG_PRINTLN("Setting and enabling dcdc3 for ?");
-  PMU.setDC3Voltage(3300); // doesn't go anywhere in the schematic??
-  PMU.enableDC3();
+  // MESH_DEBUG_PRINTLN("Setting and enabling dcdc5 for output to header");
+  // PMU.setDC5Voltage(3300);
+  // PMU.enableDC5();
 
   // Unused power rails
   MESH_DEBUG_PRINTLN("Disabling unused supplies dcdc2, dldo1 and dldo2");
   PMU.disableDC2();
+  PMU.disableDC5();
   PMU.disableDLDO1();
   PMU.disableDLDO2();
 
-  // Set charge current to 300mA
+  PMU.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+
+  // Set charge current to 500mA
   MESH_DEBUG_PRINTLN("Setting battery charge current limit and voltage");
   PMU.setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_500MA);
   PMU.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
 
+  PMU.clearIrqStatus();
+  PMU.disableTSPinMeasure();
+
   // enable battery voltage measurement
   MESH_DEBUG_PRINTLN("Enabling battery measurement");
   PMU.enableBattVoltageMeasure();
+  PMU.enableVbusVoltageMeasure();
 
   // Reset and re-enable PMU interrupts
-  MESH_DEBUG_PRINTLN("Re-enable interrupts");
-  PMU.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
-  PMU.clearIrqStatus();
-  PMU.enableIRQ(
-      XPOWERS_AXP2101_BAT_INSERT_IRQ | XPOWERS_AXP2101_BAT_REMOVE_IRQ |    // Battery interrupts
-      XPOWERS_AXP2101_VBUS_INSERT_IRQ | XPOWERS_AXP2101_VBUS_REMOVE_IRQ |  // VBUS interrupts
-      XPOWERS_AXP2101_PKEY_SHORT_IRQ | XPOWERS_AXP2101_PKEY_LONG_IRQ |     // Power Key interrupts
-      XPOWERS_AXP2101_BAT_CHG_DONE_IRQ | XPOWERS_AXP2101_BAT_CHG_START_IRQ // Charging interrupts
-  );
+  // MESH_DEBUG_PRINTLN("Re-enable interrupts");
+  // PMU.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+  // PMU.clearIrqStatus();
+  // PMU.enableIRQ(
+  //     XPOWERS_AXP2101_BAT_INSERT_IRQ | XPOWERS_AXP2101_BAT_REMOVE_IRQ |    // Battery interrupts
+  //     XPOWERS_AXP2101_VBUS_INSERT_IRQ | XPOWERS_AXP2101_VBUS_REMOVE_IRQ |  // VBUS interrupts
+  //     XPOWERS_AXP2101_PKEY_SHORT_IRQ | XPOWERS_AXP2101_PKEY_LONG_IRQ |     // Power Key interrupts
+  //     XPOWERS_AXP2101_BAT_CHG_DONE_IRQ | XPOWERS_AXP2101_BAT_CHG_START_IRQ // Charging interrupts
+  // );
 #ifdef MESH_DEBUG
+  // scanDevices(&Wire);
+  // scanDevices(&Wire1);
   printPMU();
 #endif
 
@@ -217,7 +287,7 @@ static bool l76kProbe()
 
 bool radio_init() {
   fallback_clock.begin();
-  Wire1.begin(PIN_BOARD_SDA1,PIN_BOARD_SCL1);
+
   rtc_clock.begin(Wire1);
   
 #ifdef SX126X_DIO3_TCXO_VOLTAGE
@@ -287,7 +357,7 @@ bool TbeamSupSensorManager::begin() {
 
 bool TbeamSupSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
-    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, 0.0f);
+    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
   }
   return true;
 }
@@ -301,6 +371,7 @@ void TbeamSupSensorManager::loop() {
     if (_nmea->isValid()) {
       node_lat = ((double)_nmea->getLatitude())/1000000.;
       node_lon = ((double)_nmea->getLongitude())/1000000.;
+      node_altitude = ((double)_nmea->getAltitude()) / 1000.0;
       //Serial.printf("lat %f lon %f\r\n", _lat, _lon);
     }
     next_gps_update = millis() + 1000;

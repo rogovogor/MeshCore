@@ -8,6 +8,9 @@
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 #include <helpers/sensors/LocationProvider.h>
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/ST7735Display.h>
+#endif
 
 class HWTSensorManager : public SensorManager {
   bool gps_active = false;
@@ -30,6 +33,10 @@ extern HeltecV3Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 extern HWTSensorManager sensors;
+
+#ifdef DISPLAY_CLASS
+  extern DISPLAY_CLASS display;
+#endif
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

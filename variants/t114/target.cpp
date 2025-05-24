@@ -14,6 +14,10 @@ AutoDiscoverRTCClock rtc_clock(fallback_clock);
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
 T114SensorManager sensors = T114SensorManager(nmea);
 
+#ifdef DISPLAY_CLASS
+  DISPLAY_CLASS display;
+#endif
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif
@@ -93,7 +97,7 @@ bool T114SensorManager::begin() {
   digitalWrite(GPS_EN, HIGH);  // Power on GPS
 
   // Give GPS a moment to power up and send data
-  delay(500);
+  delay(1500);
 
   // We'll consider GPS detected if we see any data on Serial1
   gps_detected = (Serial1.available() > 0);
@@ -111,7 +115,7 @@ bool T114SensorManager::begin() {
 
 bool T114SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
-    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, 0.0f);
+    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
   }
   return true;
 }
@@ -125,6 +129,7 @@ void T114SensorManager::loop() {
     if (_location->isValid()) {
       node_lat = ((double)_location->getLatitude())/1000000.;
       node_lon = ((double)_location->getLongitude())/1000000.;
+      node_altitude = ((double)_location->getAltitude()) / 1000.0;
       MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
     }
     next_gps_update = millis() + 1000;

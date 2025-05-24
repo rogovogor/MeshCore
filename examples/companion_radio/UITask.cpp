@@ -53,6 +53,31 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs, const char* bu
 
   // v1.2.3 (1 Jan 2025)
   sprintf(_version_info, "%s (%s)", version, build_date);
+
+#ifdef PIN_BUZZER
+  buzzer.begin();
+#endif
+}
+
+void UITask::soundBuzzer(UIEventType bet) {
+#if defined(PIN_BUZZER)
+switch(bet){
+  case UIEventType::contactMessage:
+    // gemini's pick
+    buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
+    break;
+  case UIEventType::channelMessage:
+    buzzer.play("kerplop:d=16,o=6,b=120:32g#,32c#");
+    break;
+  case UIEventType::roomMessage:
+  case UIEventType::newContactMessage:
+  case UIEventType::none:
+  default:
+    break;
+}
+#endif
+//  Serial.print("DBG:  Buzzzzzz -> ");
+//  Serial.println((int) bet);
 }
 
 void UITask::msgRead(int msgcount) {
@@ -85,7 +110,7 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   }
 }
 
-void renderBatteryIndicator(DisplayDriver* _display, uint16_t batteryMilliVolts) {
+void UITask::renderBatteryIndicator(uint16_t batteryMilliVolts) {
   // Convert millivolts to percentage
   const int minMilliVolts = 3000; // Minimum voltage (e.g., 3.0V)
   const int maxMilliVolts = 4200; // Maximum voltage (e.g., 4.2V)
@@ -107,8 +132,8 @@ void renderBatteryIndicator(DisplayDriver* _display, uint16_t batteryMilliVolts)
   _display->fillRect(iconX + iconWidth, iconY + (iconHeight / 4), 3, iconHeight / 2);
 
   // fill the battery based on the percentage
-  int fillWidth = (batteryPercentage * (iconWidth - 2)) / 100;
-  _display->fillRect(iconX + 1, iconY + 1, fillWidth, iconHeight - 2);
+  int fillWidth = (batteryPercentage * (iconWidth - 4)) / 100;
+  _display->fillRect(iconX + 2, iconY + 2, fillWidth, iconHeight - 4);
 }
 
 void UITask::renderCurrScreen() {
@@ -155,7 +180,7 @@ void UITask::renderCurrScreen() {
     _display->print(_node_prefs->node_name);
 
     // battery voltage
-    renderBatteryIndicator(_display, _board->getBattMilliVolts());
+    renderBatteryIndicator(_board->getBattMilliVolts());
 
     // freq / sf
     _display->setCursor(0, 20);
@@ -209,44 +234,57 @@ void UITask::userLedHandler() {
 }
 
 void UITask::buttonHandler() {
-#ifdef PIN_USER_BTN
-  static int prev_btn_state = !USER_BTN_PRESSED;
-  static unsigned long btn_state_change_time = 0;
-  static unsigned long next_read = 0;
-  int cur_time = millis();
-  if (cur_time >= next_read) {
-    int btn_state = digitalRead(PIN_USER_BTN);
-    if (btn_state != prev_btn_state) {
-      if (btn_state == USER_BTN_PRESSED) {  // pressed?
-        if (_display != NULL) {
-          if (_display->isOn()) {
-            clearMsgPreview();
-          } else {
-            _display->turnOn();
-            _need_refresh = true;
+  #if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
+    static int prev_btn_state = !USER_BTN_PRESSED;
+    static int prev_btn_state_ana = !USER_BTN_PRESSED;
+    static unsigned long btn_state_change_time = 0;
+    static unsigned long next_read = 0;
+    int cur_time = millis();
+    if (cur_time >= next_read) {
+      int btn_state = 0;
+      int btn_state_ana = 0;
+      #ifdef PIN_USER_BTN
+      btn_state = digitalRead(PIN_USER_BTN);
+      #endif
+      #ifdef PIN_USER_BTN_ANA
+      btn_state_ana = (analogRead(PIN_USER_BTN_ANA) < 20); // analogRead returns a value hopefully below 20 when button is pressed. 
+      #endif
+      if (btn_state != prev_btn_state || btn_state_ana != prev_btn_state_ana) { // check for either digital or analogue button change of state
+        if (btn_state == USER_BTN_PRESSED || btn_state_ana == USER_BTN_PRESSED) {  // pressed?
+          if (_display != NULL) {
+            if (_display->isOn()) {
+              clearMsgPreview();
+            } else {
+              _display->turnOn();
+              _need_refresh = true;
+            }
+            _auto_off = cur_time + AUTO_OFF_MILLIS;   // extend auto-off timer
           }
-          _auto_off = cur_time + AUTO_OFF_MILLIS;   // extend auto-off timer
+        } else { // unpressed ? check pressed time ...
+          if ((cur_time - btn_state_change_time) > 5000) {
+          #ifdef PIN_STATUS_LED
+            digitalWrite(PIN_STATUS_LED, LOW);
+            delay(10);
+          #endif
+            _board->powerOff();
+          }
         }
-      } else { // unpressed ? check pressed time ...
-        if ((cur_time - btn_state_change_time) > 5000) {
-        #ifdef PIN_STATUS_LED
-          digitalWrite(PIN_STATUS_LED, LOW);
-          delay(10);
-        #endif
-          _board->powerOff();
-        }
+        btn_state_change_time = millis();
+        prev_btn_state = btn_state;
+        prev_btn_state_ana = btn_state_ana;
       }
-      btn_state_change_time = millis();
-      prev_btn_state = btn_state;
+      next_read = millis() + 100;  // 10 reads per second
     }
-    next_read = millis() + 100;  // 10 reads per second
+  #endif
   }
-#endif
-}
 
 void UITask::loop() {
   buttonHandler();
   userLedHandler();
+
+#ifdef PIN_BUZZER
+  if (buzzer.isPlaying())  buzzer.loop();
+#endif
 
   if (_display != NULL && _display->isOn()) {
     static bool _firstBoot = true;

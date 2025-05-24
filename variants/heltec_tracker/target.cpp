@@ -19,6 +19,10 @@ AutoDiscoverRTCClock rtc_clock(fallback_clock);
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
 HWTSensorManager sensors = HWTSensorManager(nmea);
 
+#ifdef DISPLAY_CLASS
+  DISPLAY_CLASS display(&board.periph_power);   // peripheral power pin is shared
+#endif
+
 #ifndef LORA_CR
   #define LORA_CR      5
 #endif
@@ -103,7 +107,7 @@ bool HWTSensorManager::begin() {
 
 bool HWTSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
-    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, 0.0f);
+    telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
   }
   return true;
 }
@@ -117,6 +121,7 @@ void HWTSensorManager::loop() {
     if (gps_active && _location->isValid()) {
       node_lat = ((double)_location->getLatitude())/1000000.;
       node_lon = ((double)_location->getLongitude())/1000000.;
+      node_altitude = ((double)_location->getAltitude()) / 1000.0;
       MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
     }
     next_gps_update = millis() + 1000;
