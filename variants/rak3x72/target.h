@@ -8,14 +8,22 @@
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 
-class WIOE5Board : public STM32Board {
+#define  PIN_VBAT_READ    A0
+#define  ADC_MULTIPLIER   (5 * 1.73 * 1000)
+
+class RAK3x72Board : public STM32Board {
 public:
     const char* getManufacturerName() const override {
-        return "Seeed Wio E5";
+        return "RAK 3x72";
+    }
+
+    uint16_t getBattMilliVolts() override {
+        uint32_t raw = analogRead(PIN_VBAT_READ);            
+        return (ADC_MULTIPLIER * raw) / 1024;
     }
 };
 
-extern WIOE5Board board;
+extern RAK3x72Board board;
 extern WRAPPER_CLASS radio_driver;
 extern VolatileRTCClock rtc_clock;
 extern SensorManager sensors;
