@@ -108,6 +108,18 @@ void RadioLibWrapper::onSendFinished() {
   state = STATE_IDLE;
 }
 
+bool RadioLibWrapper::isChannelActive() {
+  idle();  // put sx126x into standby
+  // do some basic CAD (blocks for ~12780 micros (on SF 10)!)
+  bool activity = _radio->scanChannel() == RADIOLIB_LORA_DETECTED;
+  if (activity) {
+    startRecv();
+  } else {
+    idle();
+  }
+  return activity;
+}
+
 float RadioLibWrapper::getLastRSSI() const {
   return _radio->getRSSI();
 }
