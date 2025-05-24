@@ -8,6 +8,12 @@
 #define STATE_TX_DONE    4
 #define STATE_INT_READY 16
 
+#ifndef INTERFERENCE_THRESHOLD_DB
+  #define INTERFERENCE_THRESHOLD_DB   14
+#endif
+
+#define NUM_NOISE_FLOOR_SAMPLES  64
+
 static volatile uint8_t state = STATE_IDLE;
 
 // this function is called when a complete packet
@@ -28,11 +34,31 @@ void RadioLibWrapper::begin() {
   if (_board->getStartupReason() == BD_STARTUP_RX_PACKET) {  // received a LoRa packet (while in deep sleep)
     setFlag(); // LoRa packet is already received
   }
+
+  _noise_floor = -140;
+
+  // start average out some samples
+  _num_floor_samples = 0;
+  _floor_sample_sum = 0;
 }
 
 void RadioLibWrapper::idle() {
   _radio->standby();
   state = STATE_IDLE;   // need another startReceive()
+}
+
+void RadioLibWrapper::loop() {
+  if (state == STATE_RX && _num_floor_samples < NUM_NOISE_FLOOR_SAMPLES) {
+    if (!isReceivingPacket()) {
+      _num_floor_samples++;
+      _floor_sample_sum += getCurrentRSSI();
+    }
+  } else if (_floor_sample_sum != 0) {
+    _noise_floor = _floor_sample_sum / NUM_NOISE_FLOOR_SAMPLES;
+    _floor_sample_sum = 0;
+
+    MESH_DEBUG_PRINTLN("RadioLibWrapper: noise_floor = %d", (int)_noise_floor);
+  }
 }
 
 void RadioLibWrapper::startRecv() {
@@ -109,15 +135,7 @@ void RadioLibWrapper::onSendFinished() {
 }
 
 bool RadioLibWrapper::isChannelActive() {
-  idle();  // put sx126x into standby
-  // do some basic CAD (blocks for ~12780 micros (on SF 10)!)
-  bool activity = _radio->scanChannel() == RADIOLIB_LORA_DETECTED;
-  if (activity) {
-    startRecv();
-  } else {
-    idle();
-  }
-  return activity;
+  return getCurrentRSSI() > _noise_floor + INTERFERENCE_THRESHOLD_DB;
 }
 
 float RadioLibWrapper::getLastRSSI() const {

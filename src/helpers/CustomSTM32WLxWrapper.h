@@ -10,6 +10,9 @@ public:
   bool isReceivingPacket() override { 
     return ((CustomSTM32WLx *)_radio)->isReceiving();
   }
+  float getCurrentRSSI() override {
+    return ((CustomSTM32WLx *)_radio)->getRSSI(false);
+  }
   float getLastRSSI() const override { return ((CustomSTM32WLx *)_radio)->getRSSI(); }
   float getLastSNR() const override { return ((CustomSTM32WLx *)_radio)->getSNR(); }
 

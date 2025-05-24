@@ -36,6 +36,8 @@ uint32_t Dispatcher::getCADFailMaxDuration() const {
 }
 
 void Dispatcher::loop() {
+  _radio->loop();
+
   // check for radio 'stuck' in mode other than Rx
   bool is_recv = _radio->isInRecvMode();
   if (is_recv != prev_isrecv_mode) {

@@ -9,6 +9,11 @@ public:
   bool isReceivingPacket() override { 
     return ((CustomLR1110 *)_radio)->isReceiving();
   }
+  float getCurrentRSSI() override {
+    float rssi = -110;
+    ((CustomLR1110 *)_radio)->getRssiInst(&rssi);
+    return rssi;
+  }
 
   void onSendFinished() override {
     RadioLibWrapper::onSendFinished();

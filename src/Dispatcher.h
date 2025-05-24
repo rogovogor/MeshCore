@@ -56,6 +56,11 @@ public:
   */
   virtual void onSendFinished() = 0;
 
+  /**
+   * \brief  do any processing needed on each loop cycle
+   */
+  virtual void loop() { }
+
   virtual bool isInRecvMode() const = 0;
 
   /**
