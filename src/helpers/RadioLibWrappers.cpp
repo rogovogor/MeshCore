@@ -35,7 +35,7 @@ void RadioLibWrapper::begin() {
     setFlag(); // LoRa packet is already received
   }
 
-  _noise_floor = -140;
+  _noise_floor = 0;
 
   // start average out some samples
   _num_floor_samples = 0;
@@ -47,13 +47,23 @@ void RadioLibWrapper::idle() {
   state = STATE_IDLE;   // need another startReceive()
 }
 
+void RadioLibWrapper::triggerNoiseFloorCalibrate() {
+  if (_num_floor_samples >= NUM_NOISE_FLOOR_SAMPLES) {  // ignore trigger if currently sampling
+    _num_floor_samples = 0;
+    _floor_sample_sum = 0;
+  }
+}
+
 void RadioLibWrapper::loop() {
   if (state == STATE_RX && _num_floor_samples < NUM_NOISE_FLOOR_SAMPLES) {
     if (!isReceivingPacket()) {
-      _num_floor_samples++;
-      _floor_sample_sum += getCurrentRSSI();
+      int rssi = getCurrentRSSI();
+      if (rssi < _noise_floor + INTERFERENCE_THRESHOLD_DB) {  // only consider samples below current floor+THRESHOLD
+        _num_floor_samples++;
+        _floor_sample_sum += rssi;
+      }
     }
-  } else if (_floor_sample_sum != 0) {
+  } else if (_num_floor_samples >= NUM_NOISE_FLOOR_SAMPLES && _floor_sample_sum != 0) {
     _noise_floor = _floor_sample_sum / NUM_NOISE_FLOOR_SAMPLES;
     _floor_sample_sum = 0;
 

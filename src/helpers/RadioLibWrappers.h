@@ -16,7 +16,6 @@ protected:
   void startRecv();
   float packetScoreInt(float snr, int sf, int packet_len);
   virtual bool isReceivingPacket() =0;
-  virtual float getCurrentRSSI() =0;
 
 public:
   RadioLibWrapper(PhysicalLayer& radio, mesh::MainBoard& board) : _radio(&radio), _board(&board) { n_recv = n_sent = 0; }
@@ -35,6 +34,11 @@ public:
 
     return isChannelActive();
   }
+
+  virtual float getCurrentRSSI() =0;
+
+  int getNoiseFloor() const override { return _noise_floor; }
+  void triggerNoiseFloorCalibrate() override;
 
   void loop() override;
 
