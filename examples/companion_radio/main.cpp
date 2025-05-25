@@ -81,11 +81,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    5
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "17 May 2025"
+  #define FIRMWARE_BUILD_DATE   "24 May 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.1"
+  #define FIRMWARE_VERSION   "v1.6.2"
 #endif
 
 #define CMD_APP_START              1
