@@ -61,9 +61,9 @@ public:
 
   void begin() {
 
-    power_init();
-
     ESP32Board::begin();
+
+    power_init();
 
     esp_reset_reason_t reason = esp_reset_reason();
     if (reason == ESP_RST_DEEPSLEEP) {

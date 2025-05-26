@@ -16,7 +16,7 @@ class TbeamSupSensorManager: public SensorManager {
     LocationProvider * _nmea;
     Adafruit_BME280 bme;
     double node_temp, node_hum, node_pres;
-    int sensorNum = 2;
+    int sensorNum = 1;
     
     #define SEALEVELPRESSURE_HPA (1013.25)
     
@@ -65,8 +65,6 @@ enum {
   OSC32768_ONLINE      = _BV(13),
 };
 
-void scanDevices(TwoWire *w);
-static bool l76kProbe();
 bool radio_init();
 uint32_t radio_get_rng_seed();
 void radio_set_params(float freq, float bw, uint8_t sf, uint8_t cr);
