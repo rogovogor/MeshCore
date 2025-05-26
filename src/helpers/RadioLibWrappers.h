@@ -8,7 +8,7 @@ protected:
   PhysicalLayer* _radio;
   mesh::MainBoard* _board;
   uint32_t n_recv, n_sent;
-  int16_t _noise_floor;
+  int16_t _noise_floor, _threshold;
   uint16_t _num_floor_samples;
   int32_t _floor_sample_sum;
 
@@ -38,7 +38,7 @@ public:
   virtual float getCurrentRSSI() =0;
 
   int getNoiseFloor() const override { return _noise_floor; }
-  void triggerNoiseFloorCalibrate() override;
+  void triggerNoiseFloorCalibrate(int threshold) override;
 
   void loop() override;
 

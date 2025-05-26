@@ -8,10 +8,6 @@
 #define STATE_TX_DONE    4
 #define STATE_INT_READY 16
 
-#ifndef INTERFERENCE_THRESHOLD_DB
-  #define INTERFERENCE_THRESHOLD_DB   14
-#endif
-
 #define NUM_NOISE_FLOOR_SAMPLES  64
 
 static volatile uint8_t state = STATE_IDLE;
@@ -36,6 +32,7 @@ void RadioLibWrapper::begin() {
   }
 
   _noise_floor = 0;
+  _threshold = 0;
 
   // start average out some samples
   _num_floor_samples = 0;
@@ -47,8 +44,9 @@ void RadioLibWrapper::idle() {
   state = STATE_IDLE;   // need another startReceive()
 }
 
-void RadioLibWrapper::triggerNoiseFloorCalibrate() {
-  if (_num_floor_samples >= NUM_NOISE_FLOOR_SAMPLES) {  // ignore trigger if currently sampling
+void RadioLibWrapper::triggerNoiseFloorCalibrate(int threshold) {
+  _threshold = threshold;
+  if (threshold > 0 && _num_floor_samples >= NUM_NOISE_FLOOR_SAMPLES) {  // ignore trigger if currently sampling
     _num_floor_samples = 0;
     _floor_sample_sum = 0;
   }
@@ -58,7 +56,7 @@ void RadioLibWrapper::loop() {
   if (state == STATE_RX && _num_floor_samples < NUM_NOISE_FLOOR_SAMPLES) {
     if (!isReceivingPacket()) {
       int rssi = getCurrentRSSI();
-      if (rssi < _noise_floor + INTERFERENCE_THRESHOLD_DB) {  // only consider samples below current floor+THRESHOLD
+      if (rssi < _noise_floor + _threshold) {  // only consider samples below current floor+THRESHOLD
         _num_floor_samples++;
         _floor_sample_sum += rssi;
       }
@@ -145,7 +143,9 @@ void RadioLibWrapper::onSendFinished() {
 }
 
 bool RadioLibWrapper::isChannelActive() {
-  return getCurrentRSSI() > _noise_floor + INTERFERENCE_THRESHOLD_DB;
+  return _threshold == 0 
+          ? false    // interference check is disabled
+          : getCurrentRSSI() > _noise_floor + _threshold;
 }
 
 float RadioLibWrapper::getLastRSSI() const {

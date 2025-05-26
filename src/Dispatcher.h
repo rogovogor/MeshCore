@@ -63,7 +63,7 @@ public:
 
   virtual int getNoiseFloor() const { return 0; }
 
-  virtual void triggerNoiseFloorCalibrate() { }
+  virtual void triggerNoiseFloorCalibrate(int threshold) { }
 
   virtual bool isInRecvMode() const = 0;
 
@@ -153,6 +153,7 @@ protected:
   virtual int calcRxDelay(float score, uint32_t air_time) const;
   virtual uint32_t getCADFailRetryDelay() const;
   virtual uint32_t getCADFailMaxDuration() const;
+  virtual int getInterferenceThreshold() const { return 0; }    // disabled by default
 
 public:
   void begin();

@@ -327,6 +327,9 @@ protected:
     uint32_t t = (_radio->getEstAirtimeFor(packet->path_len + packet->payload_len + 2) * _prefs.direct_tx_delay_factor);
     return getRNG()->nextInt(0, 6)*t;
   }
+  int getInterferenceThreshold() const override {
+    return _prefs.interference_threshold;
+  }
 
   void onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) override {
     if (type == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
@@ -565,6 +568,7 @@ public:
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
     _prefs.flood_advert_interval = 3;   // 3 hours
     _prefs.flood_max = 64;
+    _prefs.interference_threshold = 14;  // DB
   }
 
   CommonCLI* getCLI() { return &_cli; }

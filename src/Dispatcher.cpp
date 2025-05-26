@@ -41,7 +41,7 @@ uint32_t Dispatcher::getCADFailMaxDuration() const {
 
 void Dispatcher::loop() {
   if (millisHasNowPassed(next_floor_calib_time)) {
-    _radio->triggerNoiseFloorCalibrate();
+    _radio->triggerNoiseFloorCalibrate(getInterferenceThreshold());
     next_floor_calib_time = futureMillis(NOISE_FLOOR_CALIB_INTERVAL);
   }
   _radio->loop();
