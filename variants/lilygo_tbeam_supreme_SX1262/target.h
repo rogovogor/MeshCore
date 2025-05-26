@@ -16,7 +16,6 @@ class TbeamSupSensorManager: public SensorManager {
     LocationProvider * _nmea;
     Adafruit_BME280 bme;
     double node_temp, node_hum, node_pres;
-    int sensorNum = 1;
     
     #define SEALEVELPRESSURE_HPA (1013.25)
     

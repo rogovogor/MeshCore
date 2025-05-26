@@ -392,7 +392,7 @@ void TbeamSupSensorManager::loop() {
 }
 
 int TbeamSupSensorManager::getNumSettings() const {
-  return sensorNum; 
+  return 1; 
 }
 
 const char* TbeamSupSensorManager::getSettingName(int i) const {
