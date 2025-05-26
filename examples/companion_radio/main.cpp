@@ -695,6 +695,7 @@ protected:
       if (memcmp(&data[4], "OK", 2) == 0) {    // legacy Repeater login OK response
         out_frame[i++] = PUSH_CODE_LOGIN_SUCCESS;
         out_frame[i++] = 0;  // legacy: is_admin = false
+        memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       } else if (data[4] == RESP_SERVER_LOGIN_OK) {   // new login response
         uint16_t keep_alive_secs = ((uint16_t)data[5]) * 16;
         if (keep_alive_secs > 0) {
@@ -702,11 +703,13 @@ protected:
         }
         out_frame[i++] = PUSH_CODE_LOGIN_SUCCESS;
         out_frame[i++] = data[6];  // permissions (eg. is_admin)
+        memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
+        memcpy(&out_frame[i], &tag, 4); i += 4;  // NEW: include server timestamp
       } else {
         out_frame[i++] = PUSH_CODE_LOGIN_FAIL;
         out_frame[i++] = 0;  // reserved
+        memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       }
-      memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       _serial->writeFrame(out_frame, i);
     } else if (len > 4 &&   // check for status response
       pending_status && memcmp(&pending_status, contact.id.pub_key, 4) == 0   // legacy matching scheme
