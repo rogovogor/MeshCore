@@ -79,7 +79,7 @@
 struct RepeaterStats {
   uint16_t batt_milli_volts;
   uint16_t curr_tx_queue_len;
-  uint16_t curr_free_queue_len;
+  int16_t  noise_floor;
   int16_t  last_rssi;
   uint32_t n_packets_recv;
   uint32_t n_packets_sent;
@@ -183,7 +183,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         RepeaterStats stats;
         stats.batt_milli_volts = board.getBattMilliVolts();
         stats.curr_tx_queue_len = _mgr->getOutboundCount(0xFFFFFFFF);
-        stats.curr_free_queue_len = _mgr->getFreeCount();
+        stats.noise_floor = (int16_t)_radio->getNoiseFloor();
         stats.last_rssi = (int16_t) radio_driver.getLastRSSI();
         stats.n_packets_recv = radio_driver.getPacketsRecv();
         stats.n_packets_sent = radio_driver.getPacketsSent();
@@ -326,6 +326,9 @@ protected:
   uint32_t getDirectRetransmitDelay(const mesh::Packet* packet) override {
     uint32_t t = (_radio->getEstAirtimeFor(packet->path_len + packet->payload_len + 2) * _prefs.direct_tx_delay_factor);
     return getRNG()->nextInt(0, 6)*t;
+  }
+  int getInterferenceThreshold() const override {
+    return _prefs.interference_threshold;
   }
 
   void onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) override {
@@ -565,6 +568,7 @@ public:
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
     _prefs.flood_advert_interval = 3;   // 3 hours
     _prefs.flood_max = 64;
+    _prefs.interference_threshold = 14;  // DB
   }
 
   CommonCLI* getCLI() { return &_cli; }

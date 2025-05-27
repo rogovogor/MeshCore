@@ -406,6 +406,9 @@ protected:
     uint32_t t = (_radio->getEstAirtimeFor(packet->path_len + packet->payload_len + 2) * _prefs.direct_tx_delay_factor);
     return getRNG()->nextInt(0, 6)*t;
   }
+  int getInterferenceThreshold() const override {
+    return _prefs.interference_threshold;
+  }
 
   bool allowPacketForward(const mesh::Packet* packet) override {
     if (_prefs.disable_fwd) return false;
@@ -711,6 +714,7 @@ public:
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
     _prefs.flood_advert_interval = 3;   // 3 hours
     _prefs.flood_max = 64;
+    _prefs.interference_threshold = 14;  // DB
   #ifdef ROOM_PASSWORD
     StrHelper::strncpy(_prefs.guest_password, ROOM_PASSWORD, sizeof(_prefs.guest_password));
   #endif
