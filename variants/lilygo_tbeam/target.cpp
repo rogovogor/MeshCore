@@ -65,7 +65,7 @@ bool TBeamBoard::power_init()
 
   if (!PMU)
   {
-    Serial.println("PMU init failed.");
+    MESH_DEBUG_PRINTLN("PMU init failed.");
     return false;
   }
 
