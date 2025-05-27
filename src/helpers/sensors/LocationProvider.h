@@ -8,6 +8,7 @@ class LocationProvider {
 public:
     virtual long getLatitude() = 0;
     virtual long getLongitude() = 0;
+    virtual long getAltitude() = 0;
     virtual bool isValid() = 0;
     virtual long getTimestamp() = 0;
     virtual void reset();

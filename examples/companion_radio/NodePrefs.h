@@ -19,6 +19,7 @@ struct NodePrefs {  // persisted to file
   uint8_t tx_power_dbm;
   uint8_t telemetry_mode_base;
   uint8_t telemetry_mode_loc;
+  uint8_t telemetry_mode_env;
   float rx_delay_base;
   uint32_t ble_pin;
 };

@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "9 May 2025"
+  #define FIRMWARE_BUILD_DATE   "24 May 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.0"
+  #define FIRMWARE_VERSION   "v1.6.2"
 #endif
 
 #ifndef LORA_FREQ
@@ -60,10 +60,6 @@
 #endif
 
 #ifdef DISPLAY_CLASS
-  #include <helpers/ui/SSD1306Display.h>
-
-  static DISPLAY_CLASS  display;
-
   #include "UITask.h"
   static UITask ui_task(display);
 #endif
@@ -91,7 +87,7 @@ struct RepeaterStats {
   uint32_t total_up_time_secs;
   uint32_t n_sent_flood, n_sent_direct;
   uint32_t n_recv_flood, n_recv_direct;
-  uint16_t n_full_events;
+  uint16_t err_events;                // was 'n_full_events'
   int16_t  last_snr;   // x 4
   uint16_t n_direct_dups, n_flood_dups;
 };
@@ -105,7 +101,9 @@ struct ClientInfo {
   uint8_t out_path[MAX_PATH_SIZE];
 };
 
-#define MAX_CLIENTS   4
+#ifndef MAX_CLIENTS
+  #define MAX_CLIENTS           32
+#endif
 
 struct NeighbourInfo {
   mesh::Identity id;
@@ -184,7 +182,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
       case REQ_TYPE_GET_STATUS: {   // guests can also access this now
         RepeaterStats stats;
         stats.batt_milli_volts = board.getBattMilliVolts();
-        stats.curr_tx_queue_len = _mgr->getOutboundCount();
+        stats.curr_tx_queue_len = _mgr->getOutboundCount(0xFFFFFFFF);
         stats.curr_free_queue_len = _mgr->getFreeCount();
         stats.last_rssi = (int16_t) radio_driver.getLastRSSI();
         stats.n_packets_recv = radio_driver.getPacketsRecv();
@@ -195,7 +193,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         stats.n_sent_direct = getNumSentDirect();
         stats.n_recv_flood = getNumRecvFlood();
         stats.n_recv_direct = getNumRecvDirect();
-        stats.n_full_events = getNumFullEvents();
+        stats.err_events = _err_flags;
         stats.last_snr = (int16_t)(radio_driver.getLastSNR() * 4);
         stats.n_direct_dups = ((SimpleMeshTables *)getTables())->getNumDirectDups();
         stats.n_flood_dups = ((SimpleMeshTables *)getTables())->getNumFloodDups();
@@ -686,7 +684,13 @@ public:
     *dp = 0;  // null terminator
   }
 
-  const uint8_t* getSelfIdPubKey() { return self_id.pub_key; }
+  const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
+
+  void clearStats() override {
+    radio_driver.resetStats();
+    resetStats();
+    ((SimpleMeshTables *)getTables())->resetStats();
+  }
 
   void loop() {
     mesh::Mesh::loop();
@@ -727,7 +731,7 @@ void setup() {
   board.begin();
 
 #ifdef DISPLAY_CLASS
-  if(display.begin()){
+  if (display.begin()) {
     display.startFrame();
     display.print("Please wait...");
     display.endFrame();

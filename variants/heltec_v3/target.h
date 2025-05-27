@@ -7,11 +7,19 @@
 #include <helpers/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
+#include <helpers/sensors/EnvironmentSensorManager.h>
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SSD1306Display.h>
+#endif
 
 extern HeltecV3Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
-extern SensorManager sensors;
+extern EnvironmentSensorManager sensors;
+
+#ifdef DISPLAY_CLASS
+  extern DISPLAY_CLASS display;
+#endif
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

@@ -2,7 +2,7 @@
 #include "target.h"
 #include <helpers/ArduinoHelpers.h>
 
-STM32Board board;
+WIOE5Board board;
 
 RADIO_CLASS radio = new STM32WLx_Module();
 
@@ -42,7 +42,11 @@ bool radio_init() {
     Serial.println(status);
     return false;  // fail
   }
-  
+    
+  #ifdef RX_BOOSTED_GAIN
+    radio.setRxBoostedGainMode(RX_BOOSTED_GAIN);
+  #endif
+ 
   radio.setCRC(1);
   
   return true;  // success

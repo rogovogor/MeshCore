@@ -41,9 +41,9 @@ ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 SensorManager sensors;
 
-static void setPMUIntFlag(){
-  pmuIntFlag = true;
-}
+#ifdef DISPLAY_CLASS
+  DISPLAY_CLASS display;
+#endif
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -158,7 +158,7 @@ bool TBeamBoard::power_init()
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-  
+
 #if defined(P_LORA_SCLK)
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
 #endif
@@ -169,10 +169,12 @@ bool radio_init() {
     return false;  // fail
   }
 
+#ifdef SX127X_CURRENT_LIMIT
+  radio.setCurrentLimit(SX127X_CURRENT_LIMIT);
+#endif
 
   radio.setCRC(1);
 
-  
   return true;  // success
 }
 
