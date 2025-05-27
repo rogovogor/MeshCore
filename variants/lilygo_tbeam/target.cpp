@@ -7,26 +7,9 @@ TBeamBoard board;
 #define PMU_WIRE_PORT               Wire
 
 bool pmuIntFlag = false;
-
-void TBeamBoard::printPMU()
-{
-    Serial.print("isCharging:"); Serial.println(PMU->isCharging() ? "YES" : "NO");
-    Serial.print("isDischarge:"); Serial.println(PMU->isDischarge() ? "YES" : "NO");
-    Serial.print("isVbusIn:"); Serial.println(PMU->isVbusIn() ? "YES" : "NO");
-    Serial.print("getBattVoltage:"); Serial.print(PMU->getBattVoltage()); Serial.println("mV");
-    Serial.print("getVbusVoltage:"); Serial.print(PMU->getVbusVoltage()); Serial.println("mV");
-    Serial.print("getSystemVoltage:"); Serial.print(PMU->getSystemVoltage()); Serial.println("mV");
-
-    // The battery percentage may be inaccurate at first use, the PMU will automatically
-    // learn the battery curve and will automatically calibrate the battery percentage
-    // after a charge and discharge cycle
-    if (PMU->isBatteryConnect()) {
-        Serial.print("getBatteryPercent:"); Serial.print(PMU->getBatteryPercent()); Serial.println("%");
-    }
-
-    Serial.println();
+static void setPMUIntFlag(){
+  pmuIntFlag = true;
 }
-
 
 #if defined(P_LORA_SCLK)
   static SPIClass spi;
@@ -197,3 +180,24 @@ mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
   return mesh::LocalIdentity(&rng);  // create new random identity
 }
+
+#ifdef MESH_DEBUG
+void TBeamBoard::printPMU()
+{
+    Serial.print("isCharging:"); Serial.println(PMU->isCharging() ? "YES" : "NO");
+    Serial.print("isDischarge:"); Serial.println(PMU->isDischarge() ? "YES" : "NO");
+    Serial.print("isVbusIn:"); Serial.println(PMU->isVbusIn() ? "YES" : "NO");
+    Serial.print("getBattVoltage:"); Serial.print(PMU->getBattVoltage()); Serial.println("mV");
+    Serial.print("getVbusVoltage:"); Serial.print(PMU->getVbusVoltage()); Serial.println("mV");
+    Serial.print("getSystemVoltage:"); Serial.print(PMU->getSystemVoltage()); Serial.println("mV");
+
+    // The battery percentage may be inaccurate at first use, the PMU will automatically
+    // learn the battery curve and will automatically calibrate the battery percentage
+    // after a charge and discharge cycle
+    if (PMU->isBatteryConnect()) {
+        Serial.print("getBatteryPercent:"); Serial.print(PMU->getBatteryPercent()); Serial.println("%");
+    }
+
+    Serial.println();
+}
+#endif
