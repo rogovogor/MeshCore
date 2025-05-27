@@ -57,6 +57,7 @@
 #define FLOOD_SEND_TIMEOUT_FACTOR         16.0f
 #define DIRECT_SEND_PERHOP_FACTOR         6.0f
 #define DIRECT_SEND_PERHOP_EXTRA_MILLIS   250
+#define LAZY_CONTACTS_WRITE_DELAY        5000
 
 #define  PUBLIC_GROUP_PSK  "izOH6cXN6mrJ5e26oRXNcg=="
 
@@ -198,6 +199,7 @@ class MyMesh : public BaseChatMesh {
   uint8_t app_target_ver;
   uint8_t* sign_data;
   uint32_t sign_data_len;
+  unsigned long dirty_contacts_expiry;
   uint8_t cmd_frame[MAX_FRAME_SIZE+1];
   uint8_t out_frame[MAX_FRAME_SIZE+1];
   CayenneLPP telemetry;
@@ -524,7 +526,7 @@ protected:
     #endif
     }
 
-    saveContacts();
+    dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
   }
 
   void onContactPathUpdated(const ContactInfo& contact) override {
@@ -532,7 +534,7 @@ protected:
     memcpy(&out_frame[1], contact.id.pub_key, PUB_KEY_SIZE);
     _serial->writeFrame(out_frame, 1 + PUB_KEY_SIZE);   // NOTE: app may not be connected
 
-    saveContacts();
+    dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
   }
 
   bool processAck(const uint8_t *data) override {
@@ -603,7 +605,8 @@ protected:
 
   void onSignedMessageRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const uint8_t *sender_prefix, const char *text) override {
     markConnectionActive(from);
-    saveContacts();   // from.sync_since change needs to be persisted
+    // from.sync_since change needs to be persisted
+    dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
     queueMessage(from, TXT_TYPE_SIGNED_PLAIN, pkt, sender_timestamp, sender_prefix, 4, text);
   }
 
@@ -797,6 +800,7 @@ public:
     pending_login = pending_status = pending_telemetry = 0;
     next_ack_idx = 0;
     sign_data = NULL;
+    dirty_contacts_expiry = 0;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -1148,7 +1152,7 @@ public:
       if (recipient) {
         recipient->out_path_len = -1;
         //recipient->lastmod = ??   shouldn't be needed, app already has this version of contact
-        saveContacts();
+        dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
         writeOKFrame();
       } else {
         writeErrFrame(ERR_CODE_NOT_FOUND);  // unknown contact
@@ -1159,7 +1163,7 @@ public:
       if (recipient) {
         updateContactFromFrame(*recipient, cmd_frame, len);
         //recipient->lastmod = ??   shouldn't be needed, app already has this version of contact
-        saveContacts();
+        dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
         writeOKFrame();
       } else {
         ContactInfo contact;
@@ -1167,7 +1171,7 @@ public:
         contact.lastmod = getRTCClock()->getCurrentTime();
         contact.sync_since = 0;
         if (addContact(contact)) {
-          saveContacts();
+          dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
           writeOKFrame();
         } else {
           writeErrFrame(ERR_CODE_TABLE_FULL);
@@ -1177,7 +1181,7 @@ public:
       uint8_t* pub_key = &cmd_frame[1];
       ContactInfo* recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
       if (recipient && removeContact(*recipient)) {
-        saveContacts();
+        dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
         writeOKFrame();
       } else {
         writeErrFrame(ERR_CODE_NOT_FOUND);  // not found, or unable to remove
@@ -1296,6 +1300,9 @@ public:
       savePrefs();
       writeOKFrame();
     } else if (cmd_frame[0] == CMD_REBOOT && memcmp(&cmd_frame[1], "reboot", 6) == 0) {
+      if (dirty_contacts_expiry) {  // is there are pending dirty contacts write needed?
+        saveContacts();
+      }
       board.reboot();
     } else if (cmd_frame[0] == CMD_GET_BATTERY_VOLTAGE) {
       uint8_t reply[3];
@@ -1564,6 +1571,12 @@ public:
       }
     } else if (!_serial->isWriteBusy()) {
       checkConnections();
+    }
+
+    // is there are pending dirty contacts write needed?
+    if (dirty_contacts_expiry && millisHasNowPassed(dirty_contacts_expiry)) {
+      saveContacts();
+      dirty_contacts_expiry = 0;
     }
 
   #ifdef DISPLAY_CLASS
