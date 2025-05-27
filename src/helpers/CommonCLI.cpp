@@ -24,7 +24,11 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
 }
 
 void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
+#if defined(RP2040_PLATFORM)
+  File file = fs->open(filename, "r");
+#else
   File file = fs->open(filename);
+#endif
   if (file) {
     uint8_t pad[8];
 
@@ -69,9 +73,11 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
 }
 
 void CommonCLI::savePrefs(FILESYSTEM* fs) {
-#if defined(NRF52_PLATFORM)
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  fs->remove("/com_prefs");
   File file = fs->open("/com_prefs", FILE_O_WRITE);
-  if (file) { file.seek(0); file.truncate(); }
+#elif defined(RP2040_PLATFORM)
+  File file = fs->open("/com_prefs", "w");
 #else
   File file = fs->open("/com_prefs", "w", true);
 #endif
@@ -155,12 +161,17 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       } else {
         strcpy(reply, "(ERR: clock cannot go backwards)");
       }
+    } else if (memcmp(command, "neighbors", 9) == 0) {
+      _callbacks->formatNeighborsReply(reply);
     } else if (memcmp(command, "password ", 9) == 0) {
       // change admin password
       StrHelper::strncpy(_prefs->password, &command[9], sizeof(_prefs->password));
       checkAdvertInterval();
       savePrefs();
       sprintf(reply, "password now: %s", _prefs->password);   // echo back just to let admin know for sure!!
+    } else if (memcmp(command, "clear stats", 11) == 0) {
+      _callbacks->clearStats();
+      strcpy(reply, "(OK - stats reset)");
     } else if (memcmp(command, "get ", 4) == 0) {
       const char* config = &command[4];
       if (memcmp(config, "af", 2) == 0) {
@@ -200,7 +211,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         sprintf(reply, "> %s", StrHelper::ftoa(_prefs->freq));
       } else if (memcmp(config, "public.key", 10) == 0) {
         strcpy(reply, "> ");
-        mesh::Utils::toHex(&reply[2], _mesh->self_id.pub_key, PUB_KEY_SIZE);
+        mesh::Utils::toHex(&reply[2], _callbacks->getSelfIdPubKey(), PUB_KEY_SIZE);
       } else if (memcmp(config, "role", 4) == 0) {
         sprintf(reply, "> %s", _callbacks->getRole());
       } else {
@@ -347,6 +358,6 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       _callbacks->dumpLogFile();
       strcpy(reply, "   EOF");
     } else {
-      sprintf(reply, "Unknown: %s", command);
+      strcpy(reply, "Unknown command");
     }
 }

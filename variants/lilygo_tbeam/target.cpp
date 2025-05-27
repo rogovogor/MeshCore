@@ -39,6 +39,11 @@ WRAPPER_CLASS radio_driver(radio, board);
 
 ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
+SensorManager sensors;
+
+#ifdef DISPLAY_CLASS
+  DISPLAY_CLASS display;
+#endif
 
 static void setPMUIntFlag(){
   pmuIntFlag = true;
@@ -157,7 +162,7 @@ bool TBeamBoard::power_init()
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-  
+
 #if defined(P_LORA_SCLK)
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
 #endif
@@ -168,10 +173,12 @@ bool radio_init() {
     return false;  // fail
   }
 
+#ifdef SX127X_CURRENT_LIMIT
+  radio.setCurrentLimit(SX127X_CURRENT_LIMIT);
+#endif
 
   radio.setCRC(1);
 
-  
   return true;  // success
 }
 
