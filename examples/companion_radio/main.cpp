@@ -81,11 +81,11 @@ static uint32_t _atoi(const char* sp) {
 #define FIRMWARE_VER_CODE    5
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "17 May 2025"
+  #define FIRMWARE_BUILD_DATE   "24 May 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.1"
+  #define FIRMWARE_VERSION   "v1.6.2"
 #endif
 
 #define CMD_APP_START              1
@@ -661,6 +661,12 @@ protected:
         permissions |= cp & TELEM_PERM_LOCATION;
       }
 
+      if (_prefs.telemetry_mode_env == TELEM_MODE_ALLOW_ALL) {
+        permissions |= TELEM_PERM_ENVIRONMENT;
+      } else if (_prefs.telemetry_mode_env == TELEM_MODE_ALLOW_FLAGS) {
+        permissions |= cp & TELEM_PERM_ENVIRONMENT;
+      }
+
       if (permissions & TELEM_PERM_BASE) {   // only respond if base permission bit is set
         telemetry.reset();
         telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
@@ -689,6 +695,7 @@ protected:
       if (memcmp(&data[4], "OK", 2) == 0) {    // legacy Repeater login OK response
         out_frame[i++] = PUSH_CODE_LOGIN_SUCCESS;
         out_frame[i++] = 0;  // legacy: is_admin = false
+        memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       } else if (data[4] == RESP_SERVER_LOGIN_OK) {   // new login response
         uint16_t keep_alive_secs = ((uint16_t)data[5]) * 16;
         if (keep_alive_secs > 0) {
@@ -696,11 +703,13 @@ protected:
         }
         out_frame[i++] = PUSH_CODE_LOGIN_SUCCESS;
         out_frame[i++] = data[6];  // permissions (eg. is_admin)
+        memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
+        memcpy(&out_frame[i], &tag, 4); i += 4;  // NEW: include server timestamp
       } else {
         out_frame[i++] = PUSH_CODE_LOGIN_FAIL;
         out_frame[i++] = 0;  // reserved
+        memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       }
-      memcpy(&out_frame[i], contact.id.pub_key, 6); i += 6;  // pub_key_prefix
       _serial->writeFrame(out_frame, i);
     } else if (len > 4 &&   // check for status response
       pending_status && memcmp(&pending_status, contact.id.pub_key, 4) == 0   // legacy matching scheme
@@ -824,7 +833,7 @@ public:
       file.read((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
       file.read((uint8_t *) &_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base));  // 69
       file.read((uint8_t *) &_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));  // 70
-      file.read(pad, 1);  // 71
+      file.read((uint8_t *) &_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));  // 71
       file.read((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
       file.read(pad, 4);   // 76
       file.read((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
@@ -945,7 +954,7 @@ public:
       file.write((uint8_t *) &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));  // 68
       file.write((uint8_t *) &_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base));  // 69
       file.write((uint8_t *) &_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));  // 70
-      file.write(pad, 1);  // 71
+      file.write((uint8_t *) &_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));  // 71
       file.write((uint8_t *) &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));  // 72
       file.write(pad, 4);   // 76
       file.write((uint8_t *) &_prefs.ble_pin, sizeof(_prefs.ble_pin));  // 80
@@ -990,7 +999,7 @@ public:
       memcpy(&out_frame[i], &lon, 4); i += 4;
       out_frame[i++] = 0;  // reserved
       out_frame[i++] = 0;  // reserved
-      out_frame[i++] = (_prefs.telemetry_mode_loc << 2) | (_prefs.telemetry_mode_base);  // v5+
+      out_frame[i++] = (_prefs.telemetry_mode_env << 4) | (_prefs.telemetry_mode_loc << 2) | (_prefs.telemetry_mode_base);  // v5+
       out_frame[i++] = _prefs.manual_add_contacts;
 
       uint32_t freq = _prefs.freq * 1000;
@@ -1282,6 +1291,7 @@ public:
       if (len >= 3) {
         _prefs.telemetry_mode_base = cmd_frame[2] & 0x03;       // v5+
         _prefs.telemetry_mode_loc = (cmd_frame[2] >> 2) & 0x03;
+        _prefs.telemetry_mode_env = (cmd_frame[2] >> 4) & 0x03;
       }
       savePrefs();
       writeOKFrame();
