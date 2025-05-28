@@ -14,7 +14,7 @@
 
 class ThinkNodeM1SensorManager : public SensorManager {
   bool gps_active = false;
-  bool gps_detected = false;
+  bool last_gps_switch_state = false;
   LocationProvider* _location;
 
   void start_gps();

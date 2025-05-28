@@ -131,3 +131,4 @@ extern const int SCK;
 #define PIN_GPS_RESET           (37)
 #define PIN_GPS_PPS             (36)
 #define PIN_GPS_STANDBY         (34)
+#define PIN_GPS_SWITCH          (33)

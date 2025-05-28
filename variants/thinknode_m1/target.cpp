@@ -92,22 +92,16 @@ void ThinkNodeM1SensorManager::stop_gps() {
 bool ThinkNodeM1SensorManager::begin() {
   Serial1.begin(9600);
 
-  // Try to detect if GPS is physically connected to determine if we should expose the setting
+  // Initialize GPS switch pin
+  pinMode(PIN_GPS_SWITCH, INPUT);
+  last_gps_switch_state = digitalRead(PIN_GPS_SWITCH);
+
+  // Initialize GPS power pin
   pinMode(GPS_EN, OUTPUT);
-  digitalWrite(GPS_EN, HIGH);  // Power on GPS
 
-  // Give GPS a moment to send data if it's physically connected and powered
-  delay(1500);
-
-  // We'll consider GPS detected if we see any data on Serial1
-  gps_detected = (Serial1.available() > 0);
-
-  if (gps_detected) {
-    MESH_DEBUG_PRINTLN("GPS detected");
-    digitalWrite(GPS_EN, LOW);  // Power off GPS until the setting is changed
-  } else {
-    MESH_DEBUG_PRINTLN("No GPS detected");
-    digitalWrite(GPS_EN, LOW);
+  // Check initial switch state to determine if GPS should be active
+  if (last_gps_switch_state == HIGH) {  // Switch is HIGH when ON
+    start_gps();
   }
 
   return true;
@@ -122,6 +116,31 @@ bool ThinkNodeM1SensorManager::querySensors(uint8_t requester_permissions, Cayen
 
 void ThinkNodeM1SensorManager::loop() {
   static long next_gps_update = 0;
+  static long last_switch_check = 0;
+
+  // Check GPS switch state every second
+  if (millis() - last_switch_check > 1000) {
+    bool current_switch_state = digitalRead(PIN_GPS_SWITCH);
+    
+    // Detect switch state change
+    if (current_switch_state != last_gps_switch_state) {
+      last_gps_switch_state = current_switch_state;
+      
+      if (current_switch_state == HIGH) {  // Switch is ON
+        MESH_DEBUG_PRINTLN("GPS switch ON");
+        start_gps();
+      } else {  // Switch is OFF
+        MESH_DEBUG_PRINTLN("GPS switch OFF");
+        stop_gps();
+      }
+    }
+    
+    last_switch_check = millis();
+  }
+
+  if (!gps_active) {
+    return;  // GPS is not active, skip further processing
+  }
 
   _location->loop();
 
@@ -137,22 +156,22 @@ void ThinkNodeM1SensorManager::loop() {
 }
 
 int ThinkNodeM1SensorManager::getNumSettings() const {
-  return gps_detected ? 1 : 0;  // only show GPS setting if GPS is detected
+  return 1;  // always show GPS setting
 }
 
 const char* ThinkNodeM1SensorManager::getSettingName(int i) const {
-  return (gps_detected && i == 0) ? "gps" : NULL;
+  return (i == 0) ? "gps" : NULL;
 }
 
 const char* ThinkNodeM1SensorManager::getSettingValue(int i) const {
-  if (gps_detected && i == 0) {
+  if (i == 0) {
     return gps_active ? "1" : "0";
   }
   return NULL;
 }
 
 bool ThinkNodeM1SensorManager::setSettingValue(const char* name, const char* value) {
-  if (gps_detected && strcmp(name, "gps") == 0) {
+  if (strcmp(name, "gps") == 0) {
     if (strcmp(value, "0") == 0) {
       stop_gps();
     } else {
