@@ -9,6 +9,7 @@
 #endif
 
 #include "NodePrefs.h"
+#include "Button.h"
 
  enum class UIEventType
 {
@@ -35,10 +36,22 @@ class UITask {
   int _msgcount;
   bool _need_refresh = true;
 
+  // Button handlers
+#if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
+  Button* _userButton = nullptr;
+#endif
+
   void renderCurrScreen();
-  void buttonHandler();
   void userLedHandler();
   void renderBatteryIndicator(uint16_t batteryMilliVolts);
+  
+  // Button action handlers
+  void handleButtonAnyPress();
+  void handleButtonShortPress();
+  void handleButtonDoublePress();
+  void handleButtonTriplePress();
+  void handleButtonLongPress();
+
  
 public:
 
