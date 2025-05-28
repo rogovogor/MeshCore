@@ -7,8 +7,10 @@
 #include <helpers/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
-#include <helpers/sensors/LocationProvider.h>
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+#if ENV_INCLUDE_GPS
+  #include <helpers/sensors/LocationProvider.h>
+  #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+#endif
 #ifdef DISPLAY_CLASS
   #include <helpers/ui/SSD1306Display.h>
 #endif
@@ -16,6 +18,7 @@
 #define _BV(x)   (1 << x)
 
 class RAK4631SensorManager: public SensorManager {
+  #if ENV_INCLUDE_GPS
     bool gps_active = false;
     bool gps_present = false;
     LocationProvider * _nmea;
@@ -27,17 +30,23 @@ class RAK4631SensorManager: public SensorManager {
     void sleep_gps();
     void wake_gps();
     bool gpsIsAwake(uint32_t ioPin);
+  #endif
 
   public:
+  #if ENV_INCLUDE_GPS
     RAK4631SensorManager(LocationProvider &nmea): _nmea(&nmea) { }
-    bool begin() override;
+
     bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;
     void loop() override;
     int getNumSettings() const override;
     const char* getSettingName(int i) const override;
     const char* getSettingValue(int i) const override;
     bool setSettingValue(const char* name, const char* value) override;
-  };
+  #else
+    RAK4631SensorManager() { }
+  #endif
+    bool begin() override;
+};
 
 extern RAK4631Board board;
 extern WRAPPER_CLASS radio_driver;

@@ -11,8 +11,13 @@ WRAPPER_CLASS radio_driver(radio, board);
 
 VolatileRTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
+
+#if ENV_INCLUDE_GPS
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Wire);
 RAK4631SensorManager sensors = RAK4631SensorManager(nmea);
+#else
+RAK4631SensorManager sensors;
+#endif
 
 #ifdef DISPLAY_CLASS
   DISPLAY_CLASS display;
@@ -68,22 +73,6 @@ void scanDevices(TwoWire *w)
 }
 #endif
 
-static bool readStringUntil(Stream& s, char dest[], size_t max_len, char term, unsigned int timeout_millis) {
-  unsigned long timeout = millis() + timeout_millis;
-  char *dp = dest;
-  while (millis() < timeout && dp - dest < max_len - 1) {
-    if (s.available()) {
-      char c = s.read();
-      if (c == term) break;
-      *dp++ = c;  // append to dest[]
-    } else {
-      delay(1);
-    }
-  }
-  *dp = 0;  // null terminator
-  return millis() < timeout;   // false, if timed out
-}
-
 bool radio_init() {
   rtc_clock.begin(Wire);
   
@@ -132,6 +121,7 @@ void radio_set_tx_power(uint8_t dbm) {
   radio.setOutputPower(dbm);
 }
 
+#if ENV_INCLUDE_GPS
 void RAK4631SensorManager::start_gps()
 {
   //function currently not used
@@ -187,6 +177,7 @@ bool RAK4631SensorManager::gpsIsAwake(uint32_t ioPin){
   //digitalWrite(ioPin,pinInitialState); //reset the IO pin to initial state
   return false;
 }
+#endif
 
 bool RAK4631SensorManager::begin() {
   
@@ -194,6 +185,7 @@ bool RAK4631SensorManager::begin() {
   scanDevices(&Wire);
   #endif
 
+#if ENV_INCLUDE_GPS
   //search for the correct IO standby pin depending on socket used
   if(gpsIsAwake(P_GPS_STANDBY_A)){
     MESH_DEBUG_PRINTLN("GPS is on socket A");
@@ -213,8 +205,10 @@ bool RAK4631SensorManager::begin() {
 
   //Now that GPS is found and set up, set to sleep for initial state
   stop_gps();
+#endif
 }
 
+#if ENV_INCLUDE_GPS
 bool RAK4631SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   if (requester_permissions & TELEM_PERM_LOCATION && gps_active) {   // does requester have permission?
     telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
@@ -261,6 +255,7 @@ bool RAK4631SensorManager::setSettingValue(const char* name, const char* value) 
   }
   return false;  // not supported
 }
+#endif
 
 mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
