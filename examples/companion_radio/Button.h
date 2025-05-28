@@ -5,7 +5,7 @@
 
 // Button timing configuration
 #define BUTTON_DEBOUNCE_TIME_MS    50      // Debounce time in ms
-#define BUTTON_CLICK_TIMEOUT_MS    400     // Max time between clicks for multi-click
+#define BUTTON_CLICK_TIMEOUT_MS    500     // Max time between clicks for multi-click
 #define BUTTON_LONG_PRESS_TIME_MS  5000    // Time to trigger long press (5 seconds)
 #define BUTTON_READ_INTERVAL_MS    10      // How often to read the button
 

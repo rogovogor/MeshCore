@@ -97,6 +97,7 @@ void Button::handleStateChange() {
             } else {
                 // Long press already handled in update()
                 _state = IDLE;
+                _clickCount = 0;  // Reset click count after long press
             }
         }
     }

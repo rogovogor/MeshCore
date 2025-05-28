@@ -311,12 +311,8 @@ void UITask::handleButtonAnyPress() {
   if (_display != NULL) {
     if (!_display->isOn()) {
       _display->turnOn();
-      _need_refresh = true;
-    } else {
-      // Turn on display
-      _display->turnOn();
-      _need_refresh = true;
     }
+    _need_refresh = true;
     _auto_off = millis() + AUTO_OFF_MILLIS;   // extend auto-off timer
   }
 }
