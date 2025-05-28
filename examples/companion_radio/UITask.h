@@ -39,7 +39,6 @@ class UITask {
   void buttonHandler();
   void userLedHandler();
   void renderBatteryIndicator(uint16_t batteryMilliVolts);
-
  
 public:
 
@@ -55,5 +54,6 @@ public:
   void msgRead(int msgcount);
   void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount);
   void soundBuzzer(UIEventType bet = UIEventType::none);
+  void shutdown(bool restart = false);
   void loop();
 };

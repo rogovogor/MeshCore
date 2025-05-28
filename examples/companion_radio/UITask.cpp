@@ -266,7 +266,7 @@ void UITask::buttonHandler() {
             digitalWrite(PIN_STATUS_LED, LOW);
             delay(10);
           #endif
-            _board->powerOff();
+            shutdown(); // without restart
           }
         }
         btn_state_change_time = millis();
@@ -277,6 +277,30 @@ void UITask::buttonHandler() {
     }
   #endif
   }
+
+
+/* hardware-agnostic pre-shutdown activity should be done here 
+*/
+void UITask::shutdown(bool restart){
+
+  #ifdef PIN_BUZZER
+  /* note: we have a choice here -
+     we can do a blocking buzzer.loop() with non-deterministic consequences
+     or we can set a flag and delay the shutdown for a couple of seconds
+     while a non-blocking buzzer.loop() plays out in UITask::loop()
+  */
+  buzzer.shutdown();
+  uint32_t buzzer_timer = millis(); // fail-safe shutdown
+  while (buzzer.isPlaying() && (millis() - 2500) < buzzer_timer)
+    buzzer.loop();
+
+  #endif // PIN_BUZZER
+
+  if (restart)
+    _board->reboot();
+  else
+    _board->powerOff();
+}
 
 void UITask::loop() {
   buttonHandler();
