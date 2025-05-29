@@ -125,8 +125,8 @@ extern const int SCK;
 ////////////////////////////////////////////////////////////////////////////////
 // GPS
 
-#define PIN_GPS_RX              (41)
-#define PIN_GPS_TX              (40)
+#define PIN_GPS_RX              (40)
+#define PIN_GPS_TX              (41)
 #define GPS_EN                  (34)
 #define PIN_GPS_RESET           (37)
 #define PIN_GPS_PPS             (36)
