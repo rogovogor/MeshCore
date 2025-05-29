@@ -1,4 +1,5 @@
-#pragma once
+#ifndef UI_TASK_H
+#define UI_TASK_H
 
 #include <MeshCore.h>
 #include <helpers/ui/DisplayDriver.h>
@@ -72,3 +73,4 @@ public:
   void shutdown(bool restart = false);
   void loop();
 };
+#endif //UI_TASK_H

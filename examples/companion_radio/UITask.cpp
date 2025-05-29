@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <helpers/TxtDataHelpers.h>
 #include "NodePrefs.h"
+#include "MyMesh.h"
 
 #define AUTO_OFF_MILLIS     15000   // 15 seconds
 #define BOOT_SCREEN_MILLIS   4000   // 4 seconds
@@ -340,8 +341,14 @@ void UITask::handleButtonShortPress() {
 }
 
 void UITask::handleButtonDoublePress() {
-  MESH_DEBUG_PRINTLN("UITask: double press triggered");
-  // Not implemented. TODO: possibly send an advert here?
+  MESH_DEBUG_PRINTLN("UITask: double press triggered, sending advert");
+  // ADVERT
+  if(the_mesh.advert()) {
+    MESH_DEBUG_PRINTLN("Advert sent!");
+  }
+  else {
+    MESH_DEBUG_PRINTLN("Advert failed!");
+  }
 }
 
 void UITask::handleButtonTriplePress() {
