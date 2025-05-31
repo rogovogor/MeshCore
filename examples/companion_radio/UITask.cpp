@@ -57,6 +57,24 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs, const char* bu
 #ifdef PIN_BUZZER
   buzzer.begin();
 #endif
+
+  // Initialize button with appropriate configuration
+#if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
+  #ifdef PIN_USER_BTN
+    _userButton = new Button(PIN_USER_BTN, USER_BTN_PRESSED);
+  #else
+    _userButton = new Button(PIN_USER_BTN_ANA, USER_BTN_PRESSED, true, 20);
+  #endif
+  
+  _userButton->begin();
+  
+  // Set up button callbacks
+  _userButton->onShortPress([this]() { handleButtonShortPress(); });
+  _userButton->onDoublePress([this]() { handleButtonDoublePress(); });
+  _userButton->onTriplePress([this]() { handleButtonTriplePress(); });
+  _userButton->onLongPress([this]() { handleButtonLongPress(); });
+  _userButton->onAnyPress([this]() { handleButtonAnyPress(); });
+#endif
 }
 
 void UITask::soundBuzzer(UIEventType bet) {
@@ -68,6 +86,9 @@ switch(bet){
     break;
   case UIEventType::channelMessage:
     buzzer.play("kerplop:d=16,o=6,b=120:32g#,32c#");
+    break;
+  case UIEventType::ack:
+    buzzer.play("ack:d=32,o=8,b=120:c");
     break;
   case UIEventType::roomMessage:
   case UIEventType::newContactMessage:
@@ -233,53 +254,8 @@ void UITask::userLedHandler() {
 #endif
 }
 
-void UITask::buttonHandler() {
-  #if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
-    static int prev_btn_state = !USER_BTN_PRESSED;
-    static int prev_btn_state_ana = !USER_BTN_PRESSED;
-    static unsigned long btn_state_change_time = 0;
-    static unsigned long next_read = 0;
-    int cur_time = millis();
-    if (cur_time >= next_read) {
-      int btn_state = 0;
-      int btn_state_ana = 0;
-      #ifdef PIN_USER_BTN
-      btn_state = digitalRead(PIN_USER_BTN);
-      #endif
-      #ifdef PIN_USER_BTN_ANA
-      btn_state_ana = (analogRead(PIN_USER_BTN_ANA) < 20); // analogRead returns a value hopefully below 20 when button is pressed. 
-      #endif
-      if (btn_state != prev_btn_state || btn_state_ana != prev_btn_state_ana) { // check for either digital or analogue button change of state
-        if (btn_state == USER_BTN_PRESSED || btn_state_ana == USER_BTN_PRESSED) {  // pressed?
-          if (_display != NULL) {
-            if (_display->isOn()) {
-              clearMsgPreview();
-            } else {
-              _display->turnOn();
-              _need_refresh = true;
-            }
-            _auto_off = cur_time + AUTO_OFF_MILLIS;   // extend auto-off timer
-          }
-        } else { // unpressed ? check pressed time ...
-          if ((cur_time - btn_state_change_time) > 5000) {
-          #ifdef PIN_STATUS_LED
-            digitalWrite(PIN_STATUS_LED, LOW);
-            delay(10);
-          #endif
-            shutdown(); // without restart
-          }
-        }
-        btn_state_change_time = millis();
-        prev_btn_state = btn_state;
-        prev_btn_state_ana = btn_state_ana;
-      }
-      next_read = millis() + 100;  // 10 reads per second
-    }
-  #endif
-  }
-
-
-/* hardware-agnostic pre-shutdown activity should be done here 
+/* 
+  hardware-agnostic pre-shutdown activity should be done here 
 */
 void UITask::shutdown(bool restart){
 
@@ -303,7 +279,11 @@ void UITask::shutdown(bool restart){
 }
 
 void UITask::loop() {
-  buttonHandler();
+  #if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
+    if (_userButton) {
+      _userButton->update();
+    }
+  #endif
   userLedHandler();
 
 #ifdef PIN_BUZZER
@@ -327,4 +307,58 @@ void UITask::loop() {
       _display->turnOff();
     }
   }
+}
+
+void UITask::handleButtonAnyPress() {
+  MESH_DEBUG_PRINTLN("UITask: any press triggered");
+  // called on any button press before other events, to wake up the display quickly
+  // do not refresh the display here, as it may block the button handler
+  if (_display != NULL) {
+    _displayWasOn = _display->isOn();  // Track display state before any action
+    if (!_displayWasOn) {
+      _display->turnOn();
+    }
+    _auto_off = millis() + AUTO_OFF_MILLIS;   // extend auto-off timer
+  }
+}
+
+void UITask::handleButtonShortPress() {
+  MESH_DEBUG_PRINTLN("UITask: short press triggered");
+  if (_display != NULL) {
+    // Only clear message preview if display was already on before button press
+    if (_displayWasOn) {
+      // If display was on and showing message preview, clear it
+      if (_origin[0] && _msg[0]) {
+        clearMsgPreview();
+      } else {
+        // Otherwise, refresh the display
+        _need_refresh = true;
+      }
+    }
+    // Note: Display turn-on and auto-off timer extension are handled by handleButtonAnyPress
+  }
+}
+
+void UITask::handleButtonDoublePress() {
+  MESH_DEBUG_PRINTLN("UITask: double press triggered");
+  // Not implemented. TODO: possibly send an advert here?
+}
+
+void UITask::handleButtonTriplePress() {
+  MESH_DEBUG_PRINTLN("UITask: triple press triggered");
+  // Toggle buzzer quiet mode
+  #ifdef PIN_BUZZER
+    if (buzzer.isQuiet()) {
+      buzzer.quiet(false);
+      soundBuzzer(UIEventType::ack);
+    } else {
+      soundBuzzer(UIEventType::ack);
+      buzzer.quiet(true);
+    }
+  #endif
+}
+
+void UITask::handleButtonLongPress() {
+  MESH_DEBUG_PRINTLN("UITask: long press triggered");
+  shutdown();
 }

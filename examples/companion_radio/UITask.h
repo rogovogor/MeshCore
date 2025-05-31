@@ -9,6 +9,7 @@
 #endif
 
 #include "NodePrefs.h"
+#include "Button.h"
 
  enum class UIEventType
 {
@@ -16,7 +17,8 @@
     contactMessage,
     channelMessage,
     roomMessage,
-    newContactMessage
+    newContactMessage,
+    ack
 };
 
 class UITask {
@@ -34,11 +36,24 @@ class UITask {
   char _msg[80];
   int _msgcount;
   bool _need_refresh = true;
+  bool _displayWasOn = false;  // Track display state before button press
+
+  // Button handlers
+#if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
+  Button* _userButton = nullptr;
+#endif
 
   void renderCurrScreen();
-  void buttonHandler();
   void userLedHandler();
   void renderBatteryIndicator(uint16_t batteryMilliVolts);
+  
+  // Button action handlers
+  void handleButtonAnyPress();
+  void handleButtonShortPress();
+  void handleButtonDoublePress();
+  void handleButtonTriplePress();
+  void handleButtonLongPress();
+
  
 public:
 
