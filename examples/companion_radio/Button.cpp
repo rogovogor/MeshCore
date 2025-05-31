@@ -2,13 +2,13 @@
 
 Button::Button(uint8_t pin, bool activeState) 
     : _pin(pin), _activeState(activeState), _isAnalog(false), _analogThreshold(20) {
-    _currentState = !_activeState;
+    _currentState = false;  // Initialize as not pressed
     _lastState = _currentState;
 }
 
 Button::Button(uint8_t pin, bool activeState, bool isAnalog, uint16_t analogThreshold)
     : _pin(pin), _activeState(activeState), _isAnalog(isAnalog), _analogThreshold(analogThreshold) {
-    _currentState = !_activeState;
+    _currentState = false;  // Initialize as not pressed
     _lastState = _currentState;
 }
 
@@ -70,16 +70,16 @@ void Button::update() {
 
 bool Button::readButton() {
     if (_isAnalog) {
-        return (analogRead(_pin) < _analogThreshold) ? _activeState : !_activeState;
+        return (analogRead(_pin) < _analogThreshold);
     } else {
-        return digitalRead(_pin);
+        return (digitalRead(_pin) == _activeState);
     }
 }
 
 void Button::handleStateChange() {
     uint32_t now = millis();
     
-    if (_currentState == _activeState) {
+    if (_currentState) {
         // Button pressed
         _pressTime = now;
         _state = PRESSED;

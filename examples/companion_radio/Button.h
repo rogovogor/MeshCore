@@ -36,7 +36,7 @@ public:
     void onAnyPress(EventCallback callback) { _onAnyPress = callback; }
     
     // State getters
-    bool isPressed() const { return _currentState == _activeState; }
+    bool isPressed() const { return _currentState; }
     EventType getLastEvent() const { return _lastEvent; }
 
 private:
