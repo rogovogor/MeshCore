@@ -74,7 +74,7 @@ static uint32_t _atoi(const char* sp) {
 /* GLOBAL OBJECTS */
 StdRNG fast_rng;
 SimpleMeshTables tables;
-MyMesh the_mesh(radio_driver, fast_rng, *new VolatileRTCClock(), tables); // TODO: test with 'rtc_clock' in target.cpp
+MyMesh the_mesh(radio_driver, fast_rng, rtc_clock, tables); 
 
 #ifdef DISPLAY_CLASS
   #include "UITask.h"
