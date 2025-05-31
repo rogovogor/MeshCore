@@ -11,7 +11,13 @@
 class WIOE5Board : public STM32Board {
 public:
     const char* getManufacturerName() const override {
-        return "Seeed Wio E5";
+        return "Seeed Wio E5 Dev Board";
+    }
+
+    // Just returns ADC value for now to test adc
+    uint16_t getBattMilliVolts() override {
+        uint32_t raw = analogRead(PIN_A3);            
+        return raw;
     }
 };
 
