@@ -308,11 +308,13 @@ void UITask::loop() {
 
 void UITask::handleButtonAnyPress() {
   MESH_DEBUG_PRINTLN("UITask: any press triggered");
+  // called on any button press before other events, to wake up the display quickly
+  // do not refresh the display here, as it may block the button handler
   if (_display != NULL) {
-    if (!_display->isOn()) {
+    _displayWasOn = _display->isOn();  // Track display state before any action
+    if (!_displayWasOn) {
       _display->turnOn();
     }
-    _need_refresh = true;
     _auto_off = millis() + AUTO_OFF_MILLIS;   // extend auto-off timer
   }
 }
@@ -320,12 +322,17 @@ void UITask::handleButtonAnyPress() {
 void UITask::handleButtonShortPress() {
   MESH_DEBUG_PRINTLN("UITask: short press triggered");
   if (_display != NULL) {
-    if (_display->isOn()) {
-      // If display is on and showing message preview, clear it
+    // Only clear message preview if display was already on before button press
+    if (_displayWasOn) {
+      // If display was on and showing message preview, clear it
       if (_origin[0] && _msg[0]) {
         clearMsgPreview();
+      } else {
+        // Otherwise, refresh the display
+        _need_refresh = true;
       }
     }
+    // Note: Display turn-on and auto-off timer extension are handled by handleButtonAnyPress
   }
 }
 

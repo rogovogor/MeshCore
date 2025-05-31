@@ -35,6 +35,7 @@ class UITask {
   char _msg[80];
   int _msgcount;
   bool _need_refresh = true;
+  bool _displayWasOn = false;  // Track display state before button press
 
   // Button handlers
 #if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)

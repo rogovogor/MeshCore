@@ -60,10 +60,10 @@ void Button::update() {
         _state = IDLE;
     }
     
-    // Handle long press
+    // Handle long press while button is held
     if (_state == PRESSED && (now - _pressTime) > BUTTON_LONG_PRESS_TIME_MS) {
         triggerEvent(LONG_PRESS);
-        _state = IDLE;  // Prevent multiple long press events
+        _state = IDLE;  // Prevent multiple press events
         _clickCount = 0;
     }
 }
@@ -97,7 +97,7 @@ void Button::handleStateChange() {
             } else {
                 // Long press already handled in update()
                 _state = IDLE;
-                _clickCount = 0;  // Reset click count after long press
+                _clickCount = 0;
             }
         }
     }
