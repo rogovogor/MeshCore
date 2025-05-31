@@ -87,6 +87,9 @@ switch(bet){
   case UIEventType::channelMessage:
     buzzer.play("kerplop:d=16,o=6,b=120:32g#,32c#");
     break;
+  case UIEventType::ack:
+    buzzer.play("ack:d=32,o=7,b=120:c");
+    break;
   case UIEventType::roomMessage:
   case UIEventType::newContactMessage:
   case UIEventType::none:
@@ -345,7 +348,13 @@ void UITask::handleButtonTriplePress() {
   MESH_DEBUG_PRINTLN("UITask: triple press triggered");
   // Toggle buzzer quiet mode
   #ifdef PIN_BUZZER
-    buzzer.quiet(!buzzer.isQuiet());
+    if (buzzer.isQuiet()) {
+      buzzer.quiet(false);
+      soundBuzzer(UIEventType::ack);
+    } else {
+      soundBuzzer(UIEventType::ack);
+      buzzer.quiet(true);
+    }
   #endif
 }
 

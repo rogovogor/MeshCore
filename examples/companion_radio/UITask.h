@@ -17,7 +17,8 @@
     contactMessage,
     channelMessage,
     roomMessage,
-    newContactMessage
+    newContactMessage,
+    ack
 };
 
 class UITask {
