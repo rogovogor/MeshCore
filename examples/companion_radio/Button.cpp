@@ -13,9 +13,6 @@ Button::Button(uint8_t pin, bool activeState, bool isAnalog, uint16_t analogThre
 }
 
 void Button::begin() {
-    if (!_isAnalog) {
-        pinMode(_pin, INPUT_PULLUP);
-    }
     _currentState = readButton();
     _lastState = _currentState;
 }
