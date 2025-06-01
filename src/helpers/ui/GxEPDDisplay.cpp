@@ -5,22 +5,15 @@
   #define DISPLAY_ROTATION 3
 #endif
 
-#ifdef TECHO_ZOOM
-  #define SCALE_X   (1.5625f * 1.5f)   //  200 / 128  (with 1.5 scale)
-  #define SCALE_Y   (1.5625f * 1.5f)   //  200 / 128  (with 1.5 scale)
-#else
-  #define SCALE_X   1.5625f   //  200 / 128
-  #define SCALE_Y   1.5625f   //  200 / 128
-#endif
+#define SCALE_X   1.5625f   //  200 / 128
+#define SCALE_Y   1.5625f   //  200 / 128
 
 bool GxEPDDisplay::begin() {
   display.epd2.selectSPI(SPI1, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   SPI1.begin();
   display.init(115200, true, 2, false);
   display.setRotation(DISPLAY_ROTATION);
-  #ifdef TECHO_ZOOM
-    display.setFont(&FreeMono9pt7b);
-  #endif
+  setTextSize(1);  // Default to size 1
   display.setPartialWindow(0, 0, display.width(), display.height());
 
   display.fillScreen(GxEPD_WHITE);
@@ -57,7 +50,20 @@ void GxEPDDisplay::startFrame(Color bkg) {
 }
 
 void GxEPDDisplay::setTextSize(int sz) {
-  display.setTextSize(sz);
+  switch(sz) {
+    case 1:  // Small
+      display.setFont(&FreeSans9pt7b);
+      break;
+    case 2:  // Medium Bold
+      display.setFont(&FreeSansBold12pt7b);
+      break;
+    case 3:  // Large
+      display.setFont(&FreeSans18pt7b);
+      break;
+    default:
+      display.setFont(&FreeSans9pt7b);
+      break;
+  }
 }
 
 void GxEPDDisplay::setColor(Color c) {
