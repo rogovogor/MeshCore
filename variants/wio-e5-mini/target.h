@@ -25,11 +25,11 @@ public:
 };
 
 class WIOE5SensorManager : public SensorManager {
-    BME280I2C* _bme;
+    BME280I2C bme;
     bool has_bme = false;   
 
 public:
-    WIOE5SensorManager(BME280I2C& bme) : _bme(&bme) {}
+    WIOE5SensorManager() {}
     bool begin() override;
     bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;
 };
