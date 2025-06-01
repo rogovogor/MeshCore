@@ -179,26 +179,14 @@ void T1000SensorManager::loop() {
   }
 }
 
-int T1000SensorManager::getNumSettings() const { return 2; }  // just one supported: "gps" (power switch)
+int T1000SensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
 
 const char* T1000SensorManager::getSettingName(int i) const {
-  switch (i) {
-    case 0:
-      return "gps";
-      break;
-    case 1:
-      return "sync";
-      break;
-    default:
-      return NULL;
-      break;
-  }
+  return i == 0 ? "gps" : NULL;
 }
 const char* T1000SensorManager::getSettingValue(int i) const {
   if (i == 0) {
     return gps_active ? "1" : "0";
-  } else if (i == 1) {
-    return _nmea->waitingTimeSync() ? "1" : "0";
   }
   return NULL;
 }
@@ -209,9 +197,6 @@ bool T1000SensorManager::setSettingValue(const char* name, const char* value) {
     } else {
       start_gps();
     }
-    return true;
-  } else if (strcmp(name, "sync") == 0) {
-    _nmea->syncTime(); // whatever the value ...
     return true;
   }
   return false;  // not supported
