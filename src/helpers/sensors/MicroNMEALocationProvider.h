@@ -98,7 +98,7 @@ public :
             next_check = millis() + 1000;
             if (_time_sync_needed && time_valid > 2) {
                 if (_clock != NULL) {
-                    _clock.setCurrentTime(getTimestamp());
+                    _clock->setCurrentTime(getTimestamp());
                     _time_sync_needed = false;
                 }
             }
