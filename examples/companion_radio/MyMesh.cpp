@@ -545,7 +545,8 @@ void MyMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packe
     out_frame[i++] = RESP_CODE_CHANNEL_MSG_RECV;
   }
 
-  out_frame[i++] = findChannelIdx(channel);
+  uint8_t channel_idx = findChannelIdx(channel);
+  out_frame[i++] = channel_idx;
   uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
 
   out_frame[i++] = TXT_TYPE_PLAIN;
@@ -570,7 +571,13 @@ void MyMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packe
 #endif
   }
 #ifdef DISPLAY_CLASS
-  ui_task.newMsg(path_len, "Public", text, offline_queue_len);
+  // Get the channel name from the channel index
+  const char *channel_name = "Unknown";
+  ChannelDetails channel_details;
+  if (getChannel(channel_idx, channel_details)) {
+    channel_name = channel_details.name;
+  }
+  ui_task.newMsg(path_len, channel_name, text, offline_queue_len);
 #endif
 }
 
