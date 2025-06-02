@@ -18,7 +18,8 @@ static const Module::RfSwitchMode_t rfswitch_table[] = {
 };
 
 VolatileRTCClock rtc_clock;
-WIOE5SensorManager sensors;
+BME280I2C bme;   
+WIOE5SensorManager sensors(bme);
 
 #ifndef LORA_CR
   #define LORA_CR      5
@@ -72,9 +73,9 @@ bool WIOE5SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP&
   float temp(NAN), hum(NAN), pres(NAN);
 
   BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
-  BME280::PresUnit presUnit(BME280::PresUnit_hPa);
+  BME280::PresUnit presUnit(BME280::PresUnit_bar);
 
-  bme.read(pres, temp, hum, tempUnit, presUnit);
+  _bme->read(pres, temp, hum, tempUnit, presUnit);
 
   telemetry.addTemperature(TELEM_CHANNEL_SELF, temp);
   telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, hum);
@@ -84,7 +85,7 @@ bool WIOE5SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP&
 }
 
 bool WIOE5SensorManager::begin() {
-  has_bme = bme.begin();
+  has_bme = _bme->begin();
 
   return has_bme;
 }
