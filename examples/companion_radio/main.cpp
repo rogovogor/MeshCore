@@ -491,7 +491,7 @@ protected:
   }
 
   int getInterferenceThreshold() const override {
-    return 14;  // hard-coded for now
+    return 0;  // disabled for now, until currentRSSI() problem is resolved
   }
 
   int calcRxDelay(float score, uint32_t air_time) const override {
