@@ -384,7 +384,7 @@ float MyMesh::getAirtimeBudgetFactor() const
 
 int MyMesh::getInterferenceThreshold() const
 {
-  return 14; // hard-coded for now
+  return 0; // disabled for now, until currentRSSI() problem is resolved
 }
 
 int MyMesh::calcRxDelay(float score, uint32_t air_time) const
