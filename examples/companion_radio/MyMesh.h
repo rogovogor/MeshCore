@@ -70,42 +70,11 @@
 
 #include <helpers/BaseChatMesh.h>
 
-#define SEND_TIMEOUT_BASE_MILLIS        500
-#define FLOOD_SEND_TIMEOUT_FACTOR       16.0f
-#define DIRECT_SEND_PERHOP_FACTOR       6.0f
-#define DIRECT_SEND_PERHOP_EXTRA_MILLIS 250
-#define LAZY_CONTACTS_WRITE_DELAY       5000
-
-#define PUBLIC_GROUP_PSK                "izOH6cXN6mrJ5e26oRXNcg=="
-
-// these are _pushed_ to client app at any time
-#define PUSH_CODE_ADVERT                0x80
-#define PUSH_CODE_PATH_UPDATED          0x81
-#define PUSH_CODE_SEND_CONFIRMED        0x82
-#define PUSH_CODE_MSG_WAITING           0x83
-#define PUSH_CODE_RAW_DATA              0x84
-#define PUSH_CODE_LOGIN_SUCCESS         0x85
-#define PUSH_CODE_LOGIN_FAIL            0x86
-#define PUSH_CODE_STATUS_RESPONSE       0x87
-#define PUSH_CODE_LOG_RX_DATA           0x88
-#define PUSH_CODE_TRACE_DATA            0x89
-#define PUSH_CODE_NEW_ADVERT            0x8A
-#define PUSH_CODE_TELEMETRY_RESPONSE    0x8B
-
-#define ERR_CODE_UNSUPPORTED_CMD        1
-#define ERR_CODE_NOT_FOUND              2
-#define ERR_CODE_TABLE_FULL             3
-#define ERR_CODE_BAD_STATE              4
-#define ERR_CODE_FILE_IO_ERROR          5
-#define ERR_CODE_ILLEGAL_ARG            6
-
 /* -------------------------------------------------------------------------------------- */
 
 #define REQ_TYPE_GET_STATUS             0x01 // same as _GET_STATS
 #define REQ_TYPE_KEEP_ALIVE             0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA     0x03
-
-#define MAX_SIGN_DATA_LEN               (8 * 1024) // 8K
 
 class MyMesh : public BaseChatMesh {
 public:
@@ -213,8 +182,6 @@ private:
   int next_ack_idx;
 };
 
-extern StdRNG fast_rng;
-extern SimpleMeshTables tables;
 extern MyMesh the_mesh;
 #ifdef DISPLAY_CLASS
 extern UITask ui_task;

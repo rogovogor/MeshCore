@@ -181,7 +181,7 @@ void setup() {
   sensors.begin();
 
 #ifdef DISPLAY_CLASS
-  ui_task.begin(disp, the_mesh.getNodePrefs(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION, the_mesh.getBLEPin());
+  ui_task.begin(disp, the_mesh.getNodePrefs());  // still want to pass this in as dependency, as prefs might be moved
 #endif
 }
 
