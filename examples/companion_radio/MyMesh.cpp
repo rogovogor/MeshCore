@@ -1374,13 +1374,6 @@ void MyMesh::handleCmdFrame(size_t len) {
       writeErrFrame(ERR_CODE_NOT_FOUND); // contact not found
     }
   } else if (cmd_frame[0] == CMD_SEND_TELEMETRY_REQ && len == 4) {  // 'self' telemetry request
-    out_frame[0] = RESP_CODE_SENT;
-    out_frame[1] = 0;
-    uint32_t tag = 0, est_timeout = 50;
-    memcpy(&out_frame[2], &tag, 4);
-    memcpy(&out_frame[6], &est_timeout, 4);
-    _serial->writeFrame(out_frame, 10);
-
     telemetry.reset();
     telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
     // query other sensors -- target specific
