@@ -204,7 +204,10 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   void pushPostToClient(ClientInfo* client, PostInfo& post) {
     int len = 0;
     memcpy(&reply_data[len], &post.post_timestamp, 4); len += 4;   // this is a PAST timestamp... but should be accepted by client
-    reply_data[len++] = (TXT_TYPE_SIGNED_PLAIN << 2);  // 'signed' plain text
+
+    uint8_t attempt;
+    getRNG()->random(&attempt, 1);   // need this for re-tries, so packet hash (and ACK) will be different
+    reply_data[len++] = (TXT_TYPE_SIGNED_PLAIN << 2) | (attempt & 3);  // 'signed' plain text
 
     // encode prefix of post.author.pub_key
     memcpy(&reply_data[len], post.author.pub_key, 4); len += 4;   // just first 4 bytes
