@@ -1,6 +1,10 @@
 #include <helpers/BaseChatMesh.h>
 #include <Utils.h>
 
+#ifndef TXT_ACK_DELAY
+  #define TXT_ACK_DELAY     200
+#endif
+
 mesh::Packet* BaseChatMesh::createSelfAdvert(const char* name, double lat, double lon) {
   uint8_t app_data[MAX_ADVERT_DATA_SIZE];
   uint8_t app_data_len;
@@ -131,14 +135,14 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
-        if (path) sendFlood(path);
+        if (path) sendFlood(path, TXT_ACK_DELAY);
       } else {
         mesh::Packet* ack = createAck(ack_hash);
         if (ack) {
           if (from.out_path_len < 0) {
-            sendFlood(ack);
+            sendFlood(ack, TXT_ACK_DELAY);
           } else {
-            sendDirect(ack, from.out_path, from.out_path_len);
+            sendDirect(ack, from.out_path, from.out_path_len, TXT_ACK_DELAY);
           }
         }
       }
@@ -164,14 +168,14 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
-        if (path) sendFlood(path);
+        if (path) sendFlood(path, TXT_ACK_DELAY);
       } else {
         mesh::Packet* ack = createAck(ack_hash);
         if (ack) {
           if (from.out_path_len < 0) {
-            sendFlood(ack);
+            sendFlood(ack, TXT_ACK_DELAY);
           } else {
-            sendDirect(ack, from.out_path, from.out_path_len);
+            sendDirect(ack, from.out_path, from.out_path_len, TXT_ACK_DELAY);
           }
         }
       }
