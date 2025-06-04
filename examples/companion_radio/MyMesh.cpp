@@ -728,6 +728,7 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
     : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables),
       _serial(NULL), telemetry(MAX_PACKET_PAYLOAD - 4) {
   _iter_started = false;
+  _cli_rescue = false;
   offline_queue_len = 0;
   app_target_ver = 0;
   _identity_store = NULL;
@@ -1529,9 +1530,78 @@ void MyMesh::handleCmdFrame(size_t len) {
   }
 }
 
-void MyMesh::loop() {
-  BaseChatMesh::loop();
+void MyMesh::enterCLIRescue() {
+  _cli_rescue = true;
+  cli_command[0] = 0;
+  Serial.println("========= CLI Rescue =========");
+}
 
+bool MyMesh::formatFileSystem() {
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    return InternalFS.format();
+#elif defined(RP2040_PLATFORM)
+    return LittleFS.format();
+#elif defined(ESP32)
+    return SPIFFS.format();
+#else
+    #error "need to implement file system erase"
+    return false;
+#endif
+}
+
+void MyMesh::checkCLIRescueCmd() {
+  int len = strlen(cli_command);
+  while (Serial.available() && len < sizeof(cli_command)-1) {
+    char c = Serial.read();
+    if (c != '\n') {
+      cli_command[len++] = c;
+      cli_command[len] = 0;
+    }
+    Serial.print(c);  // echo
+  }
+  if (len == sizeof(cli_command)-1) {  // command buffer full
+    cli_command[sizeof(cli_command)-1] = '\r';
+  }
+
+  if (len > 0 && cli_command[len - 1] == '\r') {  // received complete line
+    cli_command[len - 1] = 0;  // replace newline with C string null terminator
+
+    if (memcmp(cli_command, "set ", 4) == 0) {
+      const char* config = &cli_command[4];
+      if (memcmp(config, "pin ", 4) == 0) {
+        _prefs.ble_pin = atoi(&config[4]);
+        savePrefs();
+        Serial.printf("  > pin is now %06d\n", _prefs.ble_pin);
+      } else {
+        Serial.printf("  Error: unknown config: %s\n", config);
+      }
+    } else if (strcmp(cli_command, "rebuild") == 0) {
+      bool success = formatFileSystem();
+      if (success) {
+        saveMainIdentity(self_id);
+        saveContacts();
+        Serial.println("  > erase and rebuild done");
+      } else {
+        Serial.println("  Error: erase failed");
+      }
+    } else if (strcmp(cli_command, "erase") == 0) {
+      bool success = formatFileSystem();
+      if (success) {
+        Serial.println("  > erase done");
+      } else {
+        Serial.println("  Error: erase failed");
+      }
+    } else if (strcmp(cli_command, "reboot") == 0) {
+      board.reboot();  // doesn't return
+    } else {
+      Serial.println("  Error: unknown command");
+    }
+
+    cli_command[0] = 0;  // reset command buffer
+  }
+}
+
+void MyMesh::checkSerialInterface() {
   size_t len = _serial->checkRecvFrame(cmd_frame);
   if (len > 0) {
     handleCmdFrame(len);
@@ -1555,6 +1625,16 @@ void MyMesh::loop() {
     }
   } else if (!_serial->isWriteBusy()) {
     checkConnections();
+  }
+}
+
+void MyMesh::loop() {
+  BaseChatMesh::loop();
+
+  if (_cli_rescue) {
+    checkCLIRescueCmd();
+  } else {
+    checkSerialInterface();
   }
 
   // is there are pending dirty contacts write needed?

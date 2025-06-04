@@ -92,6 +92,7 @@ public:
   void loop();
   void handleCmdFrame(size_t len);
   bool advert();
+  void enterCLIRescue();
 
 protected:
   float getAirtimeBudgetFactor() const override;
@@ -143,6 +144,10 @@ private:
   int getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) override;
   bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len) override;
 
+  void checkCLIRescueCmd();
+  void checkSerialInterface();
+  bool formatFileSystem();
+
 private:
   FILESYSTEM *_fs;
   IdentityStore *_identity_store;
@@ -157,6 +162,8 @@ private:
   uint32_t _most_recent_lastmod;
   uint32_t _active_ble_pin;
   bool _iter_started;
+  bool _cli_rescue;
+  char cli_command[80];
   uint8_t app_target_ver;
   uint8_t *sign_data;
   uint32_t sign_data_len;
