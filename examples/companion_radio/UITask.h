@@ -33,6 +33,7 @@ class UITask {
   char _version_info[32];
   char _origin[62];
   char _msg[80];
+  char _alert[80];
   int _msgcount;
   bool _need_refresh = true;
   bool _displayWasOn = false;  // Track display state before button press
