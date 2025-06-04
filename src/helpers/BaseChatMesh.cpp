@@ -1,6 +1,10 @@
 #include <helpers/BaseChatMesh.h>
 #include <Utils.h>
 
+#ifndef SERVER_RESPONSE_DELAY
+  #define SERVER_RESPONSE_DELAY   300
+#endif
+
 #ifndef TXT_ACK_DELAY
   #define TXT_ACK_DELAY     200
 #endif
@@ -191,14 +195,14 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
                                               PAYLOAD_TYPE_RESPONSE, temp_buf, reply_len);
-        if (path) sendFlood(path);
+        if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
       } else {
         mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, from.id, secret, temp_buf, reply_len);
         if (reply) {
           if (from.out_path_len >= 0) {  // we have an out_path, so send DIRECT
-            sendDirect(reply, from.out_path, from.out_path_len);
+            sendDirect(reply, from.out_path, from.out_path_len, SERVER_RESPONSE_DELAY);
           } else {
-            sendFlood(reply);
+            sendFlood(reply, SERVER_RESPONSE_DELAY);
           }
         }
       }

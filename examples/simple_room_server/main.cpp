@@ -479,14 +479,14 @@ protected:
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
         mesh::Packet* path = createPathReturn(sender, client->secret, packet->path, packet->path_len,
                                               PAYLOAD_TYPE_RESPONSE, reply_data, 8 + 2);
-        if (path) sendFlood(path);
+        if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
       } else {
         mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, sender, client->secret, reply_data, 8 + 2);
         if (reply) {
           if (client->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-            sendDirect(reply, client->out_path, client->out_path_len);
+            sendDirect(reply, client->out_path, client->out_path_len, SERVER_RESPONSE_DELAY);
           } else {
-            sendFlood(reply);
+            sendFlood(reply, SERVER_RESPONSE_DELAY);
           }
         }
       }
