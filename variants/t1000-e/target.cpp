@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "t1000e_sensors.h"
 #include "target.h"
 #include <helpers/sensors/MicroNMEALocationProvider.h>
 
@@ -159,6 +160,10 @@ bool T1000SensorManager::begin() {
 bool T1000SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
     telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
+  }
+  if (requester_permissions & TELEM_PERM_ENVIRONMENT) {
+    telemetry.addLuminosity(TELEM_CHANNEL_SELF, t1000e_get_light());
+    telemetry.addTemperature(TELEM_CHANNEL_SELF, t1000e_get_temperature());
   }
   return true;
 }

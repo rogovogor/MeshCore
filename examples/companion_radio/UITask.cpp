@@ -75,6 +75,7 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs) {
   _userButton->onLongPress([this]() { handleButtonLongPress(); });
   _userButton->onAnyPress([this]() { handleButtonAnyPress(); });
 #endif
+  ui_started_at = millis();
 }
 
 void UITask::soundBuzzer(UIEventType bet) {
@@ -365,5 +366,9 @@ void UITask::handleButtonTriplePress() {
 
 void UITask::handleButtonLongPress() {
   MESH_DEBUG_PRINTLN("UITask: long press triggered");
-  shutdown();
+  if (millis() - ui_started_at < 8000) {   // long press in first 8 seconds since startup -> CLI/rescue
+    the_mesh.enterCLIRescue();
+  } else {
+    shutdown();
+  }
 }
