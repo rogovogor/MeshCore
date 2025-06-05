@@ -63,6 +63,9 @@ void RadioLibWrapper::loop() {
     }
   } else if (_num_floor_samples >= NUM_NOISE_FLOOR_SAMPLES && _floor_sample_sum != 0) {
     _noise_floor = _floor_sample_sum / NUM_NOISE_FLOOR_SAMPLES;
+    if (_noise_floor < -120) {
+      _noise_floor = -120;    // clamp to lower bound of -120dBi
+    }
     _floor_sample_sum = 0;
 
     MESH_DEBUG_PRINTLN("RadioLibWrapper: noise_floor = %d", (int)_noise_floor);
