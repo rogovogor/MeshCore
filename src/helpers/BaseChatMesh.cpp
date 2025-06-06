@@ -699,6 +699,13 @@ int BaseChatMesh::findChannelIdx(const mesh::GroupChannel& ch) {
 }
 #endif
 
+bool BaseChatMesh::getContactByIdx(uint32_t idx, ContactInfo& contact) {
+  if (idx >= num_contacts) return false;
+
+  contact = contacts[idx];
+  return true;
+}
+
 ContactsIterator BaseChatMesh::startContactsIterator() {
   return ContactsIterator();
 }

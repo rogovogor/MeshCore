@@ -14,10 +14,13 @@ static uint32_t _atoi(const char* sp) {
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #include <InternalFileSystem.h>
+  DataStore store(InternalFS);
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
+  DataStore store(LittleFS);
 #elif defined(ESP32)
   #include <SPIFFS.h>
+  DataStore store(SPIFFS);
 #endif
 
 #ifdef ESP32
@@ -74,14 +77,13 @@ static uint32_t _atoi(const char* sp) {
 /* GLOBAL OBJECTS */
 StdRNG fast_rng;
 SimpleMeshTables tables;
-MyMesh the_mesh(radio_driver, fast_rng, rtc_clock, tables); 
+MyMesh the_mesh(radio_driver, fast_rng, rtc_clock, tables, store);
 
 #ifdef DISPLAY_CLASS
   #include "UITask.h"
   UITask ui_task(&board);
 #endif
 /* END GLOBAL OBJECTS */
-
 
 void halt() {
   while (1) ;
@@ -108,7 +110,8 @@ void setup() {
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   InternalFS.begin();
-  the_mesh.begin(InternalFS,
+  store.begin();
+  the_mesh.begin(
     #ifdef DISPLAY_CLASS
         disp != NULL
     #else
@@ -126,7 +129,8 @@ void setup() {
   the_mesh.startInterface(serial_interface);
 #elif defined(RP2040_PLATFORM)
   LittleFS.begin();
-  the_mesh.begin(LittleFS,
+  store.begin();
+  the_mesh.begin(
     #ifdef DISPLAY_CLASS
         disp != NULL
     #else
@@ -151,7 +155,8 @@ void setup() {
     the_mesh.startInterface(serial_interface);
 #elif defined(ESP32)
   SPIFFS.begin(true);
-  the_mesh.begin(SPIFFS,
+  store.begin();
+  the_mesh.begin(
     #ifdef DISPLAY_CLASS
         disp != NULL
     #else

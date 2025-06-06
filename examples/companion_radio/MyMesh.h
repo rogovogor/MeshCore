@@ -25,6 +25,7 @@
 #include <SPIFFS.h>
 #endif
 
+#include "DataStore.h"
 #include "NodePrefs.h"
 
 #include <RTClib.h>
@@ -76,14 +77,12 @@
 #define REQ_TYPE_KEEP_ALIVE             0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA     0x03
 
-class MyMesh : public BaseChatMesh {
+class MyMesh : public BaseChatMesh, public DataStoreHost {
 public:
-  MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables);
+  MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store);
 
-  void begin(FILESYSTEM &fs, bool has_display);
+  void begin(bool has_display);
   void startInterface(BaseSerialInterface &serial);
-  void loadPrefsInt(const char *filename);
-  void savePrefs();
 
   const char *getNodeName();
   NodePrefs *getNodePrefs();
@@ -127,6 +126,12 @@ protected:
   uint32_t calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t path_len) const override;
   void onSendTimeout() override;
 
+  // DataStoreHost methods
+  bool onContactLoaded(const ContactInfo& contact) override { return addContact(contact); }
+  bool getContactForSave(uint32_t idx, ContactInfo& contact) override { return getContactByIdx(idx, contact); }
+  bool onChannelLoaded(uint8_t channel_idx, const ChannelDetails& ch) override { return setChannel(channel_idx, ch); }
+  bool getChannelForSave(uint8_t channel_idx, ChannelDetails& ch) override { return getChannel(channel_idx, ch); }
+
 private:
   void writeOKFrame();
   void writeErrFrame(uint8_t err_code);
@@ -135,22 +140,17 @@ private:
   void updateContactFromFrame(ContactInfo &contact, const uint8_t *frame, int len);
   void addToOfflineQueue(const uint8_t frame[], int len);
   int getFromOfflineQueue(uint8_t frame[]);
-  void loadMainIdentity();
-  bool saveMainIdentity(const mesh::LocalIdentity &identity);
-  void loadContacts();
-  void saveContacts();
-  void loadChannels();
-  void saveChannels();
-  int getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) override;
-  bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len) override;
 
   void checkCLIRescueCmd();
   void checkSerialInterface();
-  bool formatFileSystem();
+
+  // helpers, short-cuts
+  void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
+  void saveChannels() { _store->saveChannels(this); }
+  void saveContacts() { _store->saveContacts(this); }
 
 private:
-  FILESYSTEM *_fs;
-  IdentityStore *_identity_store;
+  DataStore* _store;
   NodePrefs _prefs;
   uint32_t pending_login;
   uint32_t pending_status;
