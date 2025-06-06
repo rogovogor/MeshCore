@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "DataStore.h"
 
-DataStore::DataStore(FILESYSTEM& fs) : _fs(&fs),
+DataStore::DataStore(FILESYSTEM& fs, mesh::RTCClock& clock) : _fs(&fs), _clock(&clock),
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     identity_store(fs, "")
 #elif defined(RP2040_PLATFORM)
@@ -252,16 +252,23 @@ void DataStore::saveChannels(DataStoreHost* host) {
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
 
-#define MAX_ADVERT_PKT_LEN   (PUB_KEY_SIZE + 4 + SIGNATURE_SIZE + MAX_ADVERT_DATA_SIZE)
+#define MAX_ADVERT_PKT_LEN   (2 + 32 + PUB_KEY_SIZE + 4 + SIGNATURE_SIZE + MAX_ADVERT_DATA_SIZE)
+
+struct BlobRec {
+  uint32_t timestamp;
+  uint8_t  key[7];
+  uint8_t  len;
+  uint8_t  data[MAX_ADVERT_PKT_LEN];
+};
 
 void DataStore::checkAdvBlobFile() {
   if (!_fs->exists("/adv_blobs")) {
     File file = openWrite(_fs, "/adv_blobs");
     if (file) {
-      uint8_t zeroes[1 + MAX_ADVERT_PKT_LEN];
-      memset(zeroes, 0, sizeof(zeroes));
-      for (int i = 0; i < 24; i++) {     // pre-allocate to fixed size
-        file.write(zeroes, sizeof(zeroes));
+      BlobRec zeroes;
+      memset(&zeroes, 0, sizeof(zeroes));
+      for (int i = 0; i < 20; i++) {     // pre-allocate to fixed size
+        file.write((uint8_t *) &zeroes, sizeof(zeroes));
       }
       file.close();
     }
@@ -271,12 +278,13 @@ void DataStore::checkAdvBlobFile() {
 uint8_t DataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) {
   File file = _fs->open("/adv_blobs");
   uint8_t len = 0;  // 0 = not found
+
   if (file) {
-    uint8_t tmp[1 + MAX_ADVERT_PKT_LEN];
-    while (file.read(tmp, sizeof(tmp)) == sizeof(tmp)) {
-      if (memcmp(key, &tmp[1], PUB_KEY_SIZE) == 0) {  // public key is first 32 bytes of advert blob
-        len = tmp[0];
-        memcpy(dest_buf, &tmp[1], len);
+    BlobRec tmp;
+    while (file.read((uint8_t *) &tmp, sizeof(tmp)) == sizeof(tmp)) {
+      if (memcmp(key, tmp.key, sizeof(tmp.key)) == 0) {  // only match by 7 byte prefix
+        len = tmp.len;
+        memcpy(dest_buf, tmp.data, len);
         break;
       }
     }
@@ -296,25 +304,28 @@ bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src
     uint32_t min_timestamp = 0xFFFFFFFF;
 
     // search for matching key OR evict by oldest timestmap
-    uint8_t tmp[1 + MAX_ADVERT_PKT_LEN];
-    while (file.read(tmp, sizeof(tmp)) == sizeof(tmp)) {
-      if (memcmp(src_buf, &tmp[1], PUB_KEY_SIZE) == 0) {  // public key is first 32 bytes of advert blob
+    BlobRec tmp;
+    file.seek(0);
+    while (file.read((uint8_t *) &tmp, sizeof(tmp)) == sizeof(tmp)) {
+      if (memcmp(key, tmp.key, sizeof(tmp.key)) == 0) {  // only match by 7 byte prefix
         found_pos = pos;
         break;
       }
-      uint32_t timestamp;
-      memcpy(&timestamp, &tmp[1 + PUB_KEY_SIZE], 4);
-      if (timestamp < min_timestamp) {
-        min_timestamp = timestamp;
+      if (tmp.timestamp < min_timestamp) {
+        min_timestamp = tmp.timestamp;
         found_pos = pos;
       }
 
       pos += sizeof(tmp);
     }
 
+    memcpy(tmp.key, key, sizeof(tmp.key));  // just record 7 byte prefix of key
+    memcpy(tmp.data, src_buf, len);
+    tmp.len = len;
+    tmp.timestamp = _clock->getCurrentTime();
+
     file.seek(found_pos);
-    file.write(&len, 1);
-    file.write(src_buf, len);
+    file.write((uint8_t *) &tmp, sizeof(tmp));
 
     file.close();
     return true;

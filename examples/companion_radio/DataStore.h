@@ -15,6 +15,7 @@ public:
 
 class DataStore {
   FILESYSTEM* _fs;
+  mesh::RTCClock* _clock;
   IdentityStore identity_store;
 
   void loadPrefsInt(const char *filename, NodePrefs& prefs, double& node_lat, double& node_lon);
@@ -23,7 +24,7 @@ class DataStore {
 #endif
 
 public:
-  DataStore(FILESYSTEM& fs);
+  DataStore(FILESYSTEM& fs, mesh::RTCClock& clock);
   void begin();
   bool formatFileSystem();
   bool loadMainIdentity(mesh::LocalIdentity &identity);

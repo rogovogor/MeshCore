@@ -14,13 +14,13 @@ static uint32_t _atoi(const char* sp) {
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #include <InternalFileSystem.h>
-  DataStore store(InternalFS);
+  DataStore store(InternalFS, rtc_clock);
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
-  DataStore store(LittleFS);
+  DataStore store(LittleFS, rtc_clock);
 #elif defined(ESP32)
   #include <SPIFFS.h>
-  DataStore store(SPIFFS);
+  DataStore store(SPIFFS, rtc_clock);
 #endif
 
 #ifdef ESP32
