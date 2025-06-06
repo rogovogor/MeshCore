@@ -18,8 +18,11 @@ class DataStore {
   IdentityStore identity_store;
 
   void loadPrefsInt(const char *filename, NodePrefs& prefs, double& node_lat, double& node_lon);
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  void checkAdvBlobFile();
+#endif
 
-  public:
+public:
   DataStore(FILESYSTEM& fs);
   void begin();
   bool formatFileSystem();
@@ -31,6 +34,6 @@ class DataStore {
   void saveContacts(DataStoreHost* host);
   void loadChannels(DataStoreHost* host);
   void saveChannels(DataStoreHost* host);
-  int  getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]);
-  bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len);
+  uint8_t getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]);
+  bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], uint8_t len);
 };

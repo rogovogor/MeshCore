@@ -12,13 +12,28 @@ DataStore::DataStore(FILESYSTEM& fs) : _fs(&fs),
 {
 }
 
+static File openWrite(FILESYSTEM* _fs, const char* filename) {
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  _fs->remove(filename);
+  return _fs->open(filename, FILE_O_WRITE);
+#elif defined(RP2040_PLATFORM)
+  return _fs->open(filename, "w");
+#else
+  return _fs->open(filename, "w", true);
+#endif
+}
+
 void DataStore::begin() {
 #if defined(RP2040_PLATFORM)
   identity_store.begin();
 #endif
 
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  checkAdvBlobFile();
+#else
   // init 'blob store' support
   _fs->mkdir("/bl");
+#endif
 }
 
 #if defined(ESP32)
@@ -90,14 +105,7 @@ void DataStore::loadPrefsInt(const char *filename, NodePrefs& _prefs, double& no
 }
 
 void DataStore::savePrefs(const NodePrefs& _prefs, double node_lat, double node_lon) {
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove("/new_prefs");
-  File file = _fs->open("/new_prefs", FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File file = _fs->open("/new_prefs", "w");
-#else
-  File file = _fs->open("/new_prefs", "w", true);
-#endif
+  File file = openWrite(_fs, "/new_prefs");
   if (file) {
     uint8_t pad[8];
     memset(pad, 0, sizeof(pad));
@@ -163,14 +171,7 @@ void DataStore::loadContacts(DataStoreHost* host) {
 }
 
 void DataStore::saveContacts(DataStoreHost* host) {
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove("/contacts3");
-  File file = _fs->open("/contacts3", FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File file = _fs->open("/contacts3", "w");
-#else
-  File file = _fs->open("/contacts3", "w", true);
-#endif
+  File file = openWrite(_fs, "/contacts3");
   if (file) {
     uint32_t idx = 0;
     ContactInfo c;
@@ -230,14 +231,7 @@ void DataStore::loadChannels(DataStoreHost* host) {
 }
 
 void DataStore::saveChannels(DataStoreHost* host) {
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove("/channels2");
-  File file = _fs->open("/channels2", FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File file = _fs->open("/channels2", "w");
-#else
-  File file = _fs->open("/channels2", "w", true);
-#endif
+  File file = openWrite(_fs, "/channels2");
   if (file) {
     uint8_t channel_idx = 0;
     ChannelDetails ch;
@@ -256,7 +250,79 @@ void DataStore::saveChannels(DataStoreHost* host) {
   }
 }
 
-int DataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) {
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+
+#define MAX_ADVERT_PKT_LEN   (PUB_KEY_SIZE + 4 + SIGNATURE_SIZE + MAX_ADVERT_DATA_SIZE)
+
+void DataStore::checkAdvBlobFile() {
+  if (!_fs->exists("/adv_blobs")) {
+    File file = openWrite(_fs, "/adv_blobs");
+    if (file) {
+      uint8_t zeroes[1 + MAX_ADVERT_PKT_LEN];
+      memset(zeroes, 0, sizeof(zeroes));
+      for (int i = 0; i < 24; i++) {     // pre-allocate to fixed size
+        file.write(zeroes, sizeof(zeroes));
+      }
+      file.close();
+    }
+  }
+}
+
+uint8_t DataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) {
+  File file = _fs->open("/adv_blobs");
+  uint8_t len = 0;  // 0 = not found
+  if (file) {
+    uint8_t tmp[1 + MAX_ADVERT_PKT_LEN];
+    while (file.read(tmp, sizeof(tmp)) == sizeof(tmp)) {
+      if (memcmp(key, &tmp[1], PUB_KEY_SIZE) == 0) {  // public key is first 32 bytes of advert blob
+        len = tmp[0];
+        memcpy(dest_buf, &tmp[1], len);
+        break;
+      }
+    }
+    file.close();
+  }
+  return len;
+}
+
+bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], uint8_t len) {
+  if (len < PUB_KEY_SIZE+4+SIGNATURE_SIZE || len > MAX_ADVERT_PKT_LEN) return false;
+
+  checkAdvBlobFile();
+
+  File file = _fs->open("/adv_blobs", FILE_O_WRITE);
+  if (file) {
+    uint32_t pos = 0, found_pos = 0;
+    uint32_t min_timestamp = 0xFFFFFFFF;
+
+    // search for matching key OR evict by oldest timestmap
+    uint8_t tmp[1 + MAX_ADVERT_PKT_LEN];
+    while (file.read(tmp, sizeof(tmp)) == sizeof(tmp)) {
+      if (memcmp(src_buf, &tmp[1], PUB_KEY_SIZE) == 0) {  // public key is first 32 bytes of advert blob
+        found_pos = pos;
+        break;
+      }
+      uint32_t timestamp;
+      memcpy(&timestamp, &tmp[1 + PUB_KEY_SIZE], 4);
+      if (timestamp < min_timestamp) {
+        min_timestamp = timestamp;
+        found_pos = pos;
+      }
+
+      pos += sizeof(tmp);
+    }
+
+    file.seek(found_pos);
+    file.write(&len, 1);
+    file.write(src_buf, len);
+
+    file.close();
+    return true;
+  }
+  return false; // error
+}
+#else
+uint8_t DataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) {
   char path[64];
   char fname[18];
 
@@ -279,7 +345,7 @@ int DataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]
   return 0; // not found
 }
 
-bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len) {
+bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], uint8_t len) {
   char path[64];
   char fname[18];
 
@@ -287,14 +353,7 @@ bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src
   mesh::Utils::toHex(fname, key, key_len);
   sprintf(path, "/bl/%s", fname);
 
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove(path);
-  File f = _fs->open(path, FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File f = _fs->open(path, "w");
-#else
-  File f = _fs->open(path, "w", true);
-#endif
+  File f = openWrite(_fs, path);
   if (f) {
     int n = f.write(src_buf, len);
     f.close();
@@ -304,3 +363,4 @@ bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src
   }
   return false; // error
 }
+#endif

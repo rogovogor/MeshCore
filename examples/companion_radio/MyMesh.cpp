@@ -1291,7 +1291,9 @@ void MyMesh::checkCLIRescueCmd() {
       bool success = _store->formatFileSystem();
       if (success) {
         _store->saveMainIdentity(self_id);
+        savePrefs();
         saveContacts();
+        saveChannels();
         Serial.println("  > erase and rebuild done");
       } else {
         Serial.println("  Error: erase failed");
