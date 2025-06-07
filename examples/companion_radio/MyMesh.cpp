@@ -1326,6 +1326,7 @@ void MyMesh::checkCLIRescueCmd() {
           file = root.openNextFile();
 
         }
+        root.close();
       }
 
     } else if (memcmp(cli_command, "cat", 3) == 0) {
