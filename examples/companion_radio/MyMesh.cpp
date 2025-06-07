@@ -1357,13 +1357,20 @@ void MyMesh::checkCLIRescueCmd() {
 
       // get path from command e.g: "rm /adv_blobs"
       const char *path = &cli_command[4];
-      
-      // remove file
-      bool removed = _store->removeFile(path);
-      if(removed){
-        Serial.println("File removed");
+
+      // ensure path is not empty, or root dir
+      if(!path || strlen(path) == 0 || strcmp(path, "/") == 0){
+        Serial.println("Invalid path provided");
       } else {
-        Serial.println("Failed to remove file");
+
+        // remove file
+        bool removed = _store->removeFile(path);
+        if(removed){
+          Serial.println("File removed");
+        } else {
+          Serial.println("Failed to remove file");
+        }
+
       }
 
     } else if (strcmp(cli_command, "reboot") == 0) {
