@@ -1317,14 +1317,9 @@ void MyMesh::checkCLIRescueCmd() {
         while (file) {
 
           if (file.isDirectory()) {
-            Serial.print("[dir] ");
-            Serial.println(file.name());
+            Serial.printf("[dir] %s\n", file.name());
           } else {
-            Serial.print("[file] ");
-            Serial.print(file.name());
-            Serial.print(" (");
-            Serial.print(file.size());
-            Serial.println(" bytes)");
+            Serial.printf("[file] %s (%d bytes)\n", file.name(), file.size());
           }
 
           // move to next file
