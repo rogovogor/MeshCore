@@ -1305,6 +1305,72 @@ void MyMesh::checkCLIRescueCmd() {
       } else {
         Serial.println("  Error: erase failed");
       }
+    } else if (memcmp(cli_command, "ls", 2) == 0) {
+
+      // get path from command e.g: "ls /adafruit"
+      const char *path = &cli_command[3];
+      
+      // log each file and directory
+      File root = _store->openRead(path);
+      if(root){
+        File file = root.openNextFile();
+        while (file) {
+
+          if (file.isDirectory()) {
+            Serial.printf("[dir] %s\n", file.name());
+          } else {
+            Serial.printf("[file] %s (%d bytes)\n", file.name(), file.size());
+          }
+
+          // move to next file
+          file = root.openNextFile();
+
+        }
+        root.close();
+      }
+
+    } else if (memcmp(cli_command, "cat", 3) == 0) {
+
+      // get path from command e.g: "cat /contacts3"
+      const char *path = &cli_command[4];
+      
+      // log file content as hex
+      File file = _store->openRead(path);
+      if(file){
+
+        // get file content
+        int file_size = file.available();
+        uint8_t buffer[file_size];
+        file.read(buffer, file_size);
+
+        // print hex
+        mesh::Utils::printHex(Serial, buffer, file_size);
+        Serial.print("\n");
+
+        file.close();
+
+      }
+
+    } else if (memcmp(cli_command, "rm ", 3) == 0) {
+
+      // get path from command e.g: "rm /adv_blobs"
+      const char *path = &cli_command[4];
+
+      // ensure path is not empty, or root dir
+      if(!path || strlen(path) == 0 || strcmp(path, "/") == 0){
+        Serial.println("Invalid path provided");
+      } else {
+
+        // remove file
+        bool removed = _store->removeFile(path);
+        if(removed){
+          Serial.println("File removed");
+        } else {
+          Serial.println("Failed to remove file");
+        }
+
+      }
+
     } else if (strcmp(cli_command, "reboot") == 0) {
       board.reboot();  // doesn't return
     } else {

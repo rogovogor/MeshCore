@@ -42,6 +42,20 @@ void DataStore::begin() {
   #include <LittleFS.h>
 #endif
 
+File DataStore::openRead(const char* filename) {
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  return _fs->open(filename, FILE_O_READ);
+#elif defined(RP2040_PLATFORM)
+  return _fs->open(filename, "r");
+#else
+  return _fs->open(filename, "r", false);
+#endif
+}
+
+bool DataStore::removeFile(const char* filename) {
+  return _fs->remove(filename);
+}
+
 bool DataStore::formatFileSystem() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   return _fs->format();
