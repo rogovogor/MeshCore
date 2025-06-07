@@ -48,7 +48,7 @@ File DataStore::openRead(const char* filename) {
 #elif defined(RP2040_PLATFORM)
   return _fs->open(filename, "r");
 #else
-  return _fs->open(filename, "r", true);
+  return _fs->open(filename, "r", false);
 #endif
 }
 
