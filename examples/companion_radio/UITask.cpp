@@ -162,7 +162,16 @@ void UITask::renderCurrScreen() {
   if (_display == NULL) return;  // assert() ??
 
   char tmp[80];
-  if (_origin[0] && _msg[0]) { // message preview
+  if (_alert[0]) {
+    uint16_t textWidth = _display->getTextWidth(_alert);
+    _display->setCursor((_display->width() - textWidth) / 2, 22);
+    _display->setTextSize(1.4);
+    _display->setColor(DisplayDriver::GREEN);
+    _display->print(_alert);
+    _alert[0] = 0;
+    _need_refresh = true;
+    return;
+  } else if (_origin[0] && _msg[0]) { // message preview
     // render message preview
     _display->setCursor(0, 0);
     _display->setTextSize(1);
@@ -343,11 +352,17 @@ void UITask::handleButtonShortPress() {
 void UITask::handleButtonDoublePress() {
   MESH_DEBUG_PRINTLN("UITask: double press triggered, sending advert");
   // ADVERT
+  #ifdef PIN_BUZZER
+      soundBuzzer(UIEventType::ack);
+  #endif
   if (the_mesh.advert()) {
     MESH_DEBUG_PRINTLN("Advert sent!");
+    sprintf(_alert, "Advert sent!");
   } else {
     MESH_DEBUG_PRINTLN("Advert failed!");
+    sprintf(_alert, "Advert failed..");
   }
+  _need_refresh = true;
 }
 
 void UITask::handleButtonTriplePress() {

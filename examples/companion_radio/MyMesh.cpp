@@ -103,200 +103,6 @@
 #include "UITask.h"
 #endif
 
-void MyMesh::loadMainIdentity() {
-  if (!_identity_store->load("_main", self_id)) {
-    self_id = radio_new_identity(); // create new random identity
-    int count = 0;
-    while (count < 10 && (self_id.pub_key[0] == 0x00 || self_id.pub_key[0] == 0xFF)) { // reserved id hashes
-      self_id = radio_new_identity();
-      count++;
-    }
-    saveMainIdentity(self_id);
-  }
-}
-
-bool MyMesh::saveMainIdentity(const mesh::LocalIdentity &identity) {
-  return _identity_store->save("_main", identity);
-}
-
-void MyMesh::loadContacts() {
-  if (_fs->exists("/contacts3")) {
-#if defined(RP2040_PLATFORM)
-    File file = _fs->open("/contacts3", "r");
-#else
-    File file = _fs->open("/contacts3");
-#endif
-    if (file) {
-      bool full = false;
-      while (!full) {
-        ContactInfo c;
-        uint8_t pub_key[32];
-        uint8_t unused;
-
-        bool success = (file.read(pub_key, 32) == 32);
-        success = success && (file.read((uint8_t *)&c.name, 32) == 32);
-        success = success && (file.read(&c.type, 1) == 1);
-        success = success && (file.read(&c.flags, 1) == 1);
-        success = success && (file.read(&unused, 1) == 1);
-        success = success && (file.read((uint8_t *)&c.sync_since, 4) == 4); // was 'reserved'
-        success = success && (file.read((uint8_t *)&c.out_path_len, 1) == 1);
-        success = success && (file.read((uint8_t *)&c.last_advert_timestamp, 4) == 4);
-        success = success && (file.read(c.out_path, 64) == 64);
-        success = success && (file.read((uint8_t *)&c.lastmod, 4) == 4);
-        success = success && (file.read((uint8_t *)&c.gps_lat, 4) == 4);
-        success = success && (file.read((uint8_t *)&c.gps_lon, 4) == 4);
-
-        if (!success) break; // EOF
-
-        c.id = mesh::Identity(pub_key);
-        if (!addContact(c)) full = true;
-      }
-      file.close();
-    }
-  }
-}
-
-void MyMesh::saveContacts() {
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove("/contacts3");
-  File file = _fs->open("/contacts3", FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File file = _fs->open("/contacts3", "w");
-#else
-  File file = _fs->open("/contacts3", "w", true);
-#endif
-  if (file) {
-    ContactsIterator iter;
-    ContactInfo c;
-    uint8_t unused = 0;
-
-    while (iter.hasNext(this, c)) {
-      bool success = (file.write(c.id.pub_key, 32) == 32);
-      success = success && (file.write((uint8_t *)&c.name, 32) == 32);
-      success = success && (file.write(&c.type, 1) == 1);
-      success = success && (file.write(&c.flags, 1) == 1);
-      success = success && (file.write(&unused, 1) == 1);
-      success = success && (file.write((uint8_t *)&c.sync_since, 4) == 4);
-      success = success && (file.write((uint8_t *)&c.out_path_len, 1) == 1);
-      success = success && (file.write((uint8_t *)&c.last_advert_timestamp, 4) == 4);
-      success = success && (file.write(c.out_path, 64) == 64);
-      success = success && (file.write((uint8_t *)&c.lastmod, 4) == 4);
-      success = success && (file.write((uint8_t *)&c.gps_lat, 4) == 4);
-      success = success && (file.write((uint8_t *)&c.gps_lon, 4) == 4);
-
-      if (!success) break; // write failed
-    }
-    file.close();
-  }
-}
-
-void MyMesh::loadChannels() {
-  if (_fs->exists("/channels2")) {
-#if defined(RP2040_PLATFORM)
-    File file = _fs->open("/channels2", "r");
-#else
-    File file = _fs->open("/channels2");
-#endif
-    if (file) {
-      bool full = false;
-      uint8_t channel_idx = 0;
-      while (!full) {
-        ChannelDetails ch;
-        uint8_t unused[4];
-
-        bool success = (file.read(unused, 4) == 4);
-        success = success && (file.read((uint8_t *)ch.name, 32) == 32);
-        success = success && (file.read((uint8_t *)ch.channel.secret, 32) == 32);
-
-        if (!success) break; // EOF
-
-        if (setChannel(channel_idx, ch)) {
-          channel_idx++;
-        } else {
-          full = true;
-        }
-      }
-      file.close();
-    }
-  }
-}
-
-void MyMesh::saveChannels() {
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove("/channels2");
-  File file = _fs->open("/channels2", FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File file = _fs->open("/channels2", "w");
-#else
-  File file = _fs->open("/channels2", "w", true);
-#endif
-  if (file) {
-    uint8_t channel_idx = 0;
-    ChannelDetails ch;
-    uint8_t unused[4];
-    memset(unused, 0, 4);
-
-    while (getChannel(channel_idx, ch)) {
-      bool success = (file.write(unused, 4) == 4);
-      success = success && (file.write((uint8_t *)ch.name, 32) == 32);
-      success = success && (file.write((uint8_t *)ch.channel.secret, 32) == 32);
-
-      if (!success) break; // write failed
-      channel_idx++;
-    }
-    file.close();
-  }
-}
-
-int MyMesh::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) {
-  char path[64];
-  char fname[18];
-
-  if (key_len > 8) key_len = 8; // just use first 8 bytes (prefix)
-  mesh::Utils::toHex(fname, key, key_len);
-  sprintf(path, "/bl/%s", fname);
-
-  if (_fs->exists(path)) {
-#if defined(RP2040_PLATFORM)
-    File f = _fs->open(path, "r");
-#else
-    File f = _fs->open(path);
-#endif
-    if (f) {
-      int len = f.read(dest_buf, 255); // currently MAX 255 byte blob len supported!!
-      f.close();
-      return len;
-    }
-  }
-  return 0; // not found
-}
-
-bool MyMesh::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len) {
-  char path[64];
-  char fname[18];
-
-  if (key_len > 8) key_len = 8; // just use first 8 bytes (prefix)
-  mesh::Utils::toHex(fname, key, key_len);
-  sprintf(path, "/bl/%s", fname);
-
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove(path);
-  File f = _fs->open(path, FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File f = _fs->open(path, "w");
-#else
-  File f = _fs->open(path, "w", true);
-#endif
-  if (f) {
-    int n = f.write(src_buf, len);
-    f.close();
-    if (n == len) return true; // success!
-
-    _fs->remove(path); // blob was only partially written!
-  }
-  return false; // error
-}
-
 void MyMesh::writeOKFrame() {
   uint8_t buf[1];
   buf[0] = RESP_CODE_OK;
@@ -724,14 +530,13 @@ uint32_t MyMesh::calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t
 
 void MyMesh::onSendTimeout() {}
 
-MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables)
+MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store)
     : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables),
-      _serial(NULL), telemetry(MAX_PACKET_PAYLOAD - 4) {
+      _serial(NULL), telemetry(MAX_PACKET_PAYLOAD - 4), _store(&store) {
   _iter_started = false;
   _cli_rescue = false;
   offline_queue_len = 0;
   app_target_ver = 0;
-  _identity_store = NULL;
   pending_login = pending_status = pending_telemetry = 0;
   next_ack_idx = 0;
   sign_data = NULL;
@@ -749,62 +554,18 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   //_prefs.rx_delay_base = 10.0f;  enable once new algo fixed
 }
 
-void MyMesh::loadPrefsInt(const char *filename) {
-#if defined(RP2040_PLATFORM)
-  File file = _fs->open(filename, "r");
-#else
-  File file = _fs->open(filename);
-#endif
-  if (file) {
-    uint8_t pad[8];
-
-    file.read((uint8_t *)&_prefs.airtime_factor, sizeof(float));                           // 0
-    file.read((uint8_t *)_prefs.node_name, sizeof(_prefs.node_name));                      // 4
-    file.read(pad, 4);                                                                     // 36
-    file.read((uint8_t *)&sensors.node_lat, sizeof(sensors.node_lat));                     // 40
-    file.read((uint8_t *)&sensors.node_lon, sizeof(sensors.node_lon));                     // 48
-    file.read((uint8_t *)&_prefs.freq, sizeof(_prefs.freq));                               // 56
-    file.read((uint8_t *)&_prefs.sf, sizeof(_prefs.sf));                                   // 60
-    file.read((uint8_t *)&_prefs.cr, sizeof(_prefs.cr));                                   // 61
-    file.read((uint8_t *)&_prefs.reserved1, sizeof(_prefs.reserved1));                     // 62
-    file.read((uint8_t *)&_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts)); // 63
-    file.read((uint8_t *)&_prefs.bw, sizeof(_prefs.bw));                                   // 64
-    file.read((uint8_t *)&_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));               // 68
-    file.read((uint8_t *)&_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base)); // 69
-    file.read((uint8_t *)&_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));   // 70
-    file.read((uint8_t *)&_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));   // 71
-    file.read((uint8_t *)&_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));             // 72
-    file.read(pad, 4);                                                                     // 76
-    file.read((uint8_t *)&_prefs.ble_pin, sizeof(_prefs.ble_pin));                         // 80
-
-    // sanitise bad pref values
-    _prefs.rx_delay_base = constrain(_prefs.rx_delay_base, 0, 20.0f);
-    _prefs.airtime_factor = constrain(_prefs.airtime_factor, 0, 9.0f);
-    _prefs.freq = constrain(_prefs.freq, 400.0f, 2500.0f);
-    _prefs.bw = constrain(_prefs.bw, 62.5f, 500.0f);
-    _prefs.sf = constrain(_prefs.sf, 7, 12);
-    _prefs.cr = constrain(_prefs.cr, 5, 8);
-    _prefs.tx_power_dbm = constrain(_prefs.tx_power_dbm, 1, MAX_LORA_TX_POWER);
-
-    file.close();
-  }
-}
-
-void MyMesh::begin(FILESYSTEM &fs, bool has_display) {
-  _fs = &fs;
-
+void MyMesh::begin(bool has_display) {
   BaseChatMesh::begin();
 
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _identity_store = new IdentityStore(fs, "");
-#elif defined(RP2040_PLATFORM)
-  _identity_store = new IdentityStore(fs, "/identity");
-  _identity_store->begin();
-#else
-  _identity_store = new IdentityStore(fs, "/identity");
-#endif
-
-  loadMainIdentity();
+  if (!_store->loadMainIdentity(self_id)) {
+    self_id = radio_new_identity(); // create new random identity
+    int count = 0;
+    while (count < 10 && (self_id.pub_key[0] == 0x00 || self_id.pub_key[0] == 0xFF)) { // reserved id hashes
+      self_id = radio_new_identity();
+      count++;
+    }
+    _store->saveMainIdentity(self_id);
+  }
 
   // use hex of first 4 bytes of identity public key as default node name
   char pub_key_hex[10];
@@ -817,13 +578,16 @@ void MyMesh::begin(FILESYSTEM &fs, bool has_display) {
 #endif
 
   // load persisted prefs
-  if (_fs->exists("/new_prefs")) {
-    loadPrefsInt("/new_prefs"); // new filename
-  } else if (_fs->exists("/node_prefs")) {
-    loadPrefsInt("/node_prefs");
-    savePrefs();                // save to new filename
-    _fs->remove("/node_prefs"); // remove old
-  }
+  _store->loadPrefs(_prefs, sensors.node_lat, sensors.node_lon);
+
+  // sanitise bad pref values
+  _prefs.rx_delay_base = constrain(_prefs.rx_delay_base, 0, 20.0f);
+  _prefs.airtime_factor = constrain(_prefs.airtime_factor, 0, 9.0f);
+  _prefs.freq = constrain(_prefs.freq, 400.0f, 2500.0f);
+  _prefs.bw = constrain(_prefs.bw, 62.5f, 500.0f);
+  _prefs.sf = constrain(_prefs.sf, 7, 12);
+  _prefs.cr = constrain(_prefs.cr, 5, 8);
+  _prefs.tx_power_dbm = constrain(_prefs.tx_power_dbm, 1, MAX_LORA_TX_POWER);
 
 #ifdef BLE_PIN_CODE
   if (_prefs.ble_pin == 0) {
@@ -844,12 +608,9 @@ void MyMesh::begin(FILESYSTEM &fs, bool has_display) {
   _active_ble_pin = 0;
 #endif
 
-  // init 'blob store' support
-  _fs->mkdir("/bl");
-
-  loadContacts();
+  _store->loadContacts(this);
   addChannel("Public", PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
-  loadChannels();
+  _store->loadChannels(this);
 
   radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
   radio_set_tx_power(_prefs.tx_power_dbm);
@@ -868,42 +629,6 @@ uint32_t MyMesh::getBLEPin() {
 void MyMesh::startInterface(BaseSerialInterface &serial) {
   _serial = &serial;
   serial.enable();
-}
-
-void MyMesh::savePrefs() {
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  _fs->remove("/new_prefs");
-  File file = _fs->open("/new_prefs", FILE_O_WRITE);
-#elif defined(RP2040_PLATFORM)
-  File file = _fs->open("/new_prefs", "w");
-#else
-  File file = _fs->open("/new_prefs", "w", true);
-#endif
-  if (file) {
-    uint8_t pad[8];
-    memset(pad, 0, sizeof(pad));
-
-    file.write((uint8_t *)&_prefs.airtime_factor, sizeof(float));                           // 0
-    file.write((uint8_t *)_prefs.node_name, sizeof(_prefs.node_name));                      // 4
-    file.write(pad, 4);                                                                     // 36
-    file.write((uint8_t *)&sensors.node_lat, sizeof(sensors.node_lat));                     // 40
-    file.write((uint8_t *)&sensors.node_lon, sizeof(sensors.node_lon));                     // 48
-    file.write((uint8_t *)&_prefs.freq, sizeof(_prefs.freq));                               // 56
-    file.write((uint8_t *)&_prefs.sf, sizeof(_prefs.sf));                                   // 60
-    file.write((uint8_t *)&_prefs.cr, sizeof(_prefs.cr));                                   // 61
-    file.write((uint8_t *)&_prefs.reserved1, sizeof(_prefs.reserved1));                     // 62
-    file.write((uint8_t *)&_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts)); // 63
-    file.write((uint8_t *)&_prefs.bw, sizeof(_prefs.bw));                                   // 64
-    file.write((uint8_t *)&_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));               // 68
-    file.write((uint8_t *)&_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base)); // 69
-    file.write((uint8_t *)&_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));   // 70
-    file.write((uint8_t *)&_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));   // 71
-    file.write((uint8_t *)&_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));             // 72
-    file.write(pad, 4);                                                                     // 76
-    file.write((uint8_t *)&_prefs.ble_pin, sizeof(_prefs.ble_pin));                         // 80
-
-    file.close();
-  }
 }
 
 void MyMesh::handleCmdFrame(size_t len) {
@@ -1286,7 +1011,7 @@ void MyMesh::handleCmdFrame(size_t len) {
 #if ENABLE_PRIVATE_KEY_IMPORT
     mesh::LocalIdentity identity;
     identity.readFrom(&cmd_frame[1], 64);
-    if (saveMainIdentity(identity)) {
+    if (_store->saveMainIdentity(identity)) {
       self_id = identity;
       writeOKFrame();
     } else {
@@ -1536,19 +1261,6 @@ void MyMesh::enterCLIRescue() {
   Serial.println("========= CLI Rescue =========");
 }
 
-bool MyMesh::formatFileSystem() {
-#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-    return InternalFS.format();
-#elif defined(RP2040_PLATFORM)
-    return LittleFS.format();
-#elif defined(ESP32)
-    return SPIFFS.format();
-#else
-    #error "need to implement file system erase"
-    return false;
-#endif
-}
-
 void MyMesh::checkCLIRescueCmd() {
   int len = strlen(cli_command);
   while (Serial.available() && len < sizeof(cli_command)-1) {
@@ -1576,21 +1288,89 @@ void MyMesh::checkCLIRescueCmd() {
         Serial.printf("  Error: unknown config: %s\n", config);
       }
     } else if (strcmp(cli_command, "rebuild") == 0) {
-      bool success = formatFileSystem();
+      bool success = _store->formatFileSystem();
       if (success) {
-        saveMainIdentity(self_id);
+        _store->saveMainIdentity(self_id);
+        savePrefs();
         saveContacts();
+        saveChannels();
         Serial.println("  > erase and rebuild done");
       } else {
         Serial.println("  Error: erase failed");
       }
     } else if (strcmp(cli_command, "erase") == 0) {
-      bool success = formatFileSystem();
+      bool success = _store->formatFileSystem();
       if (success) {
         Serial.println("  > erase done");
       } else {
         Serial.println("  Error: erase failed");
       }
+    } else if (memcmp(cli_command, "ls", 2) == 0) {
+
+      // get path from command e.g: "ls /adafruit"
+      const char *path = &cli_command[3];
+      
+      // log each file and directory
+      File root = _store->openRead(path);
+      if(root){
+        File file = root.openNextFile();
+        while (file) {
+
+          if (file.isDirectory()) {
+            Serial.printf("[dir] %s\n", file.name());
+          } else {
+            Serial.printf("[file] %s (%d bytes)\n", file.name(), file.size());
+          }
+
+          // move to next file
+          file = root.openNextFile();
+
+        }
+        root.close();
+      }
+
+    } else if (memcmp(cli_command, "cat", 3) == 0) {
+
+      // get path from command e.g: "cat /contacts3"
+      const char *path = &cli_command[4];
+      
+      // log file content as hex
+      File file = _store->openRead(path);
+      if(file){
+
+        // get file content
+        int file_size = file.available();
+        uint8_t buffer[file_size];
+        file.read(buffer, file_size);
+
+        // print hex
+        mesh::Utils::printHex(Serial, buffer, file_size);
+        Serial.print("\n");
+
+        file.close();
+
+      }
+
+    } else if (memcmp(cli_command, "rm ", 3) == 0) {
+
+      // get path from command e.g: "rm /adv_blobs"
+      const char *path = &cli_command[4];
+
+      // ensure path is not empty, or root dir
+      if(!path || strlen(path) == 0 || strcmp(path, "/") == 0){
+        Serial.println("Invalid path provided");
+      } else {
+
+        // remove file
+        bool removed = _store->removeFile(path);
+        if(removed){
+          Serial.println("File removed");
+        } else {
+          Serial.println("Failed to remove file");
+        }
+
+      }
+
     } else if (strcmp(cli_command, "reboot") == 0) {
       board.reboot();  // doesn't return
     } else {
