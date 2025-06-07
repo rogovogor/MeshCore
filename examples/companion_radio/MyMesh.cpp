@@ -1312,8 +1312,9 @@ void MyMesh::checkCLIRescueCmd() {
       
       // log each file and directory
       File root = _store->openRead(path);
-      File file = root.openNextFile();
-      while (file) {
+      if(root){
+        File file = root.openNextFile();
+        while (file) {
 
           if (file.isDirectory()) {
             Serial.print("[dir] ");
@@ -1329,6 +1330,7 @@ void MyMesh::checkCLIRescueCmd() {
           // move to next file
           file = root.openNextFile();
 
+        }
       }
 
     } else if (memcmp(cli_command, "cat", 3) == 0) {
