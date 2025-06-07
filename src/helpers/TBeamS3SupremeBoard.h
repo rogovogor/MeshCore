@@ -22,7 +22,7 @@
 #define PIN_BOARD_SCL1 41  //SCL for PMU and PFC8563 (RTC)
 #define PIN_PMU_IRQ 40     //IRQ pin for PMU
 
-#define PIN_USER_BTN 0
+//#define PIN_USER_BTN 0
 
 #define P_BOARD_SPI_MOSI 35  //SPI for SD Card and QMI8653 (IMU)
 #define P_BOARD_SPI_MISO 37  //SPI for SD Card and QMI8653 (IMU)
@@ -61,9 +61,9 @@ public:
 
   void begin() {
 
-    power_init();
-
     ESP32Board::begin();
+
+    power_init();
 
     esp_reset_reason_t reason = esp_reset_reason();
     if (reason == ESP_RST_DEEPSLEEP) {
@@ -75,6 +75,7 @@ public:
       rtc_gpio_hold_dis((gpio_num_t)P_LORA_NSS);
       rtc_gpio_deinit((gpio_num_t)P_LORA_DIO_1);
     }
+    power_init();
   }
 
   void enterDeepSleep(uint32_t secs, int pin_wake_btn = -1) {
