@@ -37,4 +37,5 @@ public:
   void saveChannels(DataStoreHost* host);
   uint8_t getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]);
   bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], uint8_t len);
+  File openRead(const char* filename);
 };
