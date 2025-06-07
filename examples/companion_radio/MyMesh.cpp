@@ -1353,6 +1353,19 @@ void MyMesh::checkCLIRescueCmd() {
 
       }
 
+    } else if (memcmp(cli_command, "rm ", 3) == 0) {
+
+      // get path from command e.g: "rm /adv_blobs"
+      const char *path = &cli_command[4];
+      
+      // remove file
+      bool removed = _store->removeFile(path);
+      if(removed){
+        Serial.println("File removed");
+      } else {
+        Serial.println("Failed to remove file");
+      }
+
     } else if (strcmp(cli_command, "reboot") == 0) {
       board.reboot();  // doesn't return
     } else {

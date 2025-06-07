@@ -52,6 +52,10 @@ File DataStore::openRead(const char* filename) {
 #endif
 }
 
+bool DataStore::removeFile(const char* filename) {
+  return _fs->remove(filename);
+}
+
 bool DataStore::formatFileSystem() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   return _fs->format();
