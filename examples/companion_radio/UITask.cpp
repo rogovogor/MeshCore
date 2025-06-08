@@ -163,9 +163,9 @@ void UITask::renderCurrScreen() {
 
   char tmp[80];
   if (_alert[0]) {
+    _display->setTextSize(1.4);
     uint16_t textWidth = _display->getTextWidth(_alert);
     _display->setCursor((_display->width() - textWidth) / 2, 22);
-    _display->setTextSize(1.4);
     _display->setColor(DisplayDriver::GREEN);
     _display->print(_alert);
     _alert[0] = 0;
