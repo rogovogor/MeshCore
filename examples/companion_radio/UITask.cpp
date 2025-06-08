@@ -374,11 +374,10 @@ void UITask::handleButtonTriplePress() {
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
       soundBuzzer(UIEventType::ack);
-      sprintf(_alert, "Quiet mode: OFF");
+      sprintf(_alert, "Buzzer: ON");
     } else {
-      soundBuzzer(UIEventType::ack);
       buzzer.quiet(true);
-      sprintf(_alert, "Quiet mode: ON");
+      sprintf(_alert, "Buzzer: OFF");
     }
     _need_refresh = true;
   #endif
