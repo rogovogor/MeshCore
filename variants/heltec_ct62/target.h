@@ -3,12 +3,12 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
-#include <helpers/ESP32Board.h>
+#include "HT-CT62Board.h"
 #include <helpers/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 
-extern ESP32Board board;
+extern Heltec_CT62_Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 extern SensorManager sensors;
