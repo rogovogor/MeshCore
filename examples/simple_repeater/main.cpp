@@ -578,7 +578,7 @@ public:
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
     _prefs.flood_advert_interval = 3;   // 3 hours
     _prefs.flood_max = 64;
-    _prefs.interference_threshold = 14;  // DB
+    _prefs.interference_threshold = 0;  // disabled
   }
 
   CommonCLI* getCLI() { return &_cli; }
