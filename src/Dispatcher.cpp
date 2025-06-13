@@ -92,7 +92,7 @@ void Dispatcher::loop() {
     next_agc_reset_time = futureMillis(getAGCResetInterval());
   }
 
-  if (millisHasNowPassed(next_agc_reset_time)) {
+  if (getAGCResetInterval() > 0 && millisHasNowPassed(next_agc_reset_time)) {
     _radio->resetAGC();
     next_agc_reset_time = futureMillis(getAGCResetInterval());
   }
