@@ -420,6 +420,9 @@ protected:
   int getInterferenceThreshold() const override {
     return _prefs.interference_threshold;
   }
+  int getAGCResetInterval() const override {
+    return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
+  }
 
   bool allowPacketForward(const mesh::Packet* packet) override {
     if (_prefs.disable_fwd) return false;
