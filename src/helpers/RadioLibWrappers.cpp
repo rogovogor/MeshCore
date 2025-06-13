@@ -52,6 +52,15 @@ void RadioLibWrapper::triggerNoiseFloorCalibrate(int threshold) {
   }
 }
 
+void RadioLibWrapper::resetAGC() {
+  // make sure we're not mid-receive of packet!
+  if ((state & STATE_INT_READY) != 0 || isReceivingPacket()) return;
+
+  // NOTE: according to higher powers, just issuing RadioLib's startReceive() will reset the AGC.
+  //      revisit this if a better impl is discovered.
+  state = STATE_IDLE;   // trigger a startReceive()
+}
+
 void RadioLibWrapper::loop() {
   if (state == STATE_RX && _num_floor_samples < NUM_NOISE_FLOOR_SAMPLES) {
     if (!isReceivingPacket()) {

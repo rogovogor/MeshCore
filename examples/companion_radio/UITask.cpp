@@ -5,7 +5,7 @@
 #include "MyMesh.h"
 
 #define AUTO_OFF_MILLIS     15000   // 15 seconds
-#define BOOT_SCREEN_MILLIS   4000   // 4 seconds
+#define BOOT_SCREEN_MILLIS   3000   // 3 seconds
 
 #ifdef PIN_STATUS_LED
 #define LED_ON_MILLIS     20
@@ -163,9 +163,9 @@ void UITask::renderCurrScreen() {
 
   char tmp[80];
   if (_alert[0]) {
+    _display->setTextSize(1.4);
     uint16_t textWidth = _display->getTextWidth(_alert);
     _display->setCursor((_display->width() - textWidth) / 2, 22);
-    _display->setTextSize(1.4);
     _display->setColor(DisplayDriver::GREEN);
     _display->print(_alert);
     _alert[0] = 0;
@@ -191,7 +191,7 @@ void UITask::renderCurrScreen() {
     sprintf(tmp, "%d", _msgcount);
     _display->print(tmp);
     _display->setColor(DisplayDriver::YELLOW); // last color will be kept on T114
-  } else if (millis() < BOOT_SCREEN_MILLIS) { // boot screen
+  } else if ((millis() - ui_started_at) < BOOT_SCREEN_MILLIS) { // boot screen
     // meshcore logo
     _display->setColor(DisplayDriver::BLUE);
     int logoWidth = 128;
@@ -302,7 +302,7 @@ void UITask::loop() {
 
   if (_display != NULL && _display->isOn()) {
     static bool _firstBoot = true;
-    if(_firstBoot && millis() >= BOOT_SCREEN_MILLIS) {
+    if(_firstBoot && (millis() - ui_started_at) >= BOOT_SCREEN_MILLIS) {
       _need_refresh = true;
       _firstBoot = false;
     }
@@ -344,6 +344,8 @@ void UITask::handleButtonShortPress() {
         // Otherwise, refresh the display
         _need_refresh = true;
       }
+    } else {
+      _need_refresh = true; // display just turned on, so we need to refresh
     }
     // Note: Display turn-on and auto-off timer extension are handled by handleButtonAnyPress
   }
@@ -372,10 +374,12 @@ void UITask::handleButtonTriplePress() {
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
       soundBuzzer(UIEventType::ack);
+      sprintf(_alert, "Buzzer: ON");
     } else {
-      soundBuzzer(UIEventType::ack);
       buzzer.quiet(true);
+      sprintf(_alert, "Buzzer: OFF");
     }
+    _need_refresh = true;
   #endif
 }
 
