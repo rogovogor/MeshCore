@@ -22,12 +22,15 @@
  * This board has no built-in way to read battery voltage.
  * Nevertheless it's very easy to make it work, you only require two 1% resistors.
  *
- *    VSYS -- /\/\/\/\-- --+
- *              200k       |
- *                         +-- GPIO28
- *                         |
- *     GND -- /\/\/\/\-- --+
- *              100k
+ *    BAT+ -----+
+ *              |
+ *       VSYS --+ -/\/\/\/\- --+
+ *                   200k      |
+ *                             +-- GPIO28
+ *                             |
+ *        GND --+ -/\/\/\/\- --+
+ *              |    100k
+ *    BAT- -----+
  */
 #define PIN_VBAT_READ            28
 #define BATTERY_SAMPLES          8
