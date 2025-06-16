@@ -18,10 +18,20 @@
 #define SX126X_DIO2_AS_RF_SWITCH true
 #define SX126X_DIO3_TCXO_VOLTAGE 0
 
-// This board has no built-in way to read battery voltage
-// #define PIN_VBAT_READ    26
-// #define BATTERY_SAMPLES  8
-// #define ADC_MULTIPLIER   (3.1 * 3.3 * 1000) // MT Uses 3.1
+/*
+ * This board has no built-in way to read battery voltage.
+ * Nevertheless it's very easy to make it work, you only require two 1% resistors.
+ *
+ *    VSYS -- /\/\/\/\-- --+
+ *              200k       |
+ *                         +-- GPIO28
+ *                         |
+ *     GND -- /\/\/\/\-- --+
+ *              100k
+ */
+#define PIN_VBAT_READ            28
+#define BATTERY_SAMPLES          8
+#define ADC_MULTIPLIER           (3.0f * 3.3f * 1000)
 
 class WaveshareBoard : public mesh::MainBoard {
 protected:
