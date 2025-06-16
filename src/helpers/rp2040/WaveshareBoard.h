@@ -13,12 +13,10 @@
 #define P_LORA_SCLK              14
 #define P_LORA_MISO              24
 #define P_LORA_MOSI              15
+#define P_LORA_TX_LED            25
 
 #define SX126X_DIO2_AS_RF_SWITCH true
 #define SX126X_DIO3_TCXO_VOLTAGE 0
-
-// built-ins
-#define PIN_LED_BUILTIN          25
 
 // This board has no built-in way to read battery voltage
 // #define PIN_VBAT_READ    26
@@ -33,13 +31,10 @@ public:
   void begin();
   uint8_t getStartupReason() const override { return startup_reason; }
 
-  void onBeforeTransmit() override {
-    digitalWrite(PIN_LED_BUILTIN, HIGH); // turn TX LED on
-  }
-
-  void onAfterTransmit() override {
-    digitalWrite(PIN_LED_BUILTIN, LOW); // turn TX LED off
-  }
+#ifdef P_LORA_TX_LED
+  void onBeforeTransmit() override { digitalWrite(P_LORA_TX_LED, HIGH); }
+  void onAfterTransmit() override { digitalWrite(P_LORA_TX_LED, LOW); }
+#endif
 
   uint16_t getBattMilliVolts() override {
 #if defined(PIN_VBAT_READ) && defined(ADC_MULTIPLIER)

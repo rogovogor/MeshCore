@@ -7,8 +7,8 @@ void WaveshareBoard::begin() {
   // for future use, sub-classes SHOULD call this from their begin()
   startup_reason = BD_STARTUP_NORMAL;
 
-#ifdef PIN_LED_BUILTIN
-  pinMode(PIN_LED_BUILTIN, OUTPUT);
+#ifdef P_LORA_TX_LED
+  pinMode(P_LORA_TX_LED, OUTPUT);
 #endif
 
 #ifdef PIN_VBAT_READ
