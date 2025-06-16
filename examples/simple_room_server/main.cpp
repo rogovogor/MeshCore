@@ -123,7 +123,7 @@ struct PostInfo {
 #define PUSH_TIMEOUT_BASE          4000
 #define PUSH_ACK_TIMEOUT_FACTOR    2000
 
-#define CLIENT_KEEP_ALIVE_SECS   128
+#define CLIENT_KEEP_ALIVE_SECS     0     // Now Disabled (was 128)
 
 #define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
 #define REQ_TYPE_KEEP_ALIVE          0x02
