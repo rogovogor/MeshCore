@@ -3,7 +3,7 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
-#include <helpers/nrf52/T1000eBoard.h>
+#include "T1000eBoard.h"
 #include <helpers/CustomLR1110Wrapper.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
@@ -28,6 +28,7 @@ public:
   const char* getSettingName(int i) const override;
   const char* getSettingValue(int i) const override;
   bool setSettingValue(const char* name, const char* value) override;
+  bool toggle_gps() { gps_active ? stop_gps() : start_gps(); return gps_active;}
 };
 
 #ifdef DISPLAY_CLASS

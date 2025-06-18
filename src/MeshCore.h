@@ -41,6 +41,7 @@ public:
   virtual void onAfterTransmit() { }
   virtual void reboot() = 0;
   virtual void powerOff() { /* no op */ }
+  virtual bool toggleGps() { return false; } // could be a board_toggle depending on the board features ...
   virtual uint8_t getStartupReason() const = 0;
   virtual bool startOTAUpdate(const char* id, char reply[]) { return false; }   // not supported
 };

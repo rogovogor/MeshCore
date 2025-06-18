@@ -72,6 +72,7 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs) {
   _userButton->onShortPress([this]() { handleButtonShortPress(); });
   _userButton->onDoublePress([this]() { handleButtonDoublePress(); });
   _userButton->onTriplePress([this]() { handleButtonTriplePress(); });
+  _userButton->onQuadruplePress([this]() { handleButtonQuadruplePress(); });
   _userButton->onLongPress([this]() { handleButtonLongPress(); });
   _userButton->onAnyPress([this]() { handleButtonAnyPress(); });
 #endif
@@ -381,6 +382,12 @@ void UITask::handleButtonTriplePress() {
     }
     _need_refresh = true;
   #endif
+}
+
+void UITask::handleButtonQuadruplePress() {
+  MESH_DEBUG_PRINTLN("UITask: quad press triggered");
+  _board->toggleGps();
+  _need_refresh = true;
 }
 
 void UITask::handleButtonLongPress() {

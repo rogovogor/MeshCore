@@ -53,6 +53,7 @@ class UITask {
   void handleButtonShortPress();
   void handleButtonDoublePress();
   void handleButtonTriplePress();
+  void handleButtonQuadruplePress();
   void handleButtonLongPress();
 
  

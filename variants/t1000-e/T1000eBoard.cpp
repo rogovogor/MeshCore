@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "T1000eBoard.h"
 #include <Wire.h>
+#include "target.h"
 
 #include <bluefruit.h>
 
@@ -24,6 +25,10 @@ void T1000eBoard::begin() {
   Wire.begin();
 
   delay(10);   // give sx1262 some time to power up
+}
+
+bool T1000eBoard::toggleGps() {
+  return sensors.toggle_gps(); 
 }
 
 #if 0
