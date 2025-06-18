@@ -100,7 +100,7 @@ protected:
 
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
   bool isAutoAddEnabled() const override;
-  void onDiscoveredContact(ContactInfo &contact, bool is_new) override;
+  void onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path_len, const uint8_t* path) override;
   void onContactPathUpdated(const ContactInfo &contact) override;
   bool processAck(const uint8_t *data) override;
   void queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packet *pkt, uint32_t sender_timestamp,
@@ -190,9 +190,18 @@ private:
     unsigned long msg_sent;
     uint32_t ack;
   };
-#define EXPECTED_ACK_TABLE_SIZE 8
+  #define EXPECTED_ACK_TABLE_SIZE 8
   AckTableEntry expected_ack_table[EXPECTED_ACK_TABLE_SIZE]; // circular table
   int next_ack_idx;
+
+  struct AdvertPath {
+    uint8_t pubkey_prefix[7];
+    uint8_t path_len;
+    uint32_t recv_timestamp;
+    uint8_t path[MAX_PATH_SIZE];
+  };
+  #define ADVERT_PATH_TABLE_SIZE   16
+  AdvertPath advert_paths[ADVERT_PATH_TABLE_SIZE]; // circular table
 };
 
 extern MyMesh the_mesh;

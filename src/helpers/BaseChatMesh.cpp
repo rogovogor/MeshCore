@@ -58,7 +58,7 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
       }
       ci.last_advert_timestamp = timestamp;
       ci.lastmod = getRTCClock()->getCurrentTime();
-      onDiscoveredContact(ci, true);       // let UI know
+      onDiscoveredContact(ci, true, packet->path_len, packet->path);       // let UI know
       return;
     }
 
@@ -89,7 +89,7 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
   from->last_advert_timestamp = timestamp;
   from->lastmod = getRTCClock()->getCurrentTime();
 
-  onDiscoveredContact(*from, is_new);       // let UI know
+  onDiscoveredContact(*from, is_new, packet->path_len, packet->path);       // let UI know
 }
 
 int BaseChatMesh::searchPeersByHash(const uint8_t* hash) {
