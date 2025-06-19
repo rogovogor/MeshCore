@@ -28,7 +28,8 @@ public:
   const char* getSettingName(int i) const override;
   const char* getSettingValue(int i) const override;
   bool setSettingValue(const char* name, const char* value) override;
-  bool toggle_gps() { gps_active ? stop_gps() : start_gps(); return gps_active;}
+  bool getGpsStatus() override { return gps_active; }
+  bool toggleGps() override { gps_active ? sleep_gps() : start_gps(); return gps_active; }
 };
 
 #ifdef DISPLAY_CLASS

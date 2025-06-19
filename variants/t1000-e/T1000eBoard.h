@@ -66,8 +66,6 @@ public:
     return 0;
   }
 
-  virtual bool toggleGps() override; 
-
   void powerOff() override {
     #ifdef HAS_GPS
         digitalWrite(GPS_VRTC_EN, LOW);
