@@ -40,8 +40,11 @@ class UITask {
   unsigned long ui_started_at;
 
   // Button handlers
-#if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
+#ifdef PIN_USER_BTN
   Button* _userButton = nullptr;
+#endif
+#ifdef PIN_USER_BTN_ANA
+  Button* _userButtonAnalog = nullptr;
 #endif
 
   void renderCurrScreen();

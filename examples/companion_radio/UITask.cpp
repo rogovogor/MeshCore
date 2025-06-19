@@ -58,22 +58,30 @@ void UITask::begin(DisplayDriver* display, NodePrefs* node_prefs) {
   buzzer.begin();
 #endif
 
-  // Initialize button with appropriate configuration
-#if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
-  #ifdef PIN_USER_BTN
-    _userButton = new Button(PIN_USER_BTN, USER_BTN_PRESSED);
-  #else
-    _userButton = new Button(PIN_USER_BTN_ANA, USER_BTN_PRESSED, true, 20);
-  #endif
-  
+  // Initialize digital button if available
+#ifdef PIN_USER_BTN
+  _userButton = new Button(PIN_USER_BTN, USER_BTN_PRESSED);
   _userButton->begin();
   
-  // Set up button callbacks
+  // Set up digital button callbacks
   _userButton->onShortPress([this]() { handleButtonShortPress(); });
   _userButton->onDoublePress([this]() { handleButtonDoublePress(); });
   _userButton->onTriplePress([this]() { handleButtonTriplePress(); });
   _userButton->onLongPress([this]() { handleButtonLongPress(); });
   _userButton->onAnyPress([this]() { handleButtonAnyPress(); });
+#endif
+
+  // Initialize analog button if available
+#ifdef PIN_USER_BTN_ANA
+  _userButtonAnalog = new Button(PIN_USER_BTN_ANA, USER_BTN_PRESSED, true, 20);
+  _userButtonAnalog->begin();
+  
+  // Set up analog button callbacks
+  _userButtonAnalog->onShortPress([this]() { handleButtonShortPress(); });
+  _userButtonAnalog->onDoublePress([this]() { handleButtonDoublePress(); });
+  _userButtonAnalog->onTriplePress([this]() { handleButtonTriplePress(); });
+  _userButtonAnalog->onLongPress([this]() { handleButtonLongPress(); });
+  _userButtonAnalog->onAnyPress([this]() { handleButtonAnyPress(); });
 #endif
   ui_started_at = millis();
 }
@@ -289,9 +297,14 @@ void UITask::shutdown(bool restart){
 }
 
 void UITask::loop() {
-  #if defined(PIN_USER_BTN) || defined(PIN_USER_BTN_ANA)
+  #ifdef PIN_USER_BTN
     if (_userButton) {
       _userButton->update();
+    }
+  #endif
+  #ifdef PIN_USER_BTN_ANA
+    if (_userButtonAnalog) {
+      _userButtonAnalog->update();
     }
   #endif
   userLedHandler();
