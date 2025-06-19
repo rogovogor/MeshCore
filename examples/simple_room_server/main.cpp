@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "24 May 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Jun 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.2"
+  #define FIRMWARE_VERSION   "v1.7.0"
 #endif
 
 #ifndef LORA_FREQ
@@ -65,6 +65,14 @@
 
 #ifndef MAX_UNSYNCED_POSTS
   #define MAX_UNSYNCED_POSTS    32
+#endif
+
+#ifndef SERVER_RESPONSE_DELAY
+  #define SERVER_RESPONSE_DELAY   300
+#endif
+
+#ifndef TXT_ACK_DELAY
+  #define TXT_ACK_DELAY     200
 #endif
 
 #ifdef DISPLAY_CLASS
@@ -115,7 +123,7 @@ struct PostInfo {
 #define PUSH_TIMEOUT_BASE          4000
 #define PUSH_ACK_TIMEOUT_FACTOR    2000
 
-#define CLIENT_KEEP_ALIVE_SECS   128
+#define CLIENT_KEEP_ALIVE_SECS     0     // Now Disabled (was 128)
 
 #define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
 #define REQ_TYPE_KEEP_ALIVE          0x02
@@ -204,7 +212,10 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   void pushPostToClient(ClientInfo* client, PostInfo& post) {
     int len = 0;
     memcpy(&reply_data[len], &post.post_timestamp, 4); len += 4;   // this is a PAST timestamp... but should be accepted by client
-    reply_data[len++] = (TXT_TYPE_SIGNED_PLAIN << 2);  // 'signed' plain text
+
+    uint8_t attempt;
+    getRNG()->random(&attempt, 1);   // need this for re-tries, so packet hash (and ACK) will be different
+    reply_data[len++] = (TXT_TYPE_SIGNED_PLAIN << 2) | (attempt & 3);  // 'signed' plain text
 
     // encode prefix of post.author.pub_key
     memcpy(&reply_data[len], post.author.pub_key, 4); len += 4;   // just first 4 bytes
@@ -409,6 +420,9 @@ protected:
   int getInterferenceThreshold() const override {
     return _prefs.interference_threshold;
   }
+  int getAGCResetInterval() const override {
+    return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
+  }
 
   bool allowPacketForward(const mesh::Packet* packet) override {
     if (_prefs.disable_fwd) return false;
@@ -468,14 +482,14 @@ protected:
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
         mesh::Packet* path = createPathReturn(sender, client->secret, packet->path, packet->path_len,
                                               PAYLOAD_TYPE_RESPONSE, reply_data, 8 + 2);
-        if (path) sendFlood(path);
+        if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
       } else {
         mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, sender, client->secret, reply_data, 8 + 2);
         if (reply) {
           if (client->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-            sendDirect(reply, client->out_path, client->out_path_len);
+            sendDirect(reply, client->out_path, client->out_path_len, SERVER_RESPONSE_DELAY);
           } else {
-            sendFlood(reply);
+            sendFlood(reply, SERVER_RESPONSE_DELAY);
           }
         }
       }
@@ -565,12 +579,12 @@ protected:
           mesh::Packet* ack = createAck(ack_hash);
           if (ack) {
             if (client->out_path_len < 0) {
-              sendFlood(ack);
+              sendFlood(ack, TXT_ACK_DELAY);
             } else {
-              sendDirect(ack, client->out_path, client->out_path_len);
+              sendDirect(ack, client->out_path, client->out_path_len, TXT_ACK_DELAY);
             }
           }
-          delay_millis = REPLY_DELAY_MILLIS;
+          delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS;
         } else {
           delay_millis = 0;
         }
@@ -589,9 +603,9 @@ protected:
           auto reply = createDatagram(PAYLOAD_TYPE_TXT_MSG, client->id, secret, temp, 5 + text_len);
           if (reply) {
             if (client->out_path_len < 0) {
-              sendFlood(reply, delay_millis);
+              sendFlood(reply, delay_millis + SERVER_RESPONSE_DELAY);
             } else {
-              sendDirect(reply, client->out_path, client->out_path_len, delay_millis);
+              sendDirect(reply, client->out_path, client->out_path_len, delay_millis + SERVER_RESPONSE_DELAY);
             }
           }
         }
@@ -634,7 +648,7 @@ protected:
             auto reply = createAck(ack_hash);
             if (reply) {
               reply->payload[reply->payload_len++] = getUnsyncedCount(client);  // NEW: add unsynced counter to end of ACK packet
-              sendDirect(reply, client->out_path, client->out_path_len);
+              sendDirect(reply, client->out_path, client->out_path_len, SERVER_RESPONSE_DELAY);
             }
           }
         } else {
@@ -644,14 +658,14 @@ protected:
               // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
               mesh::Packet* path = createPathReturn(client->id, secret, packet->path, packet->path_len,
                                                     PAYLOAD_TYPE_RESPONSE, reply_data, reply_len);
-              if (path) sendFlood(path);
+              if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
             } else {
               mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, client->id, secret, reply_data, reply_len);
               if (reply) {
                 if (client->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-                  sendDirect(reply, client->out_path, client->out_path_len);
+                  sendDirect(reply, client->out_path, client->out_path_len, SERVER_RESPONSE_DELAY);
                 } else {
-                  sendFlood(reply);
+                  sendFlood(reply, SERVER_RESPONSE_DELAY);
                 }
               }
             }
@@ -714,7 +728,7 @@ public:
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
     _prefs.flood_advert_interval = 3;   // 3 hours
     _prefs.flood_max = 64;
-    _prefs.interference_threshold = 14;  // DB
+    _prefs.interference_threshold = 0;  // disabled 
   #ifdef ROOM_PASSWORD
     StrHelper::strncpy(_prefs.guest_password, ROOM_PASSWORD, sizeof(_prefs.guest_password));
   #endif

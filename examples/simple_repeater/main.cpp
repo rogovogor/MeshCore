@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "24 May 2025"
+  #define FIRMWARE_BUILD_DATE   "7 Jun 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.6.2"
+  #define FIRMWARE_VERSION   "v1.7.0"
 #endif
 
 #ifndef LORA_FREQ
@@ -57,6 +57,14 @@
 
 #ifndef ADMIN_PASSWORD
   #define  ADMIN_PASSWORD  "password"
+#endif
+
+#ifndef SERVER_RESPONSE_DELAY
+  #define SERVER_RESPONSE_DELAY   300
+#endif
+
+#ifndef TXT_ACK_DELAY
+  #define TXT_ACK_DELAY     200
 #endif
 
 #ifdef DISPLAY_CLASS
@@ -112,8 +120,7 @@ struct NeighbourInfo {
   int8_t snr; // multiplied by 4, user should divide to get float value
 };
 
-// NOTE: need to space the ACK and the reply text apart (in CLI)
-#define CLI_REPLY_DELAY_MILLIS  1500
+#define CLI_REPLY_DELAY_MILLIS  1000
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
@@ -330,6 +337,9 @@ protected:
   int getInterferenceThreshold() const override {
     return _prefs.interference_threshold;
   }
+  int getAGCResetInterval() const override {
+    return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
+  }
 
   void onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) override {
     if (type == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
@@ -376,14 +386,14 @@ protected:
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
         mesh::Packet* path = createPathReturn(sender, client->secret, packet->path, packet->path_len,
                                               PAYLOAD_TYPE_RESPONSE, reply_data, 12);
-        if (path) sendFlood(path);
+        if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
       } else {
         mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, sender, client->secret, reply_data, 12);
         if (reply) {
           if (client->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-            sendDirect(reply, client->out_path, client->out_path_len);
+            sendDirect(reply, client->out_path, client->out_path_len, SERVER_RESPONSE_DELAY);
           } else {
-            sendFlood(reply);
+            sendFlood(reply, SERVER_RESPONSE_DELAY);
           }
         }
       }
@@ -446,14 +456,14 @@ protected:
           // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
           mesh::Packet* path = createPathReturn(client->id, secret, packet->path, packet->path_len,
                                                 PAYLOAD_TYPE_RESPONSE, reply_data, reply_len);
-          if (path) sendFlood(path);
+          if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
         } else {
           mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, client->id, secret, reply_data, reply_len);
           if (reply) {
             if (client->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-              sendDirect(reply, client->out_path, client->out_path_len);
+              sendDirect(reply, client->out_path, client->out_path_len, SERVER_RESPONSE_DELAY);
             } else {
-              sendFlood(reply);
+              sendFlood(reply, SERVER_RESPONSE_DELAY);
             }
           }
         }
@@ -482,9 +492,9 @@ protected:
           mesh::Packet* ack = createAck(ack_hash);
           if (ack) {
             if (client->out_path_len < 0) {
-              sendFlood(ack);
+              sendFlood(ack, TXT_ACK_DELAY);
             } else {
-              sendDirect(ack, client->out_path, client->out_path_len);
+              sendDirect(ack, client->out_path, client->out_path_len, TXT_ACK_DELAY);
             }
           }
         }
@@ -568,7 +578,7 @@ public:
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
     _prefs.flood_advert_interval = 3;   // 3 hours
     _prefs.flood_max = 64;
-    _prefs.interference_threshold = 14;  // DB
+    _prefs.interference_threshold = 0;  // disabled
   }
 
   CommonCLI* getCLI() { return &_cli; }

@@ -53,7 +53,8 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *) &_prefs->allow_read_only, sizeof(_prefs->allow_read_only));  // 114
     file.read((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
     file.read((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
-    file.read(pad, 4);   // 120
+    file.read((uint8_t *) &_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));  // 120
+    file.read(pad, 3);   // 121
     file.read((uint8_t *) &_prefs->flood_max, sizeof(_prefs->flood_max));   // 124
     file.read((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 125
     file.read((uint8_t *) &_prefs->interference_threshold, sizeof(_prefs->interference_threshold));  // 126
@@ -107,7 +108,8 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *) &_prefs->allow_read_only, sizeof(_prefs->allow_read_only));  // 114
     file.write((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
     file.write((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
-    file.write(pad, 4);   // 120
+    file.write((uint8_t *) &_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));  // 120
+    file.write(pad, 3);   // 121
     file.write((uint8_t *) &_prefs->flood_max, sizeof(_prefs->flood_max));   // 124
     file.write((uint8_t *) &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));  // 125
     file.write((uint8_t *) &_prefs->interference_threshold, sizeof(_prefs->interference_threshold));  // 126
@@ -180,6 +182,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         sprintf(reply, "> %s", StrHelper::ftoa(_prefs->airtime_factor));
       } else if (memcmp(config, "int.thresh", 10) == 0) {
         sprintf(reply, "> %d", (uint32_t) _prefs->interference_threshold);
+      } else if (memcmp(config, "agc.reset.interval", 18) == 0) {
+        sprintf(reply, "> %d", ((uint32_t) _prefs->agc_reset_interval) * 4);
       } else if (memcmp(config, "allow.read.only", 15) == 0) {
         sprintf(reply, "> %s", _prefs->allow_read_only ? "on" : "off");
       } else if (memcmp(config, "flood.advert.interval", 21) == 0) {
@@ -229,6 +233,10 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         strcpy(reply, "OK");
       } else if (memcmp(config, "int.thresh ", 11) == 0) {
         _prefs->interference_threshold = atoi(&config[11]);
+        savePrefs();
+        strcpy(reply, "OK");
+      } else if (memcmp(config, "agc.reset.interval ", 19) == 0) {
+        _prefs->agc_reset_interval = atoi(&config[19]) / 4;
         savePrefs();
         strcpy(reply, "OK");
       } else if (memcmp(config, "allow.read.only ", 16) == 0) {

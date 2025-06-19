@@ -8,7 +8,8 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BU
 
 WRAPPER_CLASS radio_driver(radio, board);
 
-VolatileRTCClock rtc_clock;
+VolatileRTCClock fallback_clock;
+AutoDiscoverRTCClock rtc_clock(fallback_clock);
 EnvironmentSensorManager sensors;
 
 #ifndef LORA_CR
@@ -16,7 +17,7 @@ EnvironmentSensorManager sensors;
 #endif
 
 bool radio_init() {
-//  rtc_clock.begin(Wire);
+    rtc_clock.begin(Wire);
   
 #ifdef SX126X_DIO3_TCXO_VOLTAGE
   float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
@@ -35,6 +36,10 @@ bool radio_init() {
   
   radio.setCRC(1);
   
+#if defined(SX126X_RXEN) && defined(SX126X_TXEN)
+  radio.setRfSwitchPins(SX126X_RXEN, SX126X_TXEN);
+#endif 
+
 #ifdef SX126X_CURRENT_LIMIT
   radio.setCurrentLimit(SX126X_CURRENT_LIMIT);
 #endif

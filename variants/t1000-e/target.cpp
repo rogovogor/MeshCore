@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "t1000e_sensors.h"
 #include "target.h"
 #include <helpers/sensors/MicroNMEALocationProvider.h>
 
@@ -160,6 +161,10 @@ bool T1000SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP&
   if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
     telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
   }
+  if (requester_permissions & TELEM_PERM_ENVIRONMENT) {
+    telemetry.addLuminosity(TELEM_CHANNEL_SELF, t1000e_get_light());
+    telemetry.addTemperature(TELEM_CHANNEL_SELF, t1000e_get_temperature());
+  }
   return true;
 }
 
@@ -169,7 +174,7 @@ void T1000SensorManager::loop() {
   _nmea->loop();
 
   if (millis() > next_gps_update) {
-    if (_nmea->isValid()) {
+    if (gps_active && _nmea->isValid()) {
       node_lat = ((double)_nmea->getLatitude())/1000000.;
       node_lon = ((double)_nmea->getLongitude())/1000000.;
       node_altitude = ((double)_nmea->getAltitude()) / 1000.0;
