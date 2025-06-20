@@ -12,10 +12,6 @@ VolatileRTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 EnvironmentSensorManager sensors;
 
-#ifndef LORA_CR
-  #define LORA_CR      5
-#endif
-
 bool radio_init() {
     rtc_clock.begin(Wire);
   
