@@ -40,7 +40,35 @@ void DataStore::begin() {
   #include <SPIFFS.h>
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
+#elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  #include <InternalFileSystem.h>
 #endif
+
+uint32_t DataStore::getStorageUsedKb() const {
+#if defined(ESP32)
+  return SPIFFS.usedBytes() / 1024;
+#elif defined(RP2040_PLATFORM)
+  FSInfo info;
+  info.usedBytes = 0;
+  _fs->info(info);
+  return info.usedBytes / 1024;
+#else
+  return 0;  // TODO:  InternalFS. method?
+#endif
+}
+
+uint32_t DataStore::getStorageTotalKb() const {
+#if defined(ESP32)
+  return SPIFFS.totalBytes() / 1024;
+#elif defined(RP2040_PLATFORM)
+  FSInfo info;
+  info.totalBytes = 0;
+  _fs->info(info);
+  return info.totalBytes / 1024;
+#else
+  return 0;  // TODO:  InternalFS. method?
+#endif
+}
 
 File DataStore::openRead(const char* filename) {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)

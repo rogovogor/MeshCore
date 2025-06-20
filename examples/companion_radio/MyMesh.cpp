@@ -22,7 +22,7 @@
 #define CMD_EXPORT_CONTACT            17
 #define CMD_IMPORT_CONTACT            18
 #define CMD_REBOOT                    19
-#define CMD_GET_BATTERY_VOLTAGE       20
+#define CMD_GET_BATT_AND_STORAGE      20   // was CMD_GET_BATTERY_VOLTAGE
 #define CMD_SET_TUNING_PARAMS         21
 #define CMD_DEVICE_QEURY              22
 #define CMD_EXPORT_PRIVATE_KEY        23
@@ -58,7 +58,7 @@
 #define RESP_CODE_CURR_TIME           9  // a reply to CMD_GET_DEVICE_TIME
 #define RESP_CODE_NO_MORE_MESSAGES    10 // a reply to CMD_SYNC_NEXT_MESSAGE
 #define RESP_CODE_EXPORT_CONTACT      11
-#define RESP_CODE_BATTERY_VOLTAGE     12 // a reply to a CMD_GET_BATTERY_VOLTAGE
+#define RESP_CODE_BATT_AND_STORAGE    12 // a reply to a CMD_GET_BATT_AND_STORAGE
 #define RESP_CODE_DEVICE_INFO         13 // a reply to CMD_DEVICE_QEURY
 #define RESP_CODE_PRIVATE_KEY         14 // a reply to CMD_EXPORT_PRIVATE_KEY
 #define RESP_CODE_DISABLED            15
@@ -1016,12 +1016,17 @@ void MyMesh::handleCmdFrame(size_t len) {
       saveContacts();
     }
     board.reboot();
-  } else if (cmd_frame[0] == CMD_GET_BATTERY_VOLTAGE) {
-    uint8_t reply[3];
-    reply[0] = RESP_CODE_BATTERY_VOLTAGE;
+  } else if (cmd_frame[0] == CMD_GET_BATT_AND_STORAGE) {
+    uint8_t reply[11];
+    int i = 0;
+    reply[i++] = RESP_CODE_BATT_AND_STORAGE;
     uint16_t battery_millivolts = board.getBattMilliVolts();
-    memcpy(&reply[1], &battery_millivolts, 2);
-    _serial->writeFrame(reply, 3);
+    uint32_t used = _store->getStorageUsedKb();
+    uint32_t total = _store->getStorageTotalKb();
+    memcpy(&reply[i], &battery_millivolts, 2); i += 2;
+    memcpy(&reply[i], &used, 4); i += 4;
+    memcpy(&reply[i], &total, 4); i += 4;
+    _serial->writeFrame(reply, i);
   } else if (cmd_frame[0] == CMD_EXPORT_PRIVATE_KEY) {
 #if ENABLE_PRIVATE_KEY_EXPORT
     uint8_t reply[65];
