@@ -9,7 +9,12 @@ class CustomSX1262 : public SX1262 {
   public:
     CustomSX1262(Module *mod) : SX1262(mod) { }
 
-    bool std_init(SPIClass* spi = NULL) {
+  #ifdef RP2040_PLATFORM
+    bool std_init(SPIClassRP2040* spi = NULL)
+  #else
+    bool std_init(SPIClass* spi = NULL)
+  #endif
+    {
   #ifdef SX126X_DIO3_TCXO_VOLTAGE
       float tcxo = SX126X_DIO3_TCXO_VOLTAGE;
   #else
@@ -25,6 +30,14 @@ class CustomSX1262 : public SX1262 {
   #if defined(P_LORA_SCLK)
     #ifdef NRF52_PLATFORM
       if (spi) { spi->setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI); spi->begin(); }
+    #elif defined(RP2040_PLATFORM)
+      if (spi) {
+        spi->setMISO(P_LORA_MISO);
+        //spi->setCS(P_LORA_NSS); // Setting CS results in freeze
+        spi->setSCK(P_LORA_SCLK);
+        spi->setMOSI(P_LORA_MOSI);
+        spi->begin();
+      }
     #else
       if (spi) spi->begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
     #endif
