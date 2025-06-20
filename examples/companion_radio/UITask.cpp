@@ -82,6 +82,7 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   _userButtonAnalog->onShortPress([this]() { handleButtonShortPress(); });
   _userButtonAnalog->onDoublePress([this]() { handleButtonDoublePress(); });
   _userButtonAnalog->onTriplePress([this]() { handleButtonTriplePress(); });
+  _userButtonAnalog->onQuadruplePress([this]() { handleButtonQuadruplePress(); });
   _userButtonAnalog->onLongPress([this]() { handleButtonLongPress(); });
   _userButtonAnalog->onAnyPress([this]() { handleButtonAnyPress(); });
 #endif
