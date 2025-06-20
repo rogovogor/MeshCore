@@ -21,6 +21,4 @@ public:
   virtual const char* getSettingName(int i) const { return NULL; }
   virtual const char* getSettingValue(int i) const { return NULL; }
   virtual bool setSettingValue(const char* name, const char* value) { return false; }
-  virtual bool getGpsStatus() { return false; }
-  virtual bool toggleGps() { return false; }
 };

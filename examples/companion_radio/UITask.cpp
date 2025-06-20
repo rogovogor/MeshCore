@@ -388,7 +388,18 @@ void UITask::handleButtonTriplePress() {
 void UITask::handleButtonQuadruplePress() {
   MESH_DEBUG_PRINTLN("UITask: quad press triggered");
   if (_sensors != NULL) {
-    _sensors->toggleGps();
+    // toggle GPS onn/off
+    int num = _sensors->getNumSettings();
+    for (int i = 0; i < num; i++) {
+      if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
+        if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
+          _sensors->setSettingValue("gps", "0");
+        } else {
+          _sensors->setSettingValue("gps", "1");
+        }
+        break;
+      }
+    }
   }
   _need_refresh = true;
 }
