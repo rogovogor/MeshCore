@@ -144,7 +144,9 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       uint32_t curr = getRTCClock()->getCurrentTime();
       if (sender_timestamp > curr) {
         getRTCClock()->setCurrentTime(sender_timestamp + 1);
-        strcpy(reply, "OK - clock set");
+        uint32_t now = getRTCClock()->getCurrentTime();
+        DateTime dt = DateTime(now);
+        sprintf(reply, "OK - clock set: %02d:%02d - %d/%d/%d UTC", dt.hour(), dt.minute(), dt.day(), dt.month(), dt.year());
       } else {
         strcpy(reply, "ERR: clock cannot go backwards");
       }
@@ -161,7 +163,9 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       uint32_t curr = getRTCClock()->getCurrentTime();
       if (secs > curr) {
         getRTCClock()->setCurrentTime(secs);
-        strcpy(reply, "(OK - clock set!)");
+        uint32_t now = getRTCClock()->getCurrentTime();
+        DateTime dt = DateTime(now);
+        sprintf(reply, "OK - clock set: %02d:%02d - %d/%d/%d UTC", dt.hour(), dt.minute(), dt.day(), dt.month(), dt.year());
       } else {
         strcpy(reply, "(ERR: clock cannot go backwards)");
       }
@@ -245,10 +249,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         strcpy(reply, "OK");
       } else if (memcmp(config, "flood.advert.interval ", 22) == 0) {
         int hours = _atoi(&config[22]);
-        if (hours > 0 && hours < 3) {
-          sprintf(reply, "Error: min is 3 hours");
-        } else if (hours > 48) {
-          strcpy(reply, "Error: max is 48 hours");
+        if ((hours > 0 && hours < 3) || (hours > 48)) {
+          strcpy(reply, "Error: interval range is 3-48 hours");
         } else {
           _prefs->flood_advert_interval = (uint8_t)(hours);
           _callbacks->updateFloodAdvertTimer();
@@ -257,10 +259,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         }
       } else if (memcmp(config, "advert.interval ", 16) == 0) {
         int mins = _atoi(&config[16]);
-        if (mins > 0 && mins < MIN_LOCAL_ADVERT_INTERVAL) {
-          sprintf(reply, "Error: min is %d mins", MIN_LOCAL_ADVERT_INTERVAL);
-        } else if (mins > 240) {
-          strcpy(reply, "Error: max is 240 mins");
+        if ((mins > 0 && mins < MIN_LOCAL_ADVERT_INTERVAL) || (mins > 240)) {
+          sprintf(reply, "Error: interval range is %d-240 minutes", MIN_LOCAL_ADVERT_INTERVAL);
         } else {
           _prefs->advert_interval = (uint8_t)(mins / 2);
           _callbacks->updateAdvertTimer();
