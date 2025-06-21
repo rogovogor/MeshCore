@@ -21,10 +21,7 @@ DISPLAY_CLASS display;
 bool radio_init()
 {
   rtc_clock.begin(Wire);
-
-  SPI.setPins(P_LORA_MISO, P_LORA_SCLK, P_LORA_MOSI);
   SPI.begin();
-
   return radio.std_init(&SPI);
 }
 
