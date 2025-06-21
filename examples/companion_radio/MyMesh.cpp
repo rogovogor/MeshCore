@@ -1474,7 +1474,6 @@ void MyMesh::loop() {
 
 #ifdef DISPLAY_CLASS
   ui_task.setHasConnection(_serial->isConnected());
-  ui_task.loop();
 #endif
 }
 
