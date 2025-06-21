@@ -23,13 +23,7 @@ SensorManager sensors;
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-
-#if defined(P_LORA_SCLK)
-  spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
   return radio.std_init(&spi);
-#else
-  return radio.std_init();
-#endif
 }
 
 uint32_t radio_get_rng_seed() {

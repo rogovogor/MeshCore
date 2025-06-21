@@ -257,14 +257,8 @@ static bool readStringUntil(Stream& s, char dest[], size_t max_len, char term, u
 
 bool radio_init() {
   fallback_clock.begin();
-
   rtc_clock.begin(Wire1);
-
-#if defined(P_LORA_SCLK)
-  spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
   return radio.std_init(&spi);
-#else
-  return radio.std_init();
 #endif
 }
 
