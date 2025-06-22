@@ -7,7 +7,7 @@
 #endif
 
 /*------------ Frame Protocol --------------*/
-#define FIRMWARE_VER_CODE 5
+#define FIRMWARE_VER_CODE 6
 
 #ifndef FIRMWARE_BUILD_DATE
 #define FIRMWARE_BUILD_DATE "7 Jun 2025"
