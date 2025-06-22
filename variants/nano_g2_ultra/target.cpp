@@ -21,7 +21,6 @@ DISPLAY_CLASS display;
 bool radio_init()
 {
   rtc_clock.begin(Wire);
-  SPI.begin();
   return radio.std_init(&SPI);
 }
 
