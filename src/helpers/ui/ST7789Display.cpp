@@ -40,7 +40,7 @@ void ST7789Display::turnOn() {
     // Re-initialize the display
     display.init();
     display.displayOn();
-    delay(10);
+    delay(20);
 
     // Now turn on the backlight
     digitalWrite(PIN_TFT_LEDA_CTL, LOW);
