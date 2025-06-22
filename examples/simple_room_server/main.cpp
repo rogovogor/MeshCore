@@ -576,15 +576,18 @@ protected:
 
         uint32_t delay_millis;
         if (send_ack) {
-          mesh::Packet* ack = createAck(ack_hash);
-          if (ack) {
-            if (client->out_path_len < 0) {
-              sendFlood(ack, TXT_ACK_DELAY);
-            } else {
-              sendDirect(ack, client->out_path, client->out_path_len, TXT_ACK_DELAY);
-            }
+          if (client->out_path_len < 0) {
+            mesh::Packet* ack = createAck(ack_hash);
+            if (ack) sendFlood(ack, TXT_ACK_DELAY);
+            delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS;
+          } else {
+            mesh::Packet* a1 = createMultiAck(ack_hash, 1);
+            if (a1) sendDirect(a1, client->out_path, client->out_path_len, TXT_ACK_DELAY);
+
+            mesh::Packet* a2 = createAck(ack_hash);
+            if (a2) sendDirect(a2, client->out_path, client->out_path_len, TXT_ACK_DELAY + 300);
+            delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS + 300;
           }
-          delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS;
         } else {
           delay_millis = 0;
         }
