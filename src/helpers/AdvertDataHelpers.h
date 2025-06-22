@@ -57,7 +57,7 @@ public:
   bool hasName() const { return _name[0] != 0; }
   const char* getName() const { return _name; }
 
-  bool hasLatLon() const { return !(_lat == 0 && _lon == 0); }
+  bool hasLatLon() const { return (_flags & ADV_LATLON_MASK) != 0; }
   int32_t getIntLat() const { return _lat; }
   int32_t getIntLon() const { return _lon; }
   double getLat() const { return ((double)_lat) / 1000000.0; }
