@@ -698,7 +698,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     memcpy(&out_frame[i], &lon, 4);
     i += 4;
     out_frame[i++] = 0; // reserved
-    out_frame[i++] = 0; // reserved
+    out_frame[i++] = _prefs.advert_loc_policy;
     out_frame[i++] = (_prefs.telemetry_mode_env << 4) | (_prefs.telemetry_mode_loc << 2) |
                      (_prefs.telemetry_mode_base); // v5+
     out_frame[i++] = _prefs.manual_add_contacts;
@@ -840,7 +840,12 @@ void MyMesh::handleCmdFrame(size_t len) {
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
     }
   } else if (cmd_frame[0] == CMD_SEND_SELF_ADVERT) {
-    auto pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+    mesh::Packet* pkt;
+    if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
+      pkt = createSelfAdvert(_prefs.node_name);
+    } else {
+      pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+    }
     if (pkt) {
       if (len >= 2 && cmd_frame[1] == 1) { // optional param (1 = flood, 0 = zero hop)
         sendFlood(pkt);
@@ -914,7 +919,12 @@ void MyMesh::handleCmdFrame(size_t len) {
   } else if (cmd_frame[0] == CMD_EXPORT_CONTACT) {
     if (len < 1 + PUB_KEY_SIZE) {
       // export SELF
-      auto pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+      mesh::Packet* pkt;
+      if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
+        pkt = createSelfAdvert(_prefs.node_name);
+      } else {
+        pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+      }
       if (pkt) {
         pkt->header |= ROUTE_TYPE_FLOOD; // would normally be sent in this mode
 
@@ -1008,6 +1018,10 @@ void MyMesh::handleCmdFrame(size_t len) {
       _prefs.telemetry_mode_base = cmd_frame[2] & 0x03; // v5+
       _prefs.telemetry_mode_loc = (cmd_frame[2] >> 2) & 0x03;
       _prefs.telemetry_mode_env = (cmd_frame[2] >> 4) & 0x03;
+
+      if (len >= 4) {
+        _prefs.advert_loc_policy = cmd_frame[3];
+      }
     }
     savePrefs();
     writeOKFrame();
@@ -1478,7 +1492,12 @@ void MyMesh::loop() {
 }
 
 bool MyMesh::advert() {
-  auto pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+  mesh::Packet* pkt;
+  if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
+    pkt = createSelfAdvert(_prefs.node_name);
+  } else {
+    pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+  }
   if (pkt) {
     sendZeroHop(pkt);
     return true;

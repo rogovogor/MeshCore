@@ -9,6 +9,17 @@
   #define TXT_ACK_DELAY     200
 #endif
 
+mesh::Packet* BaseChatMesh::createSelfAdvert(const char* name) {
+  uint8_t app_data[MAX_ADVERT_DATA_SIZE];
+  uint8_t app_data_len;
+  {
+    AdvertDataBuilder builder(ADV_TYPE_CHAT, name);
+    app_data_len = builder.encodeTo(app_data);
+  }
+
+  return createAdvert(self_id, app_data, app_data_len);
+}
+
 mesh::Packet* BaseChatMesh::createSelfAdvert(const char* name, double lat, double lon) {
   uint8_t app_data[MAX_ADVERT_DATA_SIZE];
   uint8_t app_data_len;
