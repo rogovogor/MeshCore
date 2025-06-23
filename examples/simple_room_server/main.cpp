@@ -123,6 +123,8 @@ struct PostInfo {
 #define PUSH_TIMEOUT_BASE          4000
 #define PUSH_ACK_TIMEOUT_FACTOR    2000
 
+#define POST_SYNC_DELAY_SECS       6
+
 #define CLIENT_KEEP_ALIVE_SECS     0     // Now Disabled (was 128)
 
 #define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
@@ -861,13 +863,15 @@ public:
       bool did_push = false;
       if (client->pending_ack == 0 && client->last_activity != 0 && client->push_failures < 3) {  // not already waiting for ACK, AND not evicted, AND retries not max
         MESH_DEBUG_PRINTLN("loop - checking for client %02X", (uint32_t) client->id.pub_key[0]);
+        uint32_t now = getRTCClock()->getCurrentTime();
         for (int k = 0, idx = next_post_idx; k < MAX_UNSYNCED_POSTS; k++) {
-          if (posts[idx].post_timestamp > client->sync_since   // is new post for this Client?
-            && !posts[idx].author.matches(client->id)) {    // don't push posts to the author
+          auto p = &posts[idx];
+          if (now >= p->post_timestamp + POST_SYNC_DELAY_SECS && p->post_timestamp > client->sync_since   // is new post for this Client?
+            && !p->author.matches(client->id)) {    // don't push posts to the author
             // push this post to Client, then wait for ACK
-            pushPostToClient(client, posts[idx]);
+            pushPostToClient(client, *p);
             did_push = true;
-            MESH_DEBUG_PRINTLN("loop - pushed to client %02X: %s", (uint32_t) client->id.pub_key[0], posts[idx].text);
+            MESH_DEBUG_PRINTLN("loop - pushed to client %02X: %s", (uint32_t) client->id.pub_key[0], p->text);
             break;
           }
           idx = (idx + 1) % MAX_UNSYNCED_POSTS;   // wrap to start of cyclic queue
