@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include "target.h"
 
-HeltecV3Board board;
+TBeamBoard board;
 
 #if defined(P_LORA_SCLK)
   static SPIClass spi;
-  RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, spi);
+  RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1, spi);
 #else
-  RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY);
+  RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_0, P_LORA_RESET, P_LORA_DIO_1);
 #endif
 
 WRAPPER_CLASS radio_driver(radio, board);
@@ -27,15 +27,31 @@ AutoDiscoverRTCClock rtc_clock(fallback_clock);
   DISPLAY_CLASS display;
 #endif
 
+#ifndef LORA_CR
+  #define LORA_CR      5
+#endif
+
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-  
+
 #if defined(P_LORA_SCLK)
-  return radio.std_init(&spi);
-#else
-  return radio.std_init();
+  spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
 #endif
+  int status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8);
+  if (status != RADIOLIB_ERR_NONE) {
+    Serial.print("ERROR: radio init failed: ");
+    Serial.println(status);
+    return false;  // fail
+  }
+
+#ifdef SX127X_CURRENT_LIMIT
+  radio.setCurrentLimit(SX127X_CURRENT_LIMIT);
+#endif
+
+  radio.setCRC(1);
+
+  return true;  // success
 }
 
 uint32_t radio_get_rng_seed() {
