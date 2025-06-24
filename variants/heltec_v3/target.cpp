@@ -32,7 +32,6 @@ bool radio_init() {
   rtc_clock.begin(Wire);
   
 #if defined(P_LORA_SCLK)
-  spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
   return radio.std_init(&spi);
 #else
   return radio.std_init();
