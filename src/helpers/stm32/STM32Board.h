@@ -8,7 +8,7 @@ protected:
   uint8_t startup_reason;
 
 public:
-  void begin() {
+  virtual void begin() {
     startup_reason = BD_STARTUP_NORMAL;
   }
 
@@ -24,6 +24,15 @@ public:
 
   void reboot() override {
   }
+
+#if defined(P_LORA_TX_LED)
+  void onBeforeTransmit() override {
+    digitalWrite(P_LORA_TX_LED, LOW);   // turn TX LED on
+  }
+  void onAfterTransmit() override {
+    digitalWrite(P_LORA_TX_LED, HIGH);   // turn TX LED off
+  }
+#endif
 
   bool startOTAUpdate(const char* id, char reply[]) override { return false; };
 };
