@@ -1,3 +1,5 @@
+#if defined(TBEAM_SUPREME_SX1262) || defined(TBEAM_SX1262) || defined(TBEAM_SX1276)
+
 #include <Arduino.h>
 #include "TBeamBoard.h"
 //#include <RadioLib.h>
@@ -344,3 +346,5 @@ bool TBeamBoard::power_init()
   
 // }
 #pragma endregion
+
+#endif
