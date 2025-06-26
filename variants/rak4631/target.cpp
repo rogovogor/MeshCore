@@ -31,6 +31,7 @@ float compTemperature = 0;
 float rawHumidity = 0;
 float compHumidity = 0;
 float readIAQ = 0;
+float readStaticIAQ = 0;
 float readCO2 = 0;
 #endif
 
@@ -171,20 +172,20 @@ void checkBMEStatus(Bsec2 bsec)
 {
   if (bsec.status < BSEC_OK)
   {
-    MESH_DEBUG_PRINTLN("BSEC error code : %f", String(bsec.status));
+    MESH_DEBUG_PRINTLN("BSEC error code : %f", float(bsec.status));
   }
   else if (bsec.status > BSEC_OK)
   {
-    MESH_DEBUG_PRINTLN("BSEC warning code : %f", String(bsec.status));
+    MESH_DEBUG_PRINTLN("BSEC warning code : %f", float(bsec.status));
   }
 
   if (bsec.sensor.status < BME68X_OK)
   {
-    MESH_DEBUG_PRINTLN("BME68X error code : %f", String(bsec.sensor.status));
+    MESH_DEBUG_PRINTLN("BME68X error code : %f", bsec.sensor.status);
   }
   else if (bsec.sensor.status > BME68X_OK)
   {
-    MESH_DEBUG_PRINTLN("BME68X warning code : %f", String(bsec.sensor.status));
+    MESH_DEBUG_PRINTLN("BME68X warning code : %f", bsec.sensor.status);
   }
 }
 void newDataCallback(const bme68xData data, const bsecOutputs outputs, Bsec2 bsec)
@@ -195,61 +196,62 @@ void newDataCallback(const bme68xData data, const bsecOutputs outputs, Bsec2 bse
       return;
     }
 
-    MESH_DEBUG_PRINTLN("BSEC outputs:\n\tTime stamp = %f", String((int) (outputs.output[0].time_stamp / INT64_C(1000000))));
+    MESH_DEBUG_PRINTLN("BSEC outputs:\n\tTime stamp = %f", (int) (outputs.output[0].time_stamp / INT64_C(1000000)));
     for (uint8_t i = 0; i < outputs.nOutputs; i++)
     {
         const bsecData output  = outputs.output[i];
         switch (output.sensor_id)
         {
           case BSEC_OUTPUT_IAQ:
-              MESH_DEBUG_PRINTLN("\tIAQ = %f", String(output.signal));
-              MESH_DEBUG_PRINTLN("\tIAQ accuracy = %f", String((int) output.accuracy));
+              readIAQ = output.signal;
+              MESH_DEBUG_PRINTLN("\tIAQ = %f", output.signal);
+              MESH_DEBUG_PRINTLN("\tIAQ accuracy = %f", output.accuracy);
               break;
           case BSEC_OUTPUT_RAW_TEMPERATURE:
               rawTemperature = output.signal;
-              MESH_DEBUG_PRINTLN("\tTemperature = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tTemperature = %f", output.signal);
               break;
           case BSEC_OUTPUT_RAW_PRESSURE:
               rawPressure = output.signal;
-              MESH_DEBUG_PRINTLN("\tPressure = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tPressure = %f", output.signal);
               break;
           case BSEC_OUTPUT_RAW_HUMIDITY:
               rawHumidity = output.signal;
-              MESH_DEBUG_PRINTLN("\tHumidity = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tHumidity = %f", output.signal);
               break;
           case BSEC_OUTPUT_RAW_GAS:
-              MESH_DEBUG_PRINTLN("\tGas resistance = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tGas resistance = %f", output.signal);
               break;
           case BSEC_OUTPUT_STABILIZATION_STATUS:
-              MESH_DEBUG_PRINTLN("\tStabilization status = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tStabilization status = %f", output.signal);
               break;
           case BSEC_OUTPUT_RUN_IN_STATUS:
-              MESH_DEBUG_PRINTLN("\tRun in status = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tRun in status = %f", output.signal);
               break;
           case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE:
               compTemperature = output.signal;
-              MESH_DEBUG_PRINTLN("\tCompensated temperature = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tCompensated temperature = %f", output.signal);
               break;
           case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY:
               compHumidity = output.signal;
-              MESH_DEBUG_PRINTLN("\tCompensated humidity = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tCompensated humidity = %f", output.signal);
               break;
           case BSEC_OUTPUT_STATIC_IAQ:
-              readIAQ = output.signal;
-              MESH_DEBUG_PRINTLN("\tStatic IAQ = %f", String(output.signal));
+              readStaticIAQ = output.signal;
+              MESH_DEBUG_PRINTLN("\tStatic IAQ = %f", output.signal);
               break;
           case BSEC_OUTPUT_CO2_EQUIVALENT:
               readCO2 = output.signal;
-              MESH_DEBUG_PRINTLN("\tCO2 Equivalent = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tCO2 Equivalent = %f", output.signal);
               break;
           case BSEC_OUTPUT_BREATH_VOC_EQUIVALENT:
-              MESH_DEBUG_PRINTLN("\tbVOC equivalent = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tbVOC equivalent = %f", output.signal);
               break;
           case BSEC_OUTPUT_GAS_PERCENTAGE:
-              MESH_DEBUG_PRINTLN("\tGas percentage = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tGas percentage = %f", output.signal);
               break;
           case BSEC_OUTPUT_COMPENSATED_GAS:
-              MESH_DEBUG_PRINTLN("\tCompensated gas = %f", String(output.signal));
+              MESH_DEBUG_PRINTLN("\tCompensated gas = %f", output.signal);
               break;
           default:
               break;
@@ -290,7 +292,7 @@ bool RAK4631SensorManager::begin() {
 
   #if ENV_INCLUDE_BME680
 
-    bsecSensor sensorList[4] = {
+    bsecSensor sensorList[5] = {
       BSEC_OUTPUT_IAQ,
     //  BSEC_OUTPUT_RAW_TEMPERATURE,
       BSEC_OUTPUT_RAW_PRESSURE,
@@ -300,7 +302,7 @@ bool RAK4631SensorManager::begin() {
     //  BSEC_OUTPUT_RUN_IN_STATUS,
       BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE,
       BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY,
-    //  BSEC_OUTPUT_STATIC_IAQ,
+      BSEC_OUTPUT_STATIC_IAQ,
     //  BSEC_OUTPUT_CO2_EQUIVALENT,
     //  BSEC_OUTPUT_BREATH_VOC_EQUIVALENT,
     //  BSEC_OUTPUT_GAS_PERCENTAGE,
@@ -351,7 +353,8 @@ bool RAK4631SensorManager::querySensors(uint8_t requester_permissions, CayenneLP
       telemetry.addTemperature(TELEM_CHANNEL_SELF, compTemperature);
       telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, compHumidity);
       telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, rawPressure);
-      telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF+1, readIAQ);
+      telemetry.addTemperature(TELEM_CHANNEL_SELF+1, readIAQ);
+      telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF+1, readStaticIAQ);
     }
     #endif
   }
