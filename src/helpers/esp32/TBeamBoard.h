@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(TBEAM_SUPREME_SX1262) || defined(TBEAM_SX1262) || defined(TBEAM_SX1276)
+
 #include <Wire.h>
 #include <Arduino.h>
 #include "XPowersLib.h"
@@ -162,3 +164,5 @@ public:
     return "LilyGo T-Beam";
   }
 };
+
+#endif
