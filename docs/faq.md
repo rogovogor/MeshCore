@@ -65,10 +65,12 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [6.4. Q: I can't connect via Bluetooth, what is the Bluetooth pairing code?](#64-q-i-cant-connect-via-bluetooth-what-is-the-bluetooth-pairing-code)
   - [6.5. Q: My Heltec V3 keeps disconnecting from my smartphone.  It can't hold a solid Bluetooth connection.](#65-q-my-heltec-v3-keeps-disconnecting-from-my-smartphone--it-cant-hold-a-solid-bluetooth-connection)
   - [6.6. Q: My RAK/T1000-E/xiao\_nRF52 device seems to be corrupted, how do I wipe it clean to start fresh?](#66-q-my-rakt1000-exiao_nrf52-device-seems-to-be-corrupted-how-do-i-wipe-it-clean-to-start-fresh)
+  - [6.7. Q: WebFlasher fails on Linux with failed to open](#67-q-webflasher-fails-on-Linux-with-failed-to-open)
+
 - [7. Other Questions:](#7-other-questions)
-  - [7.2 Q: How to update ESP32-based devices over the air?](#72-q-how-to-update-esp32-based-devices-over-the-air)
   - [7.1 Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?](#71-q-how-to-update-nrf-rak-t114-seed-xiao-repeater-and-room-server-firmware-over-the-air-using-the-new-simpler-dfu-app)
-  - [7.2 Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?](#72-q-is-there-a-way-to-lower-the-chance-of-a-failed-ota-device-firmware-update-dfu)
+  - [7.2 Q: How to update ESP32-based devices over the air?](#72-q-how-to-update-esp32-based-devices-over-the-air)
+  - [7.3 Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?](#73-q-is-there-a-way-to-lower-the-chance-of-a-failed-ota-device-firmware-update-dfu)
 
 ## 1. Introduction
 
@@ -556,20 +558,16 @@ You can get the epoch time on <https://www.epochconverter.com/> and use it to se
 Separately, starting in firmware version 1.7.0, there is a CLI Rescue mode.  If your device has a user button (e.g. some RAK, T114), you can activate the rescue mode by hold down the user button of the device within 8 seconds of boot.  Then you can use the 'Console' on flasher.meshcore.co.uk 
 
 
+### 6.7. Q: WebFlasher fails on Linux with failed to open
+
+**A:** If the usb port doesn't have the right ownership for this task, the process fails with the following error:
+`NetworkError: Failed to execute 'open' on 'SerialPort': Failed to open serial port.`
+
+Allow the browser user on it:
+`# setfacl -m u:YOUR_USER_HERE:rw /dev/ttyUSB0`
+
 ---
 ## 7. Other Questions:
-
-### 7.2 Q: How to update ESP32-based devices over the air?
-
-**A:** For ESP32-based devices (e.g. Heltec V3):
-1. On flasher.meshcore.co.uk, download the **non-merged** version of the firmware for your ESP32 device (e.g. `Heltec_v3_repeater-v1.6.2-4449fd3.bin`, no `"merged"` in the file name)
-2. From the MeshCore app, login remotely to the repeater you want to update with admin priviledge
-4. Go to the Command Line tab, type `start ota` and hit enter.
-5. you should see `OK` to confirm the repeater device is now in OTA mode
-6. The command `start ota` on an ESP32-based device starts a wifi hotspot named `MeshCore OTA`
-7. From your phone or computer connect to the 'MeshCore OTA' hotspot 
-8. From a browser, go to http://192.168.4.1/update and upload the non-merged bin from the flasher
-
 
 ### 7.1 Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?
 
@@ -589,7 +587,20 @@ Separately, starting in firmware version 1.7.0, there is a CLI Rescue mode.  If 
 13. If it fails, try turning off and on Bluetooth on your phone.  If that doesn't work, try rebooting your phone.  
 14. Wait for the update to complete.  It can take a few minutes.
 
-### 7.2 Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?
+
+### 7.2 Q: How to update ESP32-based devices over the air?
+
+**A:** For ESP32-based devices (e.g. Heltec V3):
+1. On flasher.meshcore.co.uk, download the **non-merged** version of the firmware for your ESP32 device (e.g. `Heltec_v3_repeater-v1.6.2-4449fd3.bin`, no `"merged"` in the file name)
+2. From the MeshCore app, login remotely to the repeater you want to update with admin priviledge
+4. Go to the Command Line tab, type `start ota` and hit enter.
+5. you should see `OK` to confirm the repeater device is now in OTA mode
+6. The command `start ota` on an ESP32-based device starts a wifi hotspot named `MeshCore OTA`
+7. From your phone or computer connect to the 'MeshCore OTA' hotspot 
+8. From a browser, go to http://192.168.4.1/update and upload the non-merged bin from the flasher
+
+
+### 7.3 Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?
 
 **A:** Yes, developer `che aporeps` has an enhanced OTA DFU bootloader for nRF52 based devices.  With this bootloader, if it detects that the application firmware is invalid, it falls back to OTA DFU mode so you can attempt to flash again to recover.  This bootloader has other changes to make the OTA DFU process more fault tolerant. 
 
@@ -600,6 +611,8 @@ Currently, the following boards are supported:
 - Seeed Studio XIAO nRF52840 BLE
 - Seeed Studio XIAO nRF52840 BLE SENSE
 - RAK 4631
+
+
 
 
 ---
