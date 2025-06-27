@@ -7,7 +7,9 @@ static Adafruit_AHTX0 AHTX0;
 #endif
 
 #if ENV_INCLUDE_BME280
+#ifndef TELEM_BME280_ADDRESS
 #define TELEM_BME280_ADDRESS    0x76      // BME280 environmental sensor I2C address
+#endif
 #define TELEM_BME280_SEALEVELPRESSURE_HPA (1013.25)    // Athmospheric pressure at sea level
 #include <Adafruit_BME280.h>
 static Adafruit_BME280 BME280;
@@ -84,7 +86,7 @@ bool EnvironmentSensorManager::begin() {
 bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
   next_available_channel = TELEM_CHANNEL_SELF + 1;
 
-  if (requester_permissions & TELEM_PERM_LOCATION) {
+  if (requester_permissions & TELEM_PERM_LOCATION && gps_active) {
     telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, 0.0f); // allow lat/lon via telemetry even if no GPS is detected
   }
 
@@ -180,13 +182,25 @@ bool EnvironmentSensorManager::setSettingValue(const char* name, const char* val
 
 #if ENV_INCLUDE_GPS
 void EnvironmentSensorManager::initBasicGPS() {
+
   Serial1.setPins(PIN_GPS_TX, PIN_GPS_RX);
+  
+  #ifdef GPS_BAUD_RATE
+  Serial1.begin(GPS_BAUD_RATE);
+  #else
   Serial1.begin(9600);
+  #endif
 
   // Try to detect if GPS is physically connected to determine if we should expose the setting
-  pinMode(PIN_GPS_EN, OUTPUT);
-  digitalWrite(PIN_GPS_EN, HIGH);  // Power on GPS
+  #ifdef PIN_GPS_EN
+    pinMode(PIN_GPS_EN, OUTPUT);
+    digitalWrite(PIN_GPS_EN, HIGH);   // Power on GPS
+  #endif
 
+  #ifndef PIN_GPS_EN
+    MESH_DEBUG_PRINTLN("No GPS wake/reset pin found for this board. Continuing on...");
+  #endif
+  
   // Give GPS a moment to power up and send data
   delay(1000);
 
@@ -195,23 +209,39 @@ void EnvironmentSensorManager::initBasicGPS() {
 
   if (gps_detected) {
     MESH_DEBUG_PRINTLN("GPS detected");
-    digitalWrite(PIN_GPS_EN, LOW);  // Power off GPS until the setting is changed
+    #ifdef PERSISTANT_GPS
+      gps_active = true;
+      return;
+    #endif
   } else {
     MESH_DEBUG_PRINTLN("No GPS detected");
-    digitalWrite(PIN_GPS_EN, LOW);
   }
+  #ifdef PIN_GPS_EN
+    digitalWrite(PIN_GPS_EN, LOW);  // Power off GPS until the setting is changed
+  #endif
+  gps_active = false; //Set GPS visibility off until setting is changed
 }
 
 void EnvironmentSensorManager::start_gps() {
   gps_active = true;
-  pinMode(PIN_GPS_EN, OUTPUT);
-  digitalWrite(PIN_GPS_EN, HIGH);
+  #ifdef PIN_GPS_EN
+    pinMode(PIN_GPS_EN, OUTPUT);
+    digitalWrite(PIN_GPS_EN, HIGH);  
+    return;
+  #endif
+
+  MESH_DEBUG_PRINTLN("Start GPS is N/A on this board. Actual GPS state unchanged");
 }
 
 void EnvironmentSensorManager::stop_gps() {
   gps_active = false;
-  pinMode(PIN_GPS_EN, OUTPUT);
-  digitalWrite(PIN_GPS_EN, LOW);
+  #ifdef PIN_GPS_EN
+    pinMode(PIN_GPS_EN, OUTPUT);
+    digitalWrite(PIN_GPS_EN, LOW);
+    return;
+  #endif
+
+  MESH_DEBUG_PRINTLN("Stop GPS is N/A on this board. Actual GPS state unchanged");  
 }
 
 void EnvironmentSensorManager::loop() {

@@ -1,10 +1,10 @@
 #pragma once
 
 #define RADIOLIB_STATIC_ONLY 1
-#include <RadioLib.h>
+//#include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
 #include <helpers/esp32/TBeamBoard.h>
-#include <helpers/CustomSX1262Wrapper.h>
+#include <helpers/CustomSX1276Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/sensors/EnvironmentSensorManager.h>
 #ifdef DISPLAY_CLASS
