@@ -4,7 +4,7 @@
 TBeamBoard board;
 
 // Using PMU AXP2102
-#define PMU_WIRE_PORT               Wire
+#define PMU_WIRE_PORT Wire
 
 bool pmuIntFlag = false;
 static void setPMUIntFlag(){
@@ -32,47 +32,38 @@ SensorManager sensors;
   #define LORA_CR      5
 #endif
 
-bool TBeamBoard::power_init()
-{
-  if (!PMU)
-  {
+bool TBeamBoard::power_init() {
+  if (!PMU) {
     PMU = new XPowersAXP2101(PMU_WIRE_PORT);
-    if (!PMU->init())
-    {
+    if (!PMU->init()) {
       // Serial.println("Warning: Failed to find AXP2101 power management");
       delete PMU;
       PMU = NULL;
     }
-    else
-    {
+    else {
       // Serial.println("AXP2101 PMU init succeeded, using AXP2101 PMU");
     }
   }
-  if (!PMU)
-  {
+  if (!PMU) {
     PMU = new XPowersAXP192(PMU_WIRE_PORT);
-    if (!PMU->init())
-    {
+    if (!PMU->init()) {
       // Serial.println("Warning: Failed to find AXP192 power management");
       delete PMU;
       PMU = NULL;
     }
-    else
-    {
+    else {
       // Serial.println("AXP192 PMU init succeeded, using AXP192 PMU");
     }
   }
 
-  if (!PMU)
-  {
+  if (!PMU) {
     MESH_DEBUG_PRINTLN("PMU init failed.");
     return false;
   }
 
   // Serial.printf("PMU  ID:0x%x\n", PMU->getChipID());
   // printPMU();
-  if (PMU->getChipModel() == XPOWERS_AXP192)
-  {
+  if (PMU->getChipModel() == XPOWERS_AXP192) {
     // lora radio power channel
     PMU->setPowerChannelVoltage(XPOWERS_LDO2, 3300);
     PMU->enablePowerOutput(XPOWERS_LDO2);
@@ -95,8 +86,7 @@ bool TBeamBoard::power_init()
     PMU->disableIRQ(XPOWERS_AXP192_ALL_IRQ);
     PMU->setChargerConstantCurr(XPOWERS_AXP192_CHG_CUR_550MA);
   }
-  else if (PMU->getChipModel() == XPOWERS_AXP2101)
-  {
+  else if (PMU->getChipModel() == XPOWERS_AXP2101) {
     // gnss module power channel
     PMU->setPowerChannelVoltage(XPOWERS_ALDO4, 3300);
     PMU->enablePowerOutput(XPOWERS_ALDO4);
@@ -144,21 +134,10 @@ bool radio_init() {
 
 #if defined(P_LORA_SCLK)
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
+  return radio.std_init(&spi);
+#else
+  return radio.std_init();
 #endif
-  int status = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 8);
-  if (status != RADIOLIB_ERR_NONE) {
-    Serial.print("ERROR: radio init failed: ");
-    Serial.println(status);
-    return false;  // fail
-  }
-
-#ifdef SX127X_CURRENT_LIMIT
-  radio.setCurrentLimit(SX127X_CURRENT_LIMIT);
-#endif
-
-  radio.setCRC(1);
-
-  return true;  // success
 }
 
 uint32_t radio_get_rng_seed() {
@@ -182,22 +161,21 @@ mesh::LocalIdentity radio_new_identity() {
 }
 
 #ifdef MESH_DEBUG
-void TBeamBoard::printPMU()
-{
-    Serial.print("isCharging:"); Serial.println(PMU->isCharging() ? "YES" : "NO");
-    Serial.print("isDischarge:"); Serial.println(PMU->isDischarge() ? "YES" : "NO");
-    Serial.print("isVbusIn:"); Serial.println(PMU->isVbusIn() ? "YES" : "NO");
-    Serial.print("getBattVoltage:"); Serial.print(PMU->getBattVoltage()); Serial.println("mV");
-    Serial.print("getVbusVoltage:"); Serial.print(PMU->getVbusVoltage()); Serial.println("mV");
-    Serial.print("getSystemVoltage:"); Serial.print(PMU->getSystemVoltage()); Serial.println("mV");
+void TBeamBoard::printPMU() {
+  Serial.print("isCharging:"); Serial.println(PMU->isCharging() ? "YES" : "NO");
+  Serial.print("isDischarge:"); Serial.println(PMU->isDischarge() ? "YES" : "NO");
+  Serial.print("isVbusIn:"); Serial.println(PMU->isVbusIn() ? "YES" : "NO");
+  Serial.print("getBattVoltage:"); Serial.print(PMU->getBattVoltage()); Serial.println("mV");
+  Serial.print("getVbusVoltage:"); Serial.print(PMU->getVbusVoltage()); Serial.println("mV");
+  Serial.print("getSystemVoltage:"); Serial.print(PMU->getSystemVoltage()); Serial.println("mV");
 
-    // The battery percentage may be inaccurate at first use, the PMU will automatically
-    // learn the battery curve and will automatically calibrate the battery percentage
-    // after a charge and discharge cycle
-    if (PMU->isBatteryConnect()) {
-        Serial.print("getBatteryPercent:"); Serial.print(PMU->getBatteryPercent()); Serial.println("%");
-    }
+  // The battery percentage may be inaccurate at first use, the PMU will automatically
+  // learn the battery curve and will automatically calibrate the battery percentage
+  // after a charge and discharge cycle
+  if (PMU->isBatteryConnect()) {
+    Serial.print("getBatteryPercent:"); Serial.print(PMU->getBatteryPercent()); Serial.println("%");
+  }
 
-    Serial.println();
+  Serial.println();
 }
 #endif
