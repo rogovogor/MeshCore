@@ -25,14 +25,14 @@ RAK4631SensorManager sensors;
 #endif
 #include <bsec2.h>
 static Bsec2 BME680;
-float rawPressure = 0;
-float rawTemperature = 0;
-float compTemperature = 0;
-float rawHumidity = 0;
-float compHumidity = 0;
-float readIAQ = 0;
-float readStaticIAQ = 0;
-float readCO2 = 0;
+static float rawPressure = 0;
+static float rawTemperature = 0;
+static float compTemperature = 0;
+static float rawHumidity = 0;
+static float compHumidity = 0;
+static float readIAQ = 0;
+static float readStaticIAQ = 0;
+static float readCO2 = 0;
 #endif
 
 #ifdef DISPLAY_CLASS
@@ -41,7 +41,7 @@ float readCO2 = 0;
 
 #ifdef MESH_DEBUG
 uint32_t deviceOnline = 0x00;
-void scanDevices(TwoWire *w)
+static void scanDevices(TwoWire *w)
 {
     uint8_t err, addr;
     int nDevices = 0;
@@ -168,8 +168,7 @@ bool RAK4631SensorManager::gpsIsAwake(uint32_t ioPin){
 #endif
 
 #if ENV_INCLUDE_BME680
-void checkBMEStatus(Bsec2 bsec)
-{
+static void checkBMEStatus(Bsec2 bsec) {
   if (bsec.status < BSEC_OK)
   {
     MESH_DEBUG_PRINTLN("BSEC error code : %f", float(bsec.status));
@@ -188,17 +187,15 @@ void checkBMEStatus(Bsec2 bsec)
     MESH_DEBUG_PRINTLN("BME68X warning code : %f", bsec.sensor.status);
   }
 }
-void newDataCallback(const bme68xData data, const bsecOutputs outputs, Bsec2 bsec)
-{
-    if (!outputs.nOutputs)
-    {
+
+static void newDataCallback(const bme68xData data, const bsecOutputs outputs, Bsec2 bsec) {
+    if (!outputs.nOutputs) {
       MESH_DEBUG_PRINTLN("No new data to report out");
       return;
     }
 
     MESH_DEBUG_PRINTLN("BSEC outputs:\n\tTime stamp = %f", (int) (outputs.output[0].time_stamp / INT64_C(1000000)));
-    for (uint8_t i = 0; i < outputs.nOutputs; i++)
-    {
+    for (uint8_t i = 0; i < outputs.nOutputs; i++) {
         const bsecData output  = outputs.output[i];
         switch (output.sensor_id)
         {

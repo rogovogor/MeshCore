@@ -11,9 +11,6 @@
   #include <helpers/sensors/LocationProvider.h>
   #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 #endif
-#if ENV_INCLUDE_BME680
-  #include "bsec2.h"
-#endif
 #ifdef DISPLAY_CLASS
   #include <helpers/ui/SSD1306Display.h>
 #endif
@@ -83,11 +80,6 @@ enum {
   OSC32768_ONLINE     = _BV(13),
   RAK12500_ONLINE     = _BV(14),
 };
-
-#if ENV_INCLUDE_BME680
-  void newDataCallback(const bme68xData data, const bsecOutputs outputs, Bsec2 bsec);
-  void checkBMEStatus(Bsec2 bsec);
-#endif
 
 bool radio_init();
 uint32_t radio_get_rng_seed();
