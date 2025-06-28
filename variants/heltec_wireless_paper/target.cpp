@@ -1,5 +1,6 @@
-#include <Arduino.h>
 #include "target.h"
+
+#include <Arduino.h>
 
 HeltecV3Board board;
 
@@ -14,7 +15,7 @@ AutoDiscoverRTCClock rtc_clock(fallback_clock);
 SensorManager sensors;
 
 #ifdef DISPLAY_CLASS
-  DISPLAY_CLASS display;
+DISPLAY_CLASS display;
 #endif
 
 bool radio_init() {
@@ -40,5 +41,5 @@ void radio_set_tx_power(uint8_t dbm) {
 
 mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
-  return mesh::LocalIdentity(&rng);  // create new random identity
+  return mesh::LocalIdentity(&rng); // create new random identity
 }
