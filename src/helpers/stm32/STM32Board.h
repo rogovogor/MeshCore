@@ -23,6 +23,13 @@ public:
   }
 
   void reboot() override {
+    NVIC_SystemReset(); 
+  }
+
+  void powerOff() override {
+    HAL_PWREx_DisableInternalWakeUpLine();
+    __disable_irq();
+    HAL_PWREx_EnterSHUTDOWNMode();
   }
 
 #if defined(P_LORA_TX_LED)
