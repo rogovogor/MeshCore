@@ -15,6 +15,16 @@ static Adafruit_AHTX0 AHTX0;
 static Adafruit_BME280 BME280;
 #endif
 
+#if ENV_INCLUDE_BMP280
+#ifndef TELEM_BMP280_ADDRESS
+#define TELEM_BMP280_ADDRESS    0x76      // BMP280 environmental sensor I2C address
+#endif
+#define TELEM_BMP280_SEALEVELPRESSURE_HPA (1013.25)    // Athmospheric pressure at sea level
+#include <Adafruit_BMP280.h>
+static Adafruit_BMP280 BMP280;
+#endif
+
+
 #if ENV_INCLUDE_INA3221
 #define TELEM_INA3221_ADDRESS   0x42      // INA3221 3 channel current sensor I2C address
 #define TELEM_INA3221_SHUNT_VALUE 0.100 // most variants will have a 0.1 ohm shunts
@@ -52,6 +62,17 @@ bool EnvironmentSensorManager::begin() {
   } else {
     BME280_initialized = false;
     MESH_DEBUG_PRINTLN("BME280 was not found at I2C address %02X", TELEM_BME280_ADDRESS);
+  }
+  #endif
+
+  #if ENV_INCLUDE_BMP280
+  if (BMP280.begin(TELEM_BMP280_ADDRESS)) {
+    MESH_DEBUG_PRINTLN("Found BMP280 at address: %02X", TELEM_BMP280_ADDRESS);
+    MESH_DEBUG_PRINTLN("BMP sensor ID: %02X", BMP280.sensorID());
+    BMP280_initialized = true;
+  } else {
+    BMP280_initialized = false;
+    MESH_DEBUG_PRINTLN("BMP280 was not found at I2C address %02X", TELEM_BMP280_ADDRESS);
   }
   #endif
 
@@ -97,7 +118,7 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
       sensors_event_t humidity, temp;
       AHTX0.getEvent(&humidity, &temp);
       telemetry.addTemperature(TELEM_CHANNEL_SELF, temp.temperature);
-      telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, humidity.relative_humidity);      
+      telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, humidity.relative_humidity);
     }
     #endif
 
@@ -106,6 +127,14 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
       telemetry.addTemperature(TELEM_CHANNEL_SELF, BME280.readTemperature());
       telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, BME280.readHumidity());
       telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BME280.readPressure());
+      telemetry.addAltitude(TELEM_CHANNEL_SELF, BME280.readAltitude(TELEM_BME280_SEALEVELPRESSURE_HPA));
+    }
+    #endif
+
+    #if ENV_INCLUDE_BMP280
+    if (BMP280_initialized) {
+      telemetry.addTemperature(TELEM_CHANNEL_SELF, BMP280.readTemperature());
+      telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BMP280.readPressure());
       telemetry.addAltitude(TELEM_CHANNEL_SELF, BME280.readAltitude(TELEM_BME280_SEALEVELPRESSURE_HPA));
     }
     #endif
@@ -152,7 +181,7 @@ int EnvironmentSensorManager::getNumSettings() const {
 const char* EnvironmentSensorManager::getSettingName(int i) const {
   #if ENV_INCLUDE_GPS
     return (gps_detected && i == 0) ? "gps" : NULL;
-  #else  
+  #else
     return NULL;
   #endif
 }
@@ -184,7 +213,7 @@ bool EnvironmentSensorManager::setSettingValue(const char* name, const char* val
 void EnvironmentSensorManager::initBasicGPS() {
 
   Serial1.setPins(PIN_GPS_TX, PIN_GPS_RX);
-  
+
   #ifdef GPS_BAUD_RATE
   Serial1.begin(GPS_BAUD_RATE);
   #else
@@ -200,7 +229,7 @@ void EnvironmentSensorManager::initBasicGPS() {
   #ifndef PIN_GPS_EN
     MESH_DEBUG_PRINTLN("No GPS wake/reset pin found for this board. Continuing on...");
   #endif
-  
+
   // Give GPS a moment to power up and send data
   delay(1000);
 
@@ -226,7 +255,7 @@ void EnvironmentSensorManager::start_gps() {
   gps_active = true;
   #ifdef PIN_GPS_EN
     pinMode(PIN_GPS_EN, OUTPUT);
-    digitalWrite(PIN_GPS_EN, HIGH);  
+    digitalWrite(PIN_GPS_EN, HIGH);
     return;
   #endif
 
@@ -241,7 +270,7 @@ void EnvironmentSensorManager::stop_gps() {
     return;
   #endif
 
-  MESH_DEBUG_PRINTLN("Stop GPS is N/A on this board. Actual GPS state unchanged");  
+  MESH_DEBUG_PRINTLN("Stop GPS is N/A on this board. Actual GPS state unchanged");
 }
 
 void EnvironmentSensorManager::loop() {
