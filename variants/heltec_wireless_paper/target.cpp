@@ -1,28 +1,26 @@
-#include <Arduino.h>
 #include "target.h"
 
-ESP32Board board;
+#include <Arduino.h>
+
+HeltecV3Board board;
 
 static SPIClass spi;
 RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, spi);
+
 WRAPPER_CLASS radio_driver(radio, board);
 
 ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
+
 SensorManager sensors;
 
 #ifdef DISPLAY_CLASS
-  DISPLAY_CLASS display;
-#endif
-
-#ifndef LORA_CR
-  #define LORA_CR      5
+DISPLAY_CLASS display;
 #endif
 
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-  
   return radio.std_init(&spi);
 }
 
@@ -43,5 +41,5 @@ void radio_set_tx_power(uint8_t dbm) {
 
 mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
-  return mesh::LocalIdentity(&rng);  // create new random identity
+  return mesh::LocalIdentity(&rng); // create new random identity
 }
