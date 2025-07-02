@@ -27,7 +27,7 @@ void SerialBLEInterface::startAdv() {
 
   // Secondary Scan Response packet (optional)
   // Since there is no room for 'Name' in Advertising packet
-  Bluefruit.ScanResponse.addName();
+  // Bluefruit.ScanResponse.addName();
 
   /* Start Advertising
    * - Enable auto advertising if disconnected
