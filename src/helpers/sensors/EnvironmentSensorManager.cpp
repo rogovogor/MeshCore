@@ -181,7 +181,6 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
     if (LPS22HB_initialized) {
       telemetry.addTemperature(TELEM_CHANNEL_SELF, BARO.readTemperature());
       telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BARO.readPressure());
-      telemetry.addAltitude(TELEM_CHANNEL_SELF, BARO.readAltitude());
     }
     #endif
 
