@@ -1,7 +1,5 @@
 #include <Arduino.h>
-//#include "t1000e_sensors.h"
 #include "target.h"
-#include <helpers/sensors/MicroNMEALocationProvider.h>
 
 MinewsemiME25LS01Board board;
 
@@ -10,9 +8,14 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BU
 WRAPPER_CLASS radio_driver(radio, board);
 
 VolatileRTCClock rtc_clock;
-MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1, &rtc_clock);
-//T1000SensorManager sensors = T1000SensorManager(nmea);
-me25ls01SensorManager sensors = me25ls01SensorManager(nmea);
+extern EnvironmentSensorManager sensors;
+#if ENV_INCLUDE_GPS
+  #include <helpers/sensors/MicroNMEALocationProvider.h>
+  MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1, &rtc_clock);
+  EnvironmentSensorManager sensors = EnvironmentSensorManager(nmea);
+#else
+  EnvironmentSensorManager sensors;
+#endif
 
 #ifdef DISPLAY_CLASS
   NullDisplayDriver display;
@@ -92,118 +95,4 @@ void radio_set_tx_power(uint8_t dbm) {
 mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
   return mesh::LocalIdentity(&rng);  // create new random identity
-}
-
-void me25ls01SensorManager::start_gps() {
-  gps_active = false;
-  //_nmea->begin();
-  // this init sequence should be better 
-  // comes from seeed examples and deals with all gps pins
-  // pinMode(GPS_EN, OUTPUT);
-  // digitalWrite(GPS_EN, HIGH);
-  // delay(10);
-  // pinMode(GPS_VRTC_EN, OUTPUT);
-  // digitalWrite(GPS_VRTC_EN, HIGH);
-  // delay(10);
-       
-  // pinMode(GPS_RESET, OUTPUT);
-  // digitalWrite(GPS_RESET, HIGH);
-  // delay(10);
-  // digitalWrite(GPS_RESET, LOW);
-       
-  // pinMode(GPS_SLEEP_INT, OUTPUT);
-  // digitalWrite(GPS_SLEEP_INT, HIGH);
-  // pinMode(GPS_RTC_INT, OUTPUT);
-  // digitalWrite(GPS_RTC_INT, LOW);
-  // pinMode(GPS_RESETB, INPUT_PULLUP);
-}
-
-void me25ls01SensorManager::sleep_gps() {
-  gps_active = false;
-  // digitalWrite(GPS_VRTC_EN, HIGH);
-  // digitalWrite(GPS_EN, LOW);
-  // digitalWrite(GPS_RESET, HIGH);
-  // digitalWrite(GPS_SLEEP_INT, HIGH);
-  // digitalWrite(GPS_RTC_INT, LOW);
-  // pinMode(GPS_RESETB, OUTPUT);
-  // digitalWrite(GPS_RESETB, LOW);
-  //_nmea->stop();
-}
-
-void me25ls01SensorManager::stop_gps() {
-  gps_active = false;
-  // digitalWrite(GPS_VRTC_EN, LOW);
-  // digitalWrite(GPS_EN, LOW);
-  // digitalWrite(GPS_RESET, HIGH);
-  // digitalWrite(GPS_SLEEP_INT, HIGH);
-  // digitalWrite(GPS_RTC_INT, LOW);
-  // pinMode(GPS_RESETB, OUTPUT);
-  // digitalWrite(GPS_RESETB, LOW);
-  // //_nmea->stop();
-}
-
-
-bool me25ls01SensorManager::begin() {
-  // init GPS
-  Serial1.begin(115200);
-
-  // make sure gps pin are off
-  // digitalWrite(GPS_VRTC_EN, LOW);
-  // digitalWrite(GPS_RESET, LOW);
-  // digitalWrite(GPS_SLEEP_INT, LOW);
-  // digitalWrite(GPS_RTC_INT, LOW);
-  // pinMode(GPS_RESETB, OUTPUT);
-  // digitalWrite(GPS_RESETB, LOW);
-
-  return true;
-}
-
-bool me25ls01SensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
-  if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
-    //telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
-  }
-  if (requester_permissions & TELEM_PERM_ENVIRONMENT) {
-    //telemetry.addLuminosity(TELEM_CHANNEL_SELF, t1000e_get_light());
-    //telemetry.addTemperature(TELEM_CHANNEL_SELF, t1000e_get_temperature());
-  }
-  return true;
-}
-
-void me25ls01SensorManager::loop() {
-  static long next_gps_update = 0;
-
-  //_nmea->loop();
-
-  // if (millis() > next_gps_update) {
-  //   if (_nmea->isValid()) {
-  //     node_lat = ((double)_nmea->getLatitude())/1000000.;
-  //     node_lon = ((double)_nmea->getLongitude())/1000000.;
-  //     node_altitude = ((double)_nmea->getAltitude()) / 1000.0;
-  //     //Serial.printf("lat %f lon %f\r\n", _lat, _lon);
-  //   }
-  //   next_gps_update = millis() + 1000;
-  //}
-}
-
-int me25ls01SensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
-
-const char* me25ls01SensorManager::getSettingName(int i) const {
-  return i == 0 ? "gps" : NULL;
-}
-const char* me25ls01SensorManager::getSettingValue(int i) const {
-  if (i == 0) {
-    return gps_active ? "1" : "0";
-  }
-  return NULL;
-}
-bool me25ls01SensorManager::setSettingValue(const char* name, const char* value) {
-  if (strcmp(name, "gps") == 0) {
-    // if (strcmp(value, "0") == 0) {
-    //   sleep_gps(); // sleep for faster fix !
-    // } else {
-    //   start_gps();
-    // }
-    return true;
-  }
-  return false;  // not supported
 }

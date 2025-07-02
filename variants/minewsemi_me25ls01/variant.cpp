@@ -1,9 +1,3 @@
-/*
- * variant.cpp
- * Copyright (C) 2023 Seeed K.K.
- * MIT License
- */
-
 #include "variant.h"
 #include "wiring_constants.h"
 #include "wiring_digital.h"

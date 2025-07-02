@@ -1,9 +1,3 @@
-/*
- * variant.h
- * Copyright (C) 2023 Seeed K.K.
- * MIT License
- */
-
 #pragma once
 
 #include "WVariant.h"
