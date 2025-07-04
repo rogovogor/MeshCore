@@ -8,11 +8,12 @@ void MinewsemiME25LS01Board::begin() {
   // for future use, sub-classes SHOULD call this from their begin()
   startup_reason = BD_STARTUP_NORMAL;
   btn_prev_state = HIGH;
+  
+  pinMode(PIN_VBAT_READ, INPUT);
 
   sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
 
 #ifdef BUTTON_PIN
-  // pinMode(BATTERY_PIN, INPUT);
   pinMode(BUTTON_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
 #endif
@@ -31,7 +32,6 @@ void MinewsemiME25LS01Board::begin() {
   delay(10);   // give sx1262 some time to power up
 }
 
-#if 0
 static BLEDfu bledfu;
 
 static void connect_callback(uint16_t conn_handle) {
@@ -47,7 +47,7 @@ static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
 }
 
 
-bool TrackerT1000eBoard::startOTAUpdate(const char* id, char reply[]) {
+bool MinewsemiME25LS01Board::startOTAUpdate(const char* id, char reply[]) {
   // Config the peripheral connection with maximum bandwidth
   // more SRAM required by SoftDevice
   // Note: All config***() function must be called before begin()
@@ -58,7 +58,7 @@ bool TrackerT1000eBoard::startOTAUpdate(const char* id, char reply[]) {
   // Set max power. Accepted values are: -40, -30, -20, -16, -12, -8, -4, 0, 4
   Bluefruit.setTxPower(4);
   // Set the BLE device name
-  Bluefruit.setName("T1000E_OTA");
+  Bluefruit.setName("Minewsemi_OTA");
 
   Bluefruit.Periph.setConnectCallback(connect_callback);
   Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
@@ -89,4 +89,3 @@ bool TrackerT1000eBoard::startOTAUpdate(const char* id, char reply[]) {
   strcpy(reply, "OK - started");
   return true;
 }
-#endif

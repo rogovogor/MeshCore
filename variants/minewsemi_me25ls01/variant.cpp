@@ -35,7 +35,7 @@ const uint32_t g_ADigitalPinMap[PINS_COUNT + 1] =
   28, // P0.28
   29, // P0.29, 
   30, // P0.30
-  31, // P0.31, 
+  31, // P0.31, BATTERY_PIN
   32, // P1.00
   33, // P1.01, LORA_DIO_1
   34, // P1.02
@@ -60,8 +60,8 @@ void initVariant()
   pinMode(BATTERY_PIN, INPUT);
   pinMode(PIN_BUTTON1, INPUT);
 
-  pinMode(PIN_3V3_EN, OUTPUT);
-  pinMode(PIN_3V3_ACC_EN, OUTPUT);
+  // pinMode(PIN_3V3_EN, OUTPUT);
+  // pinMode(PIN_3V3_ACC_EN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   pinMode(P_LORA_TX_LED, OUTPUT);
 

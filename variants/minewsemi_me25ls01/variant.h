@@ -2,25 +2,18 @@
 
 #include "WVariant.h"
 
-////////////////////////////////////////////////////////////////////////////////
 // Low frequency clock source
-
 #define USE_LFXO    // 32.768 kHz crystal oscillator
 #define VARIANT_MCK (64000000ul)
 // #define USE_LFRC    // 32.768 kHz RC oscillator
 
 // Power
-#define PIN_3V3_EN              (32 + 5)            // P1.6 Power to Sensors
-#define PIN_3V3_ACC_EN          -1
-
-#define BATTERY_PIN             (-1)             // P0.2/AIN0
+#define BATTERY_PIN             (31)
 #define BATTERY_IMMUTABLE
 #define ADC_MULTIPLIER          (2.0F)
 
 #define ADC_RESOLUTION          (14)
 #define BATTERY_SENSE_RES       (12)
-
-#define AREF_VOLTAGE            (3.0)
 
 // Number of pins
 #define PINS_COUNT              (48)

@@ -16,9 +16,9 @@
 #define LR11X0_DIO_AS_RF_SWITCH  true
 #define LR11X0_DIO3_TCXO_VOLTAGE   1.6
 
-// built-ins
-//#define  PIN_VBAT_READ    5
-//#define  ADC_MULTIPLIER   (3 * 1.73 * 1000)
+#define  PIN_VBAT_READ BATTERY_PIN
+#define  ADC_MULTIPLIER   (1.815f) // dependent on voltage divider resistors. TODO: more accurate battery tracking
+
 
 class MinewsemiME25LS01Board : public mesh::MainBoard {
 protected:
@@ -28,43 +28,23 @@ protected:
 public:
   void begin();
 
+#define BATTERY_SAMPLES 8
+
   uint16_t getBattMilliVolts() override {
-  #ifdef BATTERY_PIN
-   #ifdef PIN_3V3_EN
-    digitalWrite(PIN_3V3_EN, HIGH);
-   #endif
-    analogReference(AR_INTERNAL_3_0);
     analogReadResolution(12);
-    delay(10);
-    float volts = (analogRead(BATTERY_PIN) * ADC_MULTIPLIER * AREF_VOLTAGE) / 4096;
-   #ifdef PIN_3V3_EN
-    digitalWrite(PIN_3V3_EN, LOW);
-   #endif
 
-    analogReference(AR_DEFAULT);  // put back to default
-    analogReadResolution(10);
-
-    return volts * 1000;
-  #else
-    return 0;
-  #endif
+    uint32_t raw = 0;
+    for (int i = 0; i < BATTERY_SAMPLES; i++) {
+      raw += analogRead(PIN_VBAT_READ);
+    }
+    raw = raw / BATTERY_SAMPLES;
+    return (ADC_MULTIPLIER * raw);
   }
 
   uint8_t getStartupReason() const override { return startup_reason; }
 
   const char* getManufacturerName() const override {
-    return "m25ls01";
-  }
-
-  int buttonStateChanged() {
-  #ifdef BUTTON_PIN
-    uint8_t v = digitalRead(BUTTON_PIN);
-    if (v != btn_prev_state) {
-      btn_prev_state = v;
-      return (v == LOW) ? 1 : -1;
-    }
-  #endif
-    return 0;
+    return "Minewsemi";
   }
 
   void powerOff() override {
@@ -81,10 +61,6 @@ public:
         digitalWrite(BUZZER_EN, LOW);
     #endif
     
-    #ifdef PIN_3V3_EN
-        digitalWrite(PIN_3V3_EN, LOW);
-    #endif
-
     #ifdef LED_PIN
     digitalWrite(LED_PIN, LOW);
     #endif
@@ -108,5 +84,5 @@ public:
     NVIC_SystemReset();
   }
 
-//  bool startOTAUpdate(const char* id, char reply[]) override;
+  bool startOTAUpdate(const char* id, char reply[]) override;
 };
