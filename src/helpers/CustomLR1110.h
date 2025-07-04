@@ -10,33 +10,57 @@ class CustomLR1110 : public LR1110 {
     CustomLR1110(Module *mod) : LR1110(mod) { }
 
     RadioLibTime_t getTimeOnAir(size_t len) override {
-      uint32_t symbolLength_us = ((uint32_t)(1000 * 10) << this->spreadingFactor) / (this->bandwidthKhz * 10) ;
-      uint8_t sfCoeff1_x4 = 17; // (4.25 * 4)
-      uint8_t sfCoeff2 = 8;
-      if(this->spreadingFactor == 5 || this->spreadingFactor == 6) {
-        sfCoeff1_x4 = 25; // 6.25 * 4
-        sfCoeff2 = 0;
-      }
-      uint8_t sfDivisor = 4*this->spreadingFactor;
-      if(symbolLength_us >= 16000) {
-        sfDivisor = 4*(this->spreadingFactor - 2);
-      }
-      const int8_t bitsPerCrc = 16;
-      const int8_t N_symbol_header = this->headerType == RADIOLIB_SX126X_LORA_HEADER_EXPLICIT ? 20 : 0;
-
-      // numerator of equation in section 6.1.4 of SX1268 datasheet v1.1 (might not actually be bitcount, but it has len * 8)
-      int16_t bitCount = (int16_t) 8 * len + this->crcTypeLoRa * bitsPerCrc - 4 * this->spreadingFactor  + sfCoeff2 + N_symbol_header;
-      if(bitCount < 0) {
-        bitCount = 0;
-      }
-      // add (sfDivisor) - 1 to the numerator to give integer CEIL(...)
-      uint16_t nPreCodedSymbols = (bitCount + (sfDivisor - 1)) / (sfDivisor);
-
-      // preamble can be 65k, therefore nSymbol_x4 needs to be 32 bit
-      uint32_t nSymbol_x4 = (this->preambleLengthLoRa + 8) * 4 + sfCoeff1_x4 + nPreCodedSymbols * (this->codingRate + 4) * 4;
-
-      return((symbolLength_us * nSymbol_x4) / 4);
+  // calculate number of symbols
+  float N_symbol = 0;
+  if(this->codingRate <= RADIOLIB_LR11X0_LORA_CR_4_8_SHORT) {
+    // legacy coding rate - nice and simple
+    // get SF coefficients
+    float coeff1 = 0;
+    int16_t coeff2 = 0;
+    int16_t coeff3 = 0;
+    if(this->spreadingFactor < 7) {
+      // SF5, SF6
+      coeff1 = 6.25;
+      coeff2 = 4*this->spreadingFactor;
+      coeff3 = 4*this->spreadingFactor;
+    } else if(this->spreadingFactor < 11) {
+      // SF7. SF8, SF9, SF10
+      coeff1 = 4.25;
+      coeff2 = 4*this->spreadingFactor + 8;
+      coeff3 = 4*this->spreadingFactor;
+    } else {
+      // SF11, SF12
+      coeff1 = 4.25;
+      coeff2 = 4*this->spreadingFactor + 8;
+      coeff3 = 4*(this->spreadingFactor - 2);
     }
+
+    // get CRC length
+    int16_t N_bitCRC = 16;
+    if(this->crcTypeLoRa == RADIOLIB_LR11X0_LORA_CRC_DISABLED) {
+      N_bitCRC = 0;
+    }
+
+    // get header length
+    int16_t N_symbolHeader = 20;
+    if(this->headerType == RADIOLIB_LR11X0_LORA_HEADER_IMPLICIT) {
+      N_symbolHeader = 0;
+    }
+
+    // calculate number of LoRa preamble symbols - NO! Lora preamble is already in symbols
+    // uint32_t N_symbolPreamble = (this->preambleLengthLoRa & 0x0F) * (uint32_t(1) << ((this->preambleLengthLoRa & 0xF0) >> 4));
+
+    // calculate the number of symbols - nope
+    // N_symbol = (float)N_symbolPreamble + coeff1 + 8.0f + ceilf((float)RADIOLIB_MAX((int16_t)(8 * len + N_bitCRC - coeff2 + N_symbolHeader), (int16_t)0) / (float)coeff3) * (float)(this->codingRate + 4);
+    // calculate the number of symbols - using only preamblelora because it's already in symbols
+    N_symbol = (float)preambleLengthLoRa + coeff1 + 8.0f + ceilf((float)RADIOLIB_MAX((int16_t)(8 * len + N_bitCRC - coeff2 + N_symbolHeader), (int16_t)0) / (float)coeff3) * (float)(this->codingRate + 4);
+  } else {
+    // long interleaving - not needed for this modem
+  }
+
+  // get time-on-air in us
+  return(((uint32_t(1) << this->spreadingFactor) / this->bandwidthKhz) * N_symbol * 1000.0f);
+}
 
     bool isReceiving() {
       uint16_t irq = getIrqStatus();
