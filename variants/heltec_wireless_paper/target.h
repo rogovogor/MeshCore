@@ -3,22 +3,21 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
-#include <helpers/LilyGoTLoraBoard.h>
-#include <helpers/CustomSX1276Wrapper.h>
+#include <helpers/HeltecV3Board.h>
+#include <helpers/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
-#include <helpers/sensors/EnvironmentSensorManager.h>
 #ifdef DISPLAY_CLASS
-  #include <helpers/ui/SSD1306Display.h>
+#include <helpers/ui/E213Display.h>
 #endif
 
-extern LilyGoTLoraBoard board;
+extern HeltecV3Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
-extern EnvironmentSensorManager sensors;
+extern SensorManager sensors;
 
 #ifdef DISPLAY_CLASS
-  extern DISPLAY_CLASS display;
+extern DISPLAY_CLASS display;
 #endif
 
 bool radio_init();
