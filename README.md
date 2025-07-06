@@ -74,17 +74,7 @@ They can also be managed via LoRa in the mobile app by using the Remote Manageme
 
 ## 🛠 Hardware Compatibility
 
-MeshCore is designed for use with:
-* Heltec V3 LoRa Boards
-* RAK4631
-* XiaoS3 WIO (sx1262 combo)
-* XiaoC3 (plus external sx126x module)
-* LilyGo T3S3
-* Heltec T114
-* Station G2
-* Sensecap T1000e
-* Heltec V2
-* LilyGo TLora32 v1.6
+MeshCore is designed for devices listed in the [MeshCore Flasher](https://flasher.meshcore.co.uk)
 
 ## 📜 License
 
