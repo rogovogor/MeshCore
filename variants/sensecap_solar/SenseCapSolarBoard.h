@@ -13,10 +13,10 @@ public:
 
 #if defined(P_LORA_TX_LED)
   void onBeforeTransmit() override {
-    digitalWrite(P_LORA_TX_LED, LOW);   // turn TX LED on
+    digitalWrite(P_LORA_TX_LED, HIGH);   // turn TX LED on
   }
   void onAfterTransmit() override {
-    digitalWrite(P_LORA_TX_LED, HIGH);   // turn TX LED off
+    digitalWrite(P_LORA_TX_LED, LOW);   // turn TX LED off
   }
 #endif
 

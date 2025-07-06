@@ -30,7 +30,7 @@ void SenseCapSolarBoard::begin() {
 
 #ifdef P_LORA_TX_LED
   pinMode(P_LORA_TX_LED, OUTPUT);
-  digitalWrite(P_LORA_TX_LED, HIGH);
+  digitalWrite(P_LORA_TX_LED, LOW);
 #endif
 
   delay(10);   // give sx1262 some time to power up
