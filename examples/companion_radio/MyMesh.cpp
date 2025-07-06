@@ -315,23 +315,20 @@ void MyMesh::queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packe
   i += tlen;
   addToOfflineQueue(out_frame, i);
 
-  // we only want to show text messages on display, not cli data
-  bool should_display = txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_SIGNED_PLAIN;
-
   if (_serial->isConnected()) {
     uint8_t frame[1];
     frame[0] = PUSH_CODE_MSG_WAITING; // send push 'tickle'
     _serial->writeFrame(frame, 1);
-  } else {
+  }
+
 #ifdef DISPLAY_CLASS
-    if(should_display){
+  // we only want to show text messages on display, not cli data
+  bool should_display = txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_SIGNED_PLAIN;
+  if (should_display) {
+    ui_task.newMsg(path_len, from.name, text, offline_queue_len);
+    if (!_serial->isConnected()) {
       ui_task.soundBuzzer(UIEventType::contactMessage);
     }
-#endif
-  }
-#ifdef DISPLAY_CLASS
-  if(should_display){
-    ui_task.newMsg(path_len, from.name, text, offline_queue_len);
   }
 #endif
 }
