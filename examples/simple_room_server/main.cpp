@@ -188,7 +188,6 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     newClient->id = id;
     newClient->out_path_len = -1;  // initially out_path is unknown
     newClient->last_timestamp = 0;
-    self_id.calcSharedSecret(newClient->secret, id);   // calc ECDH shared secret
     return newClient;
   }
 
@@ -432,8 +431,8 @@ protected:
     return true;
   }
 
-  void onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) override {
-    if (type == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
+  void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override {
+    if (packet->getPayloadType() == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
       uint32_t sender_timestamp, sender_sync_since;
       memcpy(&sender_timestamp, data, 4);
       memcpy(&sender_sync_since, &data[4], 4);  // sender's "sync messags SINCE x" timestamp
@@ -465,6 +464,7 @@ protected:
       client->sync_since = sender_sync_since;
       client->pending_ack = 0;
       client->push_failures = 0;
+      memcpy(client->secret, secret, PUB_KEY_SIZE);
 
       uint32_t now = getRTCClock()->getCurrentTime();
       client->last_activity = now;

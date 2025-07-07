@@ -46,6 +46,7 @@
 
 /* ------------------------------ Code -------------------------------- */
 
+#define REQ_TYPE_LOGIN               0x00
 #define REQ_TYPE_GET_STATUS          0x01
 #define REQ_TYPE_KEEP_ALIVE          0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA  0x03
@@ -139,12 +140,10 @@ void SensorMesh::saveContacts() {
   }
 }
 
-int SensorMesh::handleRequest(ContactInfo& sender, uint32_t sender_timestamp, uint8_t* payload, size_t payload_len) {
-  // uint32_t now = getRTCClock()->getCurrentTimeUnique();
-  // memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
+uint8_t SensorMesh::handleRequest(bool is_admin, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
-  switch (payload[0]) {
+  switch (req_type) {
     case REQ_TYPE_GET_TELEMETRY_DATA: {
       telemetry.reset();
       telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
@@ -253,63 +252,79 @@ int SensorMesh::getAGCResetInterval() const {
   return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
 }
 
-void SensorMesh::onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) {
-  if (type == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
+uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data) {
+  bool is_admin;
+  if (strcmp((char *) data, _prefs.password) == 0) {  // check for valid password
+    is_admin = true;
+  } else if (strcmp((char *) data, _prefs.guest_password) == 0) {  // check guest password
+    is_admin = false;
+  } else {
+  #if MESH_DEBUG
+    MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
+  #endif
+    return 0;
+  }
+
+  auto client = putContact(sender);  // add to contacts (if not already known)
+  if (sender_timestamp <= client->last_timestamp) {
+    MESH_DEBUG_PRINTLN("Possible login replay attack!");
+    return 0;  // FATAL: client table is full -OR- replay attack
+  }
+
+  MESH_DEBUG_PRINTLN("Login success!");
+  client->last_timestamp = sender_timestamp;
+  client->last_activity = getRTCClock()->getCurrentTime();
+  client->type = is_admin ? 1 : 0;
+  memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
+
+  if (is_admin) {
+    // only need to saveContacts() if this is an admin
+    dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
+  }
+
+  uint32_t now = getRTCClock()->getCurrentTimeUnique();
+  memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
+  reply_data[4] = RESP_SERVER_LOGIN_OK;
+  reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
+  reply_data[6] = client->type;
+  reply_data[7] = 0;  // FUTURE: reserved
+  getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
+
+  return 12;  // reply length
+}
+
+void SensorMesh::onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) {
+  if (packet->getPayloadType() == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
     uint32_t timestamp;
     memcpy(&timestamp, data, 4);
 
-    bool is_admin;
     data[len] = 0;  // ensure null terminator
-    if (strcmp((char *) &data[4], _prefs.password) == 0) {  // check for valid password
-      is_admin = true;
-    } else if (strcmp((char *) &data[4], _prefs.guest_password) == 0) {  // check guest password
-      is_admin = false;
+
+    uint8_t req_code;
+    uint8_t i = 4;
+    if (data[4] < 32) {   // non-print char, is a request code
+      req_code = data[i++];
     } else {
-    #if MESH_DEBUG
-      MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
-    #endif
-      return;
+      req_code = REQ_TYPE_LOGIN;
     }
 
-    auto client = putContact(sender);  // add to contacts (if not already known)
-    if (timestamp <= client->last_timestamp) {
-      MESH_DEBUG_PRINTLN("Possible login replay attack!");
-      return;  // FATAL: client table is full -OR- replay attack
+    uint8_t reply_len;
+    if (req_code == REQ_TYPE_LOGIN) {
+      reply_len = handleLoginReq(sender, secret, timestamp, &data[i]);
+    } else {
+      reply_len = handleRequest(false, timestamp, req_code, &data[i], len - i);
     }
 
-    MESH_DEBUG_PRINTLN("Login success!");
-    client->last_timestamp = timestamp;
-    client->last_activity = getRTCClock()->getCurrentTime();
-    client->type = is_admin ? 1 : 0;
-    self_id.calcSharedSecret(client->shared_secret, client->id);   // calc ECDH shared secret
-
-    if (is_admin) {
-      // only need to saveContacts() if this is an admin
-      dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
-    }
-
-    uint32_t now = getRTCClock()->getCurrentTimeUnique();
-    memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
-    reply_data[4] = RESP_SERVER_LOGIN_OK;
-    reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
-    reply_data[6] = client->type;
-    reply_data[7] = 0;  // FUTURE: reserved
-    getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
+    if (reply_len == 0) return;   // invalid request
 
     if (packet->isRouteFlood()) {
       // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
-      mesh::Packet* path = createPathReturn(sender, client->shared_secret, packet->path, packet->path_len,
-                                            PAYLOAD_TYPE_RESPONSE, reply_data, 12);
+      mesh::Packet* path = createPathReturn(sender, secret, packet->path, packet->path_len,
+                                            PAYLOAD_TYPE_RESPONSE, reply_data, reply_len);
       if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
     } else {
-      mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, sender, client->shared_secret, reply_data, 12);
-      if (reply) {
-        if (client->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-          sendDirect(reply, client->out_path, client->out_path_len, SERVER_RESPONSE_DELAY);
-        } else {
-          sendFlood(reply, SERVER_RESPONSE_DELAY);
-        }
-      }
+      mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, sender, secret, reply_data, reply_len);
+      if (reply) sendFlood(reply, SERVER_RESPONSE_DELAY);
     }
   }
 }
@@ -361,7 +376,7 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
     memcpy(&timestamp, data, 4);
 
     if (timestamp > from.last_timestamp) {  // prevent replay attacks
-      int reply_len = handleRequest(from, timestamp, &data[4], len - 4);
+      uint8_t reply_len = handleRequest(from.isAdmin(), timestamp, data[4], &data[5], len - 5);
       if (reply_len == 0) return;  // invalid command
 
       from.last_timestamp = timestamp;

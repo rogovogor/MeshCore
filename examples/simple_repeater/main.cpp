@@ -149,7 +149,6 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     oldest->id = id;
     oldest->out_path_len = -1;  // initially out_path is unknown
     oldest->last_timestamp = 0;
-    self_id.calcSharedSecret(oldest->secret, id);   // calc ECDH shared secret
     return oldest;
   }
 
@@ -341,8 +340,8 @@ protected:
     return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
   }
 
-  void onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) override {
-    if (type == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
+  void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override {
+    if (packet->getPayloadType() == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
       uint32_t timestamp;
       memcpy(&timestamp, data, 4);
 
@@ -369,6 +368,7 @@ protected:
       client->last_timestamp = timestamp;
       client->last_activity = getRTCClock()->getCurrentTime();
       client->is_admin = is_admin;
+      memcpy(client->secret, secret, PUB_KEY_SIZE);
 
       uint32_t now = getRTCClock()->getCurrentTimeUnique();
       memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
