@@ -8,18 +8,28 @@
 class MyMesh : public SensorMesh {
 public:
   MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
-     : SensorMesh(board, radio, ms, rng, rtc, tables) { }
+     : SensorMesh(board, radio, ms, rng, rtc, tables), 
+       battery_data(12*24, 5*60)    // 24 hours worth of battery data, every 5 minutes
+  {
+  }
 
 protected:
-  /* ========================== custom alert logic here ========================== */
+  /* ========================== custom logic here ========================== */
   Trigger low_batt;
+  TimeSeriesData  battery_data;
 
-  void checkForAlerts() override {
-    alertIfLow(low_batt, getVoltage(TELEM_CHANNEL_SELF), 3.4f, "Battery low!");
-    // alertIf ... 
-    // alertIf ... 
+  void onSensorDataRead() override {
+    float batt_voltage = getVoltage(TELEM_CHANNEL_SELF);
+
+    recordData(battery_data, batt_voltage);   // record battery
+    alertIfLow(low_batt, batt_voltage, 3.4f, "Battery low!");
   }
-  /* ============================================================================= */
+
+  int querySeriesData(uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg dest[], int max_num) override {
+    calcDataMinMaxAvg(battery_data, start_secs_ago, end_secs_ago, &dest[0], TELEM_CHANNEL_SELF, LPP_VOLTAGE);
+    return 1;
+  }
+  /* ======================================================================= */
 };
 
 StdRNG fast_rng;

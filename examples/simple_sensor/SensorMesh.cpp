@@ -50,6 +50,7 @@
 #define REQ_TYPE_GET_STATUS          0x01
 #define REQ_TYPE_KEEP_ALIVE          0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA  0x03
+#define REQ_TYPE_GET_AVG_MIN_MAX     0x04
 
 #define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
 
@@ -154,6 +155,22 @@ uint8_t SensorMesh::handleRequest(bool is_admin, uint32_t sender_timestamp, uint
       memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
       return 4 + tlen;  // reply_len
     }
+    case REQ_TYPE_GET_AVG_MIN_MAX: {
+      uint32_t start_secs_ago, end_secs_ago;
+      memcpy(&start_secs_ago, &payload[0], 4);
+      memcpy(&end_secs_ago, &payload[4], 4);
+      uint8_t res1 = payload[8];   // reserved for future  (extra query params)
+      uint8_t res2 = payload[8];
+
+      MinMaxAvg data[8];
+      int n;
+      if (res1 == 0 && res2 == 0) {
+        n = querySeriesData(start_secs_ago, end_secs_ago, data, 8);
+      } else {
+        n = 0;
+      }
+      return 0;  // TODO: encode data[0..n)
+    }
   }
   return 0;  // unknown command
 }
@@ -192,6 +209,34 @@ ContactInfo* SensorMesh::putContact(const mesh::Identity& id) {
   return c;
 }
 
+void SensorMesh::sendAlert(const char* text) {
+  int text_len = strlen(text);
+
+  // send text message to all admins
+  for (int i = 0; i < num_contacts; i++) {
+    auto c = &contacts[i];
+    if (!c->isAdmin()) continue;
+
+    uint8_t data[MAX_PACKET_PAYLOAD];
+    uint32_t now = getRTCClock()->getCurrentTimeUnique();  // need different timestamp per packet
+    memcpy(data, &now, 4);
+    data[4] = (TXT_TYPE_PLAIN << 2);  // attempt and flags
+    memcpy(&data[5], text, text_len);
+    // calc expected ACK reply
+    // uint32_t expected_ack;
+    // mesh::Utils::sha256((uint8_t *)&expected_ack, 4, data, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+
+    auto pkt = createDatagram(PAYLOAD_TYPE_TXT_MSG, c->id, c->shared_secret, data, 5 + text_len);
+    if (pkt) {
+      if (c->out_path_len >= 0) {  // we have an out_path, so send DIRECT
+        sendDirect(pkt, c->out_path, c->out_path_len);
+      } else {
+        sendFlood(pkt);
+      }
+    }
+  }
+}
+
 void SensorMesh::alertIfLow(Trigger& t, float value, float threshold, const char* text) {
   if (value < threshold) {
     if (!t.triggered) {
@@ -219,6 +264,50 @@ void SensorMesh::alertIfHigh(Trigger& t, float value, float threshold, const cha
       t.triggered = false;
       // TODO: apply debounce logic
     }
+  }
+}
+
+void SensorMesh::recordData(TimeSeriesData& data, float value) {
+  uint32_t now = getRTCClock()->getCurrentTime();
+  if (now >= data.last_timestamp + data.interval_secs) {
+    data.last_timestamp = now;
+
+    data.data[data.next] = value;   // append to cycle table
+    data.next = (data.next + 1) % data.num_slots;
+  }
+}
+
+void SensorMesh::calcDataMinMaxAvg(const TimeSeriesData& data, uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg* dest, uint8_t channel, uint8_t lpp_type) {
+  int i = data.next, n = data.num_slots;
+  uint32_t ago = data.interval_secs * data.num_slots;
+  int num_values = 0;
+  float total = 0.0f;
+
+  dest->_channel = channel;
+  dest->_lpp_type = lpp_type;
+
+  // start at earliest recording, through to most recent
+  while (n > 0) {
+    n--;
+    i = (i + 1) % data.num_slots;
+    if (ago >= end_secs_ago && ago < start_secs_ago) {
+      float v = data.data[i];
+      num_values++;
+      total += v;
+      if (num_values == 1) {
+        dest->_max = dest->_min = v;
+      } else {
+        if (v < dest->_min) dest->_min = v;
+        if (v > dest->_max) dest->_max = v;
+      }
+    }
+    ago -= data.interval_secs;
+  }
+  // calc average
+  if (num_values > 0) {
+    dest->_avg = total / num_values;
+  } else {
+    dest->_avg = NAN;
   }
 }
 
@@ -577,7 +666,7 @@ void SensorMesh::loop() {
     // query other sensors -- target specific
     sensors.querySensors(0xFF, telemetry);  // allow all telemetry permissions
 
-    checkForAlerts();
+    onSensorDataRead();
 
     // save telemetry to time-series datastore
     File file = openAppend(_fs, "/s_data");
