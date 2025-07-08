@@ -26,6 +26,7 @@
 #define PERM_IS_ADMIN          0x8000
 #define PERM_GET_TELEMETRY     0x0001
 #define PERM_GET_MIN_MAX_AVG   0x0002
+#define PERM_RECV_ALERTS       0x0100
 
 struct ContactInfo {
   mesh::Identity id;
@@ -83,9 +84,18 @@ public:
   const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
   void clearStats() override { }
 
+  float getTelemValue(uint8_t channel, uint8_t type);
+
 protected:
-  // telemetry data queries
-  float getVoltage(uint8_t channel) { return 0.0f; }  // TODO: extract from curr telemetry buffer
+  // current telemetry data queries
+  float getVoltage(uint8_t channel) { return getTelemValue(channel, LPP_VOLTAGE); }
+  float getCurrent(uint8_t channel) { return getTelemValue(channel, LPP_CURRENT); }
+  float getPower(uint8_t channel) { return getTelemValue(channel, LPP_POWER); }
+  float getTemperature(uint8_t channel) { return getTelemValue(channel, LPP_TEMPERATURE); }
+  float getRelativeHumidity(uint8_t channel) { return getTelemValue(channel, LPP_RELATIVE_HUMIDITY); }
+  float getBarometricPressure(uint8_t channel) { return getTelemValue(channel, LPP_BAROMETRIC_PRESSURE); }
+  float getAltitude(uint8_t channel) { return getTelemValue(channel, LPP_ALTITUDE); }
+  bool  getGPS(uint8_t channel, float& lat, float& lon, float& alt);
 
   // alerts
   struct Trigger {

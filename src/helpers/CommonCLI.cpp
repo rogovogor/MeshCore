@@ -120,10 +120,11 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
 
 #define MIN_LOCAL_ADVERT_INTERVAL   60
 
-void CommonCLI::checkAdvertInterval() {
+void CommonCLI::savePrefs() {
   if (_prefs->advert_interval * 2 < MIN_LOCAL_ADVERT_INTERVAL) {
     _prefs->advert_interval = 0;  // turn it off, now that device has been manually configured
   }
+  _callbacks->savePrefs();
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
@@ -166,7 +167,6 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
     } else if (memcmp(command, "password ", 9) == 0) {
       // change admin password
       StrHelper::strncpy(_prefs->password, &command[9], sizeof(_prefs->password));
-      checkAdvertInterval();
       savePrefs();
       sprintf(reply, "password now: %s", _prefs->password);   // echo back just to let admin know for sure!!
     } else if (memcmp(command, "clear stats", 11) == 0) {
@@ -265,7 +265,6 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         strcpy(reply, "OK");
       } else if (memcmp(config, "name ", 5) == 0) {
         StrHelper::strncpy(_prefs->node_name, &config[5], sizeof(_prefs->node_name));
-        checkAdvertInterval();
         savePrefs();
         strcpy(reply, "OK");
       } else if (memcmp(config, "repeat ", 7) == 0) {
@@ -292,12 +291,10 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         }
       } else if (memcmp(config, "lat ", 4) == 0) {
         _prefs->node_lat = atof(&config[4]);
-        checkAdvertInterval();
         savePrefs();
         strcpy(reply, "OK");
       } else if (memcmp(config, "lon ", 4) == 0) {
         _prefs->node_lon = atof(&config[4]);
-        checkAdvertInterval();
         savePrefs();
         strcpy(reply, "OK");
       } else if (memcmp(config, "rxdelay ", 8) == 0) {

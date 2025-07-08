@@ -221,10 +221,10 @@ void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) 
 void SensorMesh::sendAlert(const char* text) {
   int text_len = strlen(text);
 
-  // send text message to all admins
+  // send text message to all contacts with RECV_ALERT permission
   for (int i = 0; i < num_contacts; i++) {
     auto c = &contacts[i];
-    if (!c->isAdmin()) continue;
+    if ((c->permissions & PERM_RECV_ALERTS) == 0) continue;   // contact does NOT want alerts
 
     uint8_t data[MAX_PACKET_PAYLOAD];
     uint32_t now = getRTCClock()->getCurrentTimeUnique();  // need different timestamp per packet
@@ -308,7 +308,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   MESH_DEBUG_PRINTLN("Login success!");
   client->last_timestamp = sender_timestamp;
   client->last_activity = getRTCClock()->getCurrentTime();
-  client->permissions = PERM_IS_ADMIN;
+  client->permissions = PERM_IS_ADMIN | PERM_RECV_ALERTS;
   memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
@@ -542,7 +542,7 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   _prefs.cr = LORA_CR;
   _prefs.tx_power_dbm = LORA_TX_POWER;
   _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
-  _prefs.flood_advert_interval = 3;   // 3 hours
+  _prefs.flood_advert_interval = 0;   // disabled
   _prefs.disable_fwd = true;
   _prefs.flood_max = 64;
   _prefs.interference_threshold = 0;  // disabled
@@ -604,6 +604,102 @@ void SensorMesh::setTxPower(uint8_t power_dbm) {
   radio_set_tx_power(power_dbm);
 }
 
+static uint8_t getDataSize(uint8_t type) {
+    switch (type) {
+      case LPP_GPS:
+        return 9;
+      case LPP_POLYLINE:
+        return 8;  // TODO: this is MINIMIUM
+      case LPP_GYROMETER:
+      case LPP_ACCELEROMETER:
+        return 6;
+      case LPP_GENERIC_SENSOR:
+      case LPP_FREQUENCY:
+      case LPP_DISTANCE:
+      case LPP_ENERGY:
+      case LPP_UNIXTIME:
+        return 4;
+      case LPP_COLOUR:
+        return 3;
+      case LPP_ANALOG_INPUT:
+      case LPP_ANALOG_OUTPUT:
+      case LPP_LUMINOSITY:
+      case LPP_TEMPERATURE:
+      case LPP_CONCENTRATION:
+      case LPP_BAROMETRIC_PRESSURE:
+      case LPP_ALTITUDE:
+      case LPP_VOLTAGE:
+      case LPP_CURRENT:
+      case LPP_DIRECTION:
+      case LPP_POWER:
+        return 2;
+    }
+    return 1;
+}
+
+static uint32_t getMultiplier(uint8_t type) {
+    switch (type) {
+      case LPP_CURRENT:
+      case LPP_DISTANCE:
+      case LPP_ENERGY:
+        return 1000;
+      case LPP_VOLTAGE:
+      case LPP_ANALOG_INPUT:
+      case LPP_ANALOG_OUTPUT:
+        return 100;
+      case LPP_TEMPERATURE:
+      case LPP_BAROMETRIC_PRESSURE:
+        return 10;
+    }
+    return 1;
+}
+
+static bool isSigned(uint8_t type) {
+  return type == LPP_ALTITUDE || type == LPP_TEMPERATURE || type == LPP_GYROMETER ||
+      type == LPP_ANALOG_INPUT || type == LPP_ANALOG_OUTPUT || type == LPP_GPS || type == LPP_ACCELEROMETER;
+}
+
+static float getFloat(const uint8_t * buffer, uint8_t size, uint32_t multiplier, bool is_signed) {
+  uint32_t value = 0;
+  for (uint8_t i = 0; i < size; i++) {
+    value = (value << 8) + buffer[i];
+  }
+
+  int sign = 1;
+  if (is_signed) {
+    uint32_t bit = 1ul << ((size * 8) - 1);
+    if ((value & bit) == bit) {
+      value = (bit << 1) - value;
+      sign = -1;
+    }
+  }
+  return sign * ((float) value / multiplier);
+}
+
+float SensorMesh::getTelemValue(uint8_t channel, uint8_t type) {
+  auto buf = telemetry.getBuffer();
+  uint8_t size = telemetry.getSize();
+  uint8_t i = 0;
+
+  while (i + 2 < size) {
+    // Get channel #
+    uint8_t ch = buf[i++];
+    // Get data type
+    uint8_t t = buf[i++];
+    uint8_t sz = getDataSize(t);
+
+    if (ch == channel && t == type) {
+      return getFloat(&buf[i], sz, getMultiplier(t), isSigned(t));
+    }
+    i += sz;  // skip
+  }
+  return 0.0f;   // not found
+}
+
+bool  SensorMesh::getGPS(uint8_t channel, float& lat, float& lon, float& alt) {
+  return false;   // TODO
+}
+
 void SensorMesh::loop() {
   mesh::Mesh::loop();
 
@@ -628,21 +724,6 @@ void SensorMesh::loop() {
     sensors.querySensors(0xFF, telemetry);  // allow all telemetry permissions
 
     onSensorDataRead();
-
-    // save telemetry to time-series datastore
-    File file = openAppend(_fs, "/s_data");
-    if (file) {
-      file.write((uint8_t *)&curr, 4);  // start record with RTC timestamp
-      uint8_t tlen = telemetry.getSize();
-      file.write(&tlen, 1);
-      file.write(telemetry.getBuffer(), tlen);
-      uint8_t zero = 0;
-      while (tlen < MAX_PACKET_PAYLOAD - 4) {     // pad with zeroes, for fixed record length
-        file.write(&zero, 1);
-        tlen++;
-      }
-      file.close();
-    }
 
     last_read_time = curr;
   }
