@@ -237,8 +237,8 @@ void SensorMesh::sendAlert(const char* text) {
   }
 }
 
-void SensorMesh::alertIfLow(Trigger& t, float value, float threshold, const char* text) {
-  if (value < threshold) {
+void SensorMesh::alertIf(bool condition, Trigger& t, const char* text) {
+  if (condition) {
     if (!t.triggered) {
       t.triggered = true;
       t.time = getRTCClock()->getCurrentTime();
@@ -249,65 +249,6 @@ void SensorMesh::alertIfLow(Trigger& t, float value, float threshold, const char
       t.triggered = false;
       // TODO: apply debounce logic
     }
-  }
-}
-
-void SensorMesh::alertIfHigh(Trigger& t, float value, float threshold, const char* text) {
-  if (value > threshold) {
-    if (!t.triggered) {
-      t.triggered = true;
-      t.time = getRTCClock()->getCurrentTime();
-      sendAlert(text);
-    }
-  } else {
-    if (t.triggered) {
-      t.triggered = false;
-      // TODO: apply debounce logic
-    }
-  }
-}
-
-void SensorMesh::recordData(TimeSeriesData& data, float value) {
-  uint32_t now = getRTCClock()->getCurrentTime();
-  if (now >= data.last_timestamp + data.interval_secs) {
-    data.last_timestamp = now;
-
-    data.data[data.next] = value;   // append to cycle table
-    data.next = (data.next + 1) % data.num_slots;
-  }
-}
-
-void SensorMesh::calcDataMinMaxAvg(const TimeSeriesData& data, uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg* dest, uint8_t channel, uint8_t lpp_type) {
-  int i = data.next, n = data.num_slots;
-  uint32_t ago = data.interval_secs * data.num_slots;
-  int num_values = 0;
-  float total = 0.0f;
-
-  dest->_channel = channel;
-  dest->_lpp_type = lpp_type;
-
-  // start at earliest recording, through to most recent
-  while (n > 0) {
-    n--;
-    i = (i + 1) % data.num_slots;
-    if (ago >= end_secs_ago && ago < start_secs_ago) {
-      float v = data.data[i];
-      num_values++;
-      total += v;
-      if (num_values == 1) {
-        dest->_max = dest->_min = v;
-      } else {
-        if (v < dest->_min) dest->_min = v;
-        if (v > dest->_max) dest->_max = v;
-      }
-    }
-    ago -= data.interval_secs;
-  }
-  // calc average
-  if (num_values > 0) {
-    dest->_avg = total / num_values;
-  } else {
-    dest->_avg = NAN;
   }
 }
 

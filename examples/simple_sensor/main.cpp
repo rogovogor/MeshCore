@@ -21,12 +21,12 @@ protected:
   void onSensorDataRead() override {
     float batt_voltage = getVoltage(TELEM_CHANNEL_SELF);
 
-    recordData(battery_data, batt_voltage);   // record battery
-    alertIfLow(low_batt, batt_voltage, 3.4f, "Battery low!");
+    battery_data.recordData(getRTCClock(), batt_voltage);   // record battery
+    alertIf(batt_voltage < 3.4f, low_batt, "Battery low!");
   }
 
   int querySeriesData(uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg dest[], int max_num) override {
-    calcDataMinMaxAvg(battery_data, start_secs_ago, end_secs_ago, &dest[0], TELEM_CHANNEL_SELF, LPP_VOLTAGE);
+    battery_data.calcDataMinMaxAvg(getRTCClock(), start_secs_ago, end_secs_ago, &dest[0], TELEM_CHANNEL_SELF, LPP_VOLTAGE);
     return 1;
   }
   /* ======================================================================= */
