@@ -3,16 +3,22 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include <helpers/RadioLibWrappers.h>
-#include <XiaoNrf52Board.h>
+#include <helpers/HeltecV3Board.h>
 #include <helpers/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
-#include <helpers/ArduinoHelpers.h>
-#include <helpers/sensors/EnvironmentSensorManager.h>
+#include <helpers/SensorManager.h>
+#ifdef DISPLAY_CLASS
+#include <helpers/ui/E213Display.h>
+#endif
 
-extern XiaoNrf52Board board;
+extern HeltecV3Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
-extern EnvironmentSensorManager sensors;
+extern SensorManager sensors;
+
+#ifdef DISPLAY_CLASS
+extern DISPLAY_CLASS display;
+#endif
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

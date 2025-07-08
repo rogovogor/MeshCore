@@ -319,13 +319,17 @@ void MyMesh::queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packe
     uint8_t frame[1];
     frame[0] = PUSH_CODE_MSG_WAITING; // send push 'tickle'
     _serial->writeFrame(frame, 1);
-  } else {
-#ifdef DISPLAY_CLASS
-    ui_task.soundBuzzer(UIEventType::contactMessage);
-#endif
   }
+
 #ifdef DISPLAY_CLASS
-  ui_task.newMsg(path_len, from.name, text, offline_queue_len);
+  // we only want to show text messages on display, not cli data
+  bool should_display = txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_SIGNED_PLAIN;
+  if (should_display) {
+    ui_task.newMsg(path_len, from.name, text, offline_queue_len);
+    if (!_serial->isConnected()) {
+      ui_task.soundBuzzer(UIEventType::contactMessage);
+    }
+  }
 #endif
 }
 
@@ -613,10 +617,10 @@ void MyMesh::begin(bool has_display) {
   _prefs.cr = constrain(_prefs.cr, 5, 8);
   _prefs.tx_power_dbm = constrain(_prefs.tx_power_dbm, 1, MAX_LORA_TX_POWER);
 
-#ifdef BLE_PIN_CODE
+#ifdef BLE_PIN_CODE // 123456 by default
   if (_prefs.ble_pin == 0) {
 #ifdef DISPLAY_CLASS
-    if (has_display) {
+    if (has_display && BLE_PIN_CODE == 123456) {
       StdRNG rng;
       _active_ble_pin = rng.nextInt(100000, 999999); // random pin each session
     } else {

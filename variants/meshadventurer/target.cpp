@@ -3,36 +3,34 @@
 
 #include <helpers/sensors/MicroNMEALocationProvider.h>
 
-HeltecV3Board board;
+MeshadventurerBoard board;
 
-#if defined(P_LORA_SCLK)
-  static SPIClass spi;
-  RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, spi);
-#else
-  RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY);
-#endif
-
+static SPIClass spi;
+RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BUSY, spi);
 WRAPPER_CLASS radio_driver(radio, board);
 
 ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 MicroNMEALocationProvider nmea = MicroNMEALocationProvider(Serial1);
-HWTSensorManager sensors = HWTSensorManager(nmea);
+MASensorManager sensors = MASensorManager(nmea);
 
 #ifdef DISPLAY_CLASS
-  DISPLAY_CLASS display(&board.periph_power);   // peripheral power pin is shared
+  DISPLAY_CLASS display;
+#endif
+
+#ifndef LORA_CR
+  #define LORA_CR      5
 #endif
 
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-  
+
 #if defined(P_LORA_SCLK)
   return radio.std_init(&spi);
 #else
   return radio.std_init();
 #endif
-
 }
 
 uint32_t radio_get_rng_seed() {
@@ -55,45 +53,41 @@ mesh::LocalIdentity radio_new_identity() {
   return mesh::LocalIdentity(&rng);  // create new random identity
 }
 
-void HWTSensorManager::start_gps() {
-  if (!gps_active) {
-    board.periph_power.claim();
-
+void MASensorManager::start_gps() {
+  if(!gps_active) {
+    MESH_DEBUG_PRINTLN("starting GPS");
     gps_active = true;
-    Serial1.println("$CFGSYS,h35155*68");
   }
 }
 
-void HWTSensorManager::stop_gps() {
-  if (gps_active) {
+void MASensorManager::stop_gps() {
+  if(gps_active) {
+    MESH_DEBUG_PRINTLN("stopping GPS");
     gps_active = false;
-
-    board.periph_power.release();
   }
 }
 
-bool HWTSensorManager::begin() {
-  // init GPS port
-  Serial1.begin(115200, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+bool MASensorManager::begin() {
+  Serial1.setPins(PIN_GPS_RX, PIN_GPS_TX);
+  Serial1.begin(9600);
+  delay(500);
   return true;
 }
 
-bool HWTSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
-  if (requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
+bool MASensorManager::querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) {
+  if(requester_permissions & TELEM_PERM_LOCATION) {   // does requester have permission?
     telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
   }
   return true;
 }
 
-void HWTSensorManager::loop() {
+void MASensorManager::loop() {
   static long next_gps_update = 0;
-
   _location->loop();
-
-  if (millis() > next_gps_update) {
-    if (gps_active && _location->isValid()) {
-      node_lat = ((double)_location->getLatitude())/1000000.;
-      node_lon = ((double)_location->getLongitude())/1000000.;
+  if(millis() > next_gps_update && gps_active) {
+    if(_location->isValid()) {
+      node_lat = ((double)_location->getLatitude()) / 1000000.;
+      node_lon = ((double)_location->getLongitude()) / 1000000.;
       node_altitude = ((double)_location->getAltitude()) / 1000.0;
       MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
     }
@@ -101,20 +95,20 @@ void HWTSensorManager::loop() {
   }
 }
 
-int HWTSensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
+int MASensorManager::getNumSettings() const { return 1; }  // just one supported: "gps" (power switch)
 
-const char* HWTSensorManager::getSettingName(int i) const {
+const char* MASensorManager::getSettingName(int i) const {
   return i == 0 ? "gps" : NULL;
 }
-const char* HWTSensorManager::getSettingValue(int i) const {
-  if (i == 0) {
+const char* MASensorManager::getSettingValue(int i) const {
+  if(i == 0) {
     return gps_active ? "1" : "0";
   }
   return NULL;
 }
-bool HWTSensorManager::setSettingValue(const char* name, const char* value) {
-  if (strcmp(name, "gps") == 0) {
-    if (strcmp(value, "0") == 0) {
+bool MASensorManager::setSettingValue(const char* name, const char* value) {
+  if(strcmp(name, "gps") == 0) {
+    if(strcmp(value, "0") == 0) {
       stop_gps();
     } else {
       start_gps();

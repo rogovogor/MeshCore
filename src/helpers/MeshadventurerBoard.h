@@ -1,53 +1,27 @@
 #pragma once
 
 #include <Arduino.h>
-#include <helpers/RefCountedDigitalPin.h>
 
-// LoRa radio module pins for Heltec V3
-// Also for Heltec Wireless Tracker/Paper
-#define  P_LORA_DIO_1   14
-#define  P_LORA_NSS      8
-#define  P_LORA_RESET   RADIOLIB_NC
-#define  P_LORA_BUSY    13
-#define  P_LORA_SCLK     9
-#define  P_LORA_MISO    11
-#define  P_LORA_MOSI    10
+// LoRa radio module pins for Meshadventurer
+#define  P_LORA_DIO_1   33
+#define  P_LORA_NSS     18
+#define  P_LORA_RESET   23
+#define  P_LORA_BUSY    32
+#define  P_LORA_SCLK     5
+#define  P_LORA_MISO    19
+#define  P_LORA_MOSI    27
 
-// built-ins
-#ifndef PIN_VBAT_READ              // set in platformio.ini for boards like Heltec Wireless Paper (20)
-  #define  PIN_VBAT_READ    1
-#endif
-#ifndef PIN_ADC_CTRL              // set in platformio.ini for Heltec Wireless Tracker (2)
-  #define  PIN_ADC_CTRL    37
-#endif
-#define  PIN_ADC_CTRL_ACTIVE    LOW
-#define  PIN_ADC_CTRL_INACTIVE  HIGH
-//#define  PIN_LED_BUILTIN 35
+#define  PIN_VBAT_READ    35
 
 #include "ESP32Board.h"
 
 #include <driver/rtc_io.h>
 
-class HeltecV3Board : public ESP32Board {
-private:
-  bool adc_active_state;
+class MeshadventurerBoard : public ESP32Board {
 
 public:
-  RefCountedDigitalPin periph_power;
-
-  HeltecV3Board() : periph_power(PIN_VEXT_EN) { }
-
   void begin() {
     ESP32Board::begin();
-
-    // Auto-detect correct ADC_CTRL pin polarity (different for boards >3.2)
-    pinMode(PIN_ADC_CTRL, INPUT);
-    adc_active_state = !digitalRead(PIN_ADC_CTRL);
-    
-    pinMode(PIN_ADC_CTRL, OUTPUT);
-    digitalWrite(PIN_ADC_CTRL, !adc_active_state); // Initially inactive
-
-    periph_power.begin();
 
     esp_reset_reason_t reason = esp_reset_reason();
     if (reason == ESP_RST_DEEPSLEEP) {
@@ -64,7 +38,7 @@ public:
   void enterDeepSleep(uint32_t secs, int pin_wake_btn = -1) {
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
 
-    // Make sure the DIO1 and NSS GPIOs are hold on required levels during deep sleep 
+    // Make sure the DIO1 and NSS GPIOs are held on required levels during deep sleep 
     rtc_gpio_set_direction((gpio_num_t)P_LORA_DIO_1, RTC_GPIO_MODE_INPUT_ONLY);
     rtc_gpio_pulldown_en((gpio_num_t)P_LORA_DIO_1);
 
@@ -90,21 +64,18 @@ public:
   }
 
   uint16_t getBattMilliVolts() override {
-    analogReadResolution(10);
-    digitalWrite(PIN_ADC_CTRL, adc_active_state);
+    analogReadResolution(12);
 
     uint32_t raw = 0;
-    for (int i = 0; i < 8; i++) {
-      raw += analogRead(PIN_VBAT_READ);
+    for (int i = 0; i < 4; i++) {
+      raw += analogReadMilliVolts(PIN_VBAT_READ);
     }
-    raw = raw / 8;
+    raw = raw / 4;
 
-    digitalWrite(PIN_ADC_CTRL, !adc_active_state);
-
-    return (5.42 * (3.3 / 1024.0) * raw) * 1000;
+    return (2 * raw);
   }
 
   const char* getManufacturerName() const override {
-    return "Heltec V3";
+    return "Meshadventurer";
   }
 };
