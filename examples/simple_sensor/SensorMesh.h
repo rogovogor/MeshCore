@@ -23,17 +23,20 @@
 #include <RTClib.h>
 #include <target.h>
 
+#define PERM_IS_ADMIN          0x8000
+#define PERM_GET_TELEMETRY     0x0001
+#define PERM_GET_MIN_MAX_AVG   0x0002
+
 struct ContactInfo {
   mesh::Identity id;
-  uint8_t type;   // 1 = admin, 0 = guest
-  uint8_t flags;
+  uint16_t permissions;
   int8_t out_path_len;
   uint8_t out_path[MAX_PATH_SIZE];
   uint8_t shared_secret[PUB_KEY_SIZE];
   uint32_t last_timestamp;   // by THEIR clock  (transient)
   uint32_t last_activity;    // by OUR clock    (transient)
 
-  bool isAdmin() const { return type != 0; }
+  bool isAdmin() const { return (permissions & PERM_IS_ADMIN) != 0; }
 };
 
 #ifndef FIRMWARE_BUILD_DATE
@@ -56,8 +59,8 @@ class SensorMesh : public mesh::Mesh, public CommonCLICallbacks {
 public:
   SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables);
   void begin(FILESYSTEM* fs);
-  CommonCLI* getCLI() { return &_cli; }
   void loop();
+  void handleCommand(uint32_t sender_timestamp, char* command, char* reply);
 
   // CommonCLI callbacks
   const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
@@ -128,9 +131,10 @@ private:
   void loadContacts();
   void saveContacts();
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data);
-  uint8_t handleRequest(bool is_admin, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len);
+  uint8_t handleRequest(uint16_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len);
   mesh::Packet* createSelfAdvert();
   ContactInfo* putContact(const mesh::Identity& id);
+  void applyContactPermissions(const uint8_t* pubkey, uint16_t perms);
 
   void sendAlert(const char* text);
 

@@ -127,14 +127,6 @@ void CommonCLI::checkAdvertInterval() {
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
-    while (*command == ' ') command++;   // skip leading spaces
-
-    if (strlen(command) > 4 && command[2] == '|') {  // optional prefix (for companion radio CLI)
-      memcpy(reply, command, 3);  // reflect the prefix back
-      reply += 3;
-      command += 3;
-    }
-
     if (memcmp(command, "reboot", 6) == 0) {
       _board->reboot();  // doesn't return
     } else if (memcmp(command, "advert", 6) == 0) {

@@ -92,12 +92,11 @@ void SensorMesh::loadContacts() {
       while (!full) {
         ContactInfo c;
         uint8_t pub_key[32];
-        uint8_t unused;
+        uint8_t unused[5];
 
         bool success = (file.read(pub_key, 32) == 32);
-        success = success && (file.read(&c.type, 1) == 1);
-        success = success && (file.read(&c.flags, 1) == 1);
-        success = success && (file.read(&unused, 1) == 1);
+        success = success && (file.read((uint8_t *) &c.permissions, 2) == 2);
+        success = success && (file.read(unused, 5) == 5);
         success = success && (file.read((uint8_t *)&c.out_path_len, 1) == 1);
         success = success && (file.read(c.out_path, 64) == 64);
         success = success && (file.read(c.shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE);
@@ -121,16 +120,16 @@ void SensorMesh::loadContacts() {
 void SensorMesh::saveContacts() {
   File file = openWrite(_fs, "/s_contacts");
   if (file) {
-    uint8_t unused = 0;
+    uint8_t unused[5];
+    memset(unused, 0, sizeof(unused));
 
     for (int i = 0; i < num_contacts; i++) {
       auto c = &contacts[i];
-      if (c->type == 0) continue;    // don't persist guest contacts
+      if (c->permissions == 0) continue;    // skip deleted entries
 
       bool success = (file.write(c->id.pub_key, 32) == 32);
-      success = success && (file.write(&c->type, 1) == 1);
-      success = success && (file.write(&c->flags, 1) == 1);
-      success = success && (file.write(&unused, 1) == 1);
+      success = success && (file.write((uint8_t *) &c->permissions, 2) == 2);
+      success = success && (file.write(unused, 5) == 5);
       success = success && (file.write((uint8_t *)&c->out_path_len, 1) == 1);
       success = success && (file.write(c->out_path, 64) == 64);
       success = success && (file.write(c->shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE);
@@ -141,36 +140,34 @@ void SensorMesh::saveContacts() {
   }
 }
 
-uint8_t SensorMesh::handleRequest(bool is_admin, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
+uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
-  switch (req_type) {
-    case REQ_TYPE_GET_TELEMETRY_DATA: {
-      telemetry.reset();
-      telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
-      // query other sensors -- target specific
-      sensors.querySensors(0xFF, telemetry);  // allow all telemetry permissions for admin or guest
+  if (req_type == REQ_TYPE_GET_TELEMETRY_DATA && (perms & PERM_GET_TELEMETRY) != 0) {
+    telemetry.reset();
+    telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
+    // query other sensors -- target specific
+    sensors.querySensors(0xFF, telemetry);  // allow all telemetry permissions for admin or guest
 
-      uint8_t tlen = telemetry.getSize();
-      memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
-      return 4 + tlen;  // reply_len
-    }
-    case REQ_TYPE_GET_AVG_MIN_MAX: {
-      uint32_t start_secs_ago, end_secs_ago;
-      memcpy(&start_secs_ago, &payload[0], 4);
-      memcpy(&end_secs_ago, &payload[4], 4);
-      uint8_t res1 = payload[8];   // reserved for future  (extra query params)
-      uint8_t res2 = payload[8];
+    uint8_t tlen = telemetry.getSize();
+    memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
+    return 4 + tlen;  // reply_len
+  }
+  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_GET_MIN_MAX_AVG) != 0) {
+    uint32_t start_secs_ago, end_secs_ago;
+    memcpy(&start_secs_ago, &payload[0], 4);
+    memcpy(&end_secs_ago, &payload[4], 4);
+    uint8_t res1 = payload[8];   // reserved for future  (extra query params)
+    uint8_t res2 = payload[8];
 
-      MinMaxAvg data[8];
-      int n;
-      if (res1 == 0 && res2 == 0) {
-        n = querySeriesData(start_secs_ago, end_secs_ago, data, 8);
-      } else {
-        n = 0;
-      }
-      return 0;  // TODO: encode data[0..n)
+    MinMaxAvg data[8];
+    int n;
+    if (res1 == 0 && res2 == 0) {
+      n = querySeriesData(start_secs_ago, end_secs_ago, data, 8);
+    } else {
+      n = 0;
     }
+    return 0;  // TODO: encode data[0..n)
   }
   return 0;  // unknown command
 }
@@ -207,6 +204,18 @@ ContactInfo* SensorMesh::putContact(const mesh::Identity& id) {
   c->id = id;
   c->out_path_len = -1;  // initially out_path is unknown
   return c;
+}
+
+void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) {
+  mesh::Identity id(pubkey);
+  auto c = putContact(id);
+
+  if (perms == 0) {  // no permissions, remove from contacts
+    memset(c, 0, sizeof(*c));
+  } else {
+    c->permissions = perms;  // update their permissions
+  }
+  dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);   // trigger saveContacts()
 }
 
 void SensorMesh::sendAlert(const char* text) {
@@ -283,12 +292,7 @@ int SensorMesh::getAGCResetInterval() const {
 }
 
 uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data) {
-  bool is_admin;
-  if (strcmp((char *) data, _prefs.password) == 0) {  // check for valid password
-    is_admin = true;
-  } else if (strcmp((char *) data, _prefs.guest_password) == 0) {  // check guest password
-    is_admin = false;
-  } else {
+  if (strcmp((char *) data, _prefs.password) != 0) {  // check for valid password
   #if MESH_DEBUG
     MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
   #endif
@@ -304,23 +308,52 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   MESH_DEBUG_PRINTLN("Login success!");
   client->last_timestamp = sender_timestamp;
   client->last_activity = getRTCClock()->getCurrentTime();
-  client->type = is_admin ? 1 : 0;
+  client->permissions = PERM_IS_ADMIN;
   memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
-  if (is_admin) {
-    // only need to saveContacts() if this is an admin
-    dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
-  }
+  dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
 
   uint32_t now = getRTCClock()->getCurrentTimeUnique();
   memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
   reply_data[4] = RESP_SERVER_LOGIN_OK;
   reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
-  reply_data[6] = client->type;
+  reply_data[6] = 1;  // 1 = is admin
   reply_data[7] = 0;  // FUTURE: reserved
   getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
 
   return 12;  // reply length
+}
+
+void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
+  while (*command == ' ') command++;   // skip leading spaces
+
+  if (strlen(command) > 4 && command[2] == '|') {  // optional prefix (for companion radio CLI)
+    memcpy(reply, command, 3);  // reflect the prefix back
+    reply += 3;
+    command += 3;
+  }
+
+  // handle sensor-specific CLI commands
+  if (memcmp(command, "setperm ", 8) == 0) {   // format:  setperm {pubkey-hex} {permissions-int16}
+    char* hex = &command[8];
+    char* sp = strchr(hex, ' ');   // look for separator char
+    if (sp == NULL || sp - hex != PUB_KEY_SIZE*2) {
+      strcpy(reply, "Err - bad pubkey len");
+    } else {
+      *sp++ = 0;   // replace space with null terminator
+
+      uint8_t pubkey[PUB_KEY_SIZE];
+      if (mesh::Utils::fromHex(pubkey, PUB_KEY_SIZE, hex)) {
+        uint16_t perms = atoi(sp);
+        applyContactPermissions(pubkey, perms);
+        strcpy(reply, "OK");
+      } else {
+        strcpy(reply, "Err - bad pubkey");
+      }
+    }
+  } else {
+    _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
+  }
 }
 
 void SensorMesh::onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) {
@@ -329,21 +362,7 @@ void SensorMesh::onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, con
     memcpy(&timestamp, data, 4);
 
     data[len] = 0;  // ensure null terminator
-
-    uint8_t req_code;
-    uint8_t i = 4;
-    if (data[4] < 32) {   // non-print char, is a request code
-      req_code = data[i++];
-    } else {
-      req_code = REQ_TYPE_LOGIN;
-    }
-
-    uint8_t reply_len;
-    if (req_code == REQ_TYPE_LOGIN) {
-      reply_len = handleLoginReq(sender, secret, timestamp, &data[i]);
-    } else {
-      reply_len = handleRequest(false, timestamp, req_code, &data[i], len - i);
-    }
+    uint8_t reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
 
     if (reply_len == 0) return;   // invalid request
 
@@ -406,7 +425,7 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
     memcpy(&timestamp, data, 4);
 
     if (timestamp > from.last_timestamp) {  // prevent replay attacks
-      uint8_t reply_len = handleRequest(from.isAdmin(), timestamp, data[4], &data[5], len - 5);
+      uint8_t reply_len = handleRequest(from.isAdmin() ? 0xFFFF : from.permissions, timestamp, data[4], &data[5], len - 5);
       if (reply_len == 0) return;  // invalid command
 
       from.last_timestamp = timestamp;
@@ -445,9 +464,9 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
       data[len] = 0; // need to make a C string again, with null terminator
 
       uint8_t temp[166];
-      const char *command = (const char *) &data[5];
+      char *command = (char *) &data[5];
       char *reply = (char *) &temp[5];
-      _cli.handleCommand(sender_timestamp, command, reply);
+      handleCommand(sender_timestamp, command, reply);
 
       int text_len = strlen(reply);
       if (text_len > 0) {
@@ -489,8 +508,9 @@ bool SensorMesh::onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint
   memcpy(from.out_path, path, from.out_path_len = path_len);  // store a copy of path, for sendDirect()
   from.last_activity = getRTCClock()->getCurrentTime();
 
+  // REVISIT: maybe make ALL out_paths non-persisted to minimise flash writes??
   if (from.isAdmin()) {
-    // only need to saveContacts() if this is an admin
+    // only do saveContacts() (of this out_path change) if this is an admin
     dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
   }
 

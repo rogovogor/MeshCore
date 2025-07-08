@@ -500,12 +500,12 @@ protected:
         }
 
         uint8_t temp[166];
-        const char *command = (const char *) &data[5];
+        char *command = (char *) &data[5];
         char *reply = (char *) &temp[5];
         if (is_retry) {
           *reply = 0;
         } else {
-          _cli.handleCommand(sender_timestamp, command, reply);
+          handleCommand(sender_timestamp, command, reply);
         }
         int text_len = strlen(reply);
         if (text_len > 0) {
@@ -580,8 +580,6 @@ public:
     _prefs.flood_max = 64;
     _prefs.interference_threshold = 0;  // disabled
   }
-
-  CommonCLI* getCLI() { return &_cli; }
 
   void begin(FILESYSTEM* fs) {
     mesh::Mesh::begin();
@@ -706,6 +704,18 @@ public:
     ((SimpleMeshTables *)getTables())->resetStats();
   }
 
+  void handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
+    while (*command == ' ') command++;   // skip leading spaces
+
+    if (strlen(command) > 4 && command[2] == '|') {  // optional prefix (for companion radio CLI)
+      memcpy(reply, command, 3);  // reflect the prefix back
+      reply += 3;
+      command += 3;
+    }
+
+    _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
+  }
+
   void loop() {
     mesh::Mesh::loop();
 
@@ -817,7 +827,7 @@ void loop() {
   if (len > 0 && command[len - 1] == '\r') {  // received complete line
     command[len - 1] = 0;  // replace newline with C string null terminator
     char reply[160];
-    the_mesh.getCLI()->handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
+    the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
     if (reply[0]) {
       Serial.print("  -> "); Serial.println(reply);
     }
