@@ -117,17 +117,6 @@ void Dispatcher::checkRecv() {
     uint8_t raw[MAX_TRANS_UNIT+1];
     int len = _radio->recvRaw(raw, MAX_TRANS_UNIT);
 
-#ifdef BRIDGE_OVER_SERIAL
-    // We are basically stamping metadata from the last RF packet into something that came from serial,
-    // it works for now. But long term the code on checkRecv() should be refactored to be able to deal
-    // with both use cases without dupeing the existing code. I've chosen [for now] not to dupe and just
-    // fake the metadata.
-
-    if (len == 0) {
-      len = bridge_interface->getPacket(raw);
-    }
-#endif
-
     if (len > 0) {
       logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
 
@@ -292,10 +281,6 @@ void Dispatcher::checkSend() {
         return;
       }
       outbound_expiry = futureMillis(max_airtime);
-
-#ifdef BRIDGE_OVER_SERIAL
-      bridge_interface->sendPacket(outbound);
-#endif
 
 #if MESH_PACKET_LOGGING
       Serial.print(getLogDateTime());

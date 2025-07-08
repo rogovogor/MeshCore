@@ -72,16 +72,34 @@
   static UITask ui_task(display);
 #endif
 
-#ifdef BRIDGE_OVER_SERIAL
-#include "bridge/serial/SerialBridge.h"
-bridge::SerialBridge *bridge_interface;
-#endif
-
 #define FIRMWARE_ROLE "repeater"
 
 #define PACKET_LOG_FILE  "/packet_log"
 
 /* ------------------------------ Code -------------------------------- */
+
+#ifdef BRIDGE_OVER_SERIAL
+#define SERIAL_PKT_MAGIC 0xbeef
+
+struct SerialPacket {
+  uint16_t magic, len, crc;
+  uint8_t payload[MAX_TRANS_UNIT];
+  SerialPacket() : magic(SERIAL_PKT_MAGIC), len(0), crc(0) {}
+};
+
+// Fletcher-16
+// https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
+  uint8_t sum1 = 0, sum2 = 0;
+
+  for (size_t i = 0; i < len; i++) {
+    sum1 = (sum1 + bytes[i]) % 255;
+    sum2 = (sum2 + sum1) % 255;
+  }
+
+  return (sum2 << 8) | sum1;
+};
+#endif
 
 #define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
 #define REQ_TYPE_KEEP_ALIVE          0x02
@@ -297,6 +315,20 @@ protected:
     }
   }
   void logTx(mesh::Packet* pkt, int len) override {
+#ifdef BRIDGE_OVER_SERIAL
+    SerialPacket spkt;
+    spkt.len = pkt->writeTo(spkt.payload);
+
+    if (spkt.len > 0) {
+      spkt.crc = fletcher16(spkt.payload, spkt.len);
+      BRIDGE_OVER_SERIAL.write((uint8_t *)&spkt, sizeof(SerialPacket));
+
+#if MESH_PACKET_LOGGING
+      Serial.printf("BRIDGE: Write to serial len=%d crc=0x%04x\n", spkt.len, spkt.crc);
+#endif
+    }
+#endif
+
     if (_logging) {
       File f = openAppend(PACKET_LOG_FILE);
       if (f) {
@@ -358,9 +390,9 @@ protected:
       } else if (strcmp((char *) &data[4], _prefs.guest_password) == 0) {  // check guest password
         is_admin = false;
       } else {
-    #if MESH_DEBUG
+#if MESH_DEBUG
         MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
-    #endif
+#endif
         return;
       }
 
@@ -377,15 +409,15 @@ protected:
 
       uint32_t now = getRTCClock()->getCurrentTimeUnique();
       memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
-    #if 0
+#if 0
       memcpy(&reply_data[4], "OK", 2);   // legacy response
-    #else
+#else
       reply_data[4] = RESP_SERVER_LOGIN_OK;
       reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
       reply_data[6] = is_admin ? 1 : 0;
       reply_data[7] = 0;  // FUTURE: reserved
       getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
-  #endif
+#endif
 
       if (packet->isRouteFlood()) {
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
@@ -562,9 +594,9 @@ public:
     next_local_advert = next_flood_advert = 0;
     _logging = false;
 
-  #if MAX_NEIGHBOURS
+#if MAX_NEIGHBOURS
     memset(neighbours, 0, sizeof(neighbours));
-  #endif
+#endif
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -712,6 +744,44 @@ public:
   }
 
   void loop() {
+#ifdef BRIDGE_OVER_SERIAL
+    static constexpr uint16_t size = sizeof(SerialPacket) + 1;
+    static uint8_t buffer[size];
+    static uint16_t tail = 0;
+
+    while (BRIDGE_OVER_SERIAL.available()) {
+      buffer[tail] = (uint8_t)BRIDGE_OVER_SERIAL.read();
+      MESH_DEBUG_PRINT("%02x ", buffer[tail]);
+      tail = (tail + 1) % size;
+
+      // Check for complete packet by looking back to where the magic number should be
+      uint16_t head = (tail - sizeof(SerialPacket) + size) % size;
+      const uint16_t magic = buffer[head] | (buffer[(head + 1) % size] << 8);
+
+      if (magic == SERIAL_PKT_MAGIC) {
+        uint8_t bytes[MAX_TRANS_UNIT];
+        const uint16_t len = buffer[(head + 2) % size] | (buffer[(head + 3) % size] << 8);
+        const uint16_t crc = buffer[(head + 4) % size] | (buffer[(head + 5) % size] << 8);
+
+        for (size_t i = 0; i < len; i++) {
+          bytes[i] = buffer[(head + 6 + i) % size];
+        }
+
+        uint16_t f16 = fletcher16(bytes, len);
+
+#if MESH_PACKET_LOGGING
+        Serial.printf("BRIDGE: Read from serial len=%d crc=0x%04x valid=%s\n", len, crc, (f16 == crc) ? "true" : "false");
+#endif
+
+        if (f16 == crc) {
+          mesh::Packet *pkt = _mgr->allocNew();
+          pkt->readFrom(bytes, len);
+          _mgr->queueInbound(pkt, millis());
+        }
+      }
+    }
+#endif
+
     mesh::Mesh::loop();
 
     if (next_flood_advert && millisHasNowPassed(next_flood_advert)) {
@@ -745,6 +815,24 @@ static char command[80];
 
 void setup() {
   Serial.begin(115200);
+
+#ifdef BRIDGE_OVER_SERIAL
+#if defined(ESP32)
+  BRIDGE_OVER_SERIAL.setPins(BRIDGE_OVER_SERIAL_RX, BRIDGE_OVER_SERIAL_TX);
+#elif defined(RP2040_PLATFORM)
+  BRIDGE_OVER_SERIAL.setRX(BRIDGE_OVER_SERIAL_RX);
+  BRIDGE_OVER_SERIAL.setTX(BRIDGE_OVER_SERIAL_TX);
+#elif defined(STM32_PLATFORM)
+  BRIDGE_OVER_SERIAL.setRx(BRIDGE_OVER_SERIAL_RX);
+  BRIDGE_OVER_SERIAL.setTx(BRIDGE_OVER_SERIAL_TX);
+#else
+#error SerialBridge was not tested on the current platform
+#endif
+
+  BRIDGE_OVER_SERIAL.begin(115200);
+  MESH_DEBUG_PRINTLN("Bridge over serial: enabled");
+#endif
+
   delay(1000);
 
   board.begin();
@@ -755,11 +843,6 @@ void setup() {
     display.print("Please wait...");
     display.endFrame();
   }
-#endif
-
-#ifdef BRIDGE_OVER_SERIAL
-  bridge_interface = new bridge::SerialBridge();
-  bridge_interface->setup();
 #endif
 
   if (!radio_init()) {
@@ -836,10 +919,6 @@ void loop() {
 
     command[0] = 0;  // reset command buffer
   }
-
-#ifdef BRIDGE_OVER_SERIAL
-  bridge_interface->loop();
-#endif
 
   the_mesh.loop();
   sensors.loop();
