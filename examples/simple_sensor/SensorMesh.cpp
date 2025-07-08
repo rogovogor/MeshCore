@@ -140,6 +140,101 @@ void SensorMesh::saveContacts() {
   }
 }
 
+static uint8_t getDataSize(uint8_t type) {
+    switch (type) {
+      case LPP_GPS:
+        return 9;
+      case LPP_POLYLINE:
+        return 8;  // TODO: this is MINIMIUM
+      case LPP_GYROMETER:
+      case LPP_ACCELEROMETER:
+        return 6;
+      case LPP_GENERIC_SENSOR:
+      case LPP_FREQUENCY:
+      case LPP_DISTANCE:
+      case LPP_ENERGY:
+      case LPP_UNIXTIME:
+        return 4;
+      case LPP_COLOUR:
+        return 3;
+      case LPP_ANALOG_INPUT:
+      case LPP_ANALOG_OUTPUT:
+      case LPP_LUMINOSITY:
+      case LPP_TEMPERATURE:
+      case LPP_CONCENTRATION:
+      case LPP_BAROMETRIC_PRESSURE:
+      case LPP_ALTITUDE:
+      case LPP_VOLTAGE:
+      case LPP_CURRENT:
+      case LPP_DIRECTION:
+      case LPP_POWER:
+        return 2;
+    }
+    return 1;
+}
+
+static uint32_t getMultiplier(uint8_t type) {
+    switch (type) {
+      case LPP_CURRENT:
+      case LPP_DISTANCE:
+      case LPP_ENERGY:
+        return 1000;
+      case LPP_VOLTAGE:
+      case LPP_ANALOG_INPUT:
+      case LPP_ANALOG_OUTPUT:
+        return 100;
+      case LPP_TEMPERATURE:
+      case LPP_BAROMETRIC_PRESSURE:
+        return 10;
+    }
+    return 1;
+}
+
+static bool isSigned(uint8_t type) {
+  return type == LPP_ALTITUDE || type == LPP_TEMPERATURE || type == LPP_GYROMETER ||
+      type == LPP_ANALOG_INPUT || type == LPP_ANALOG_OUTPUT || type == LPP_GPS || type == LPP_ACCELEROMETER;
+}
+
+static float getFloat(const uint8_t * buffer, uint8_t size, uint32_t multiplier, bool is_signed) {
+  uint32_t value = 0;
+  for (uint8_t i = 0; i < size; i++) {
+    value = (value << 8) + buffer[i];
+  }
+
+  int sign = 1;
+  if (is_signed) {
+    uint32_t bit = 1ul << ((size * 8) - 1);
+    if ((value & bit) == bit) {
+      value = (bit << 1) - value;
+      sign = -1;
+    }
+  }
+  return sign * ((float) value / multiplier);
+}
+
+static uint8_t putFloat(uint8_t * dest, float value, uint8_t size, uint32_t multiplier, bool is_signed) {
+  // check sign
+  bool sign = value < 0;
+  if (sign) value = -value;
+
+  // get value to store
+  uint32_t v = value * multiplier;
+
+  // format an uint32_t as if it was an int32_t
+  if (is_signed & sign) {
+    uint32_t mask = (1 << (size * 8)) - 1;
+    v = v & mask;
+    if (sign) v = mask - v + 1;
+  }
+
+  // add bytes (MSB first)
+  for (uint8_t i=1; i<=size; i++) {
+    dest[size - i] = (v & 0xFF);
+    v >>= 8;
+  }
+  return size;
+}
+
 uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
@@ -167,7 +262,25 @@ uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uin
     } else {
       n = 0;
     }
-    return 0;  // TODO: encode data[0..n)
+
+    uint8_t ofs = 4;
+    {
+      uint32_t now = getRTCClock()->getCurrentTime();
+      memcpy(&reply_data[ofs], &now, 4); ofs += 4;
+    }
+
+    for (int i = 0; i < n; i++) {
+      auto d = &data[i];
+      reply_data[ofs++] = d->_channel;
+      reply_data[ofs++] = d->_lpp_type;
+      uint8_t sz = getDataSize(d->_lpp_type);
+      uint32_t mult = getMultiplier(d->_lpp_type);
+      bool is_signed = isSigned(d->_lpp_type);
+      ofs += putFloat(&reply_data[ofs], d->_min, sz, mult, is_signed);
+      ofs += putFloat(&reply_data[ofs], d->_max, sz, mult, is_signed);
+      ofs += putFloat(&reply_data[ofs], d->_avg, sz, mult, is_signed);
+    }
+    return ofs;
   }
   return 0;  // unknown command
 }
@@ -602,78 +715,6 @@ void SensorMesh::updateFloodAdvertTimer() {
 
 void SensorMesh::setTxPower(uint8_t power_dbm) {
   radio_set_tx_power(power_dbm);
-}
-
-static uint8_t getDataSize(uint8_t type) {
-    switch (type) {
-      case LPP_GPS:
-        return 9;
-      case LPP_POLYLINE:
-        return 8;  // TODO: this is MINIMIUM
-      case LPP_GYROMETER:
-      case LPP_ACCELEROMETER:
-        return 6;
-      case LPP_GENERIC_SENSOR:
-      case LPP_FREQUENCY:
-      case LPP_DISTANCE:
-      case LPP_ENERGY:
-      case LPP_UNIXTIME:
-        return 4;
-      case LPP_COLOUR:
-        return 3;
-      case LPP_ANALOG_INPUT:
-      case LPP_ANALOG_OUTPUT:
-      case LPP_LUMINOSITY:
-      case LPP_TEMPERATURE:
-      case LPP_CONCENTRATION:
-      case LPP_BAROMETRIC_PRESSURE:
-      case LPP_ALTITUDE:
-      case LPP_VOLTAGE:
-      case LPP_CURRENT:
-      case LPP_DIRECTION:
-      case LPP_POWER:
-        return 2;
-    }
-    return 1;
-}
-
-static uint32_t getMultiplier(uint8_t type) {
-    switch (type) {
-      case LPP_CURRENT:
-      case LPP_DISTANCE:
-      case LPP_ENERGY:
-        return 1000;
-      case LPP_VOLTAGE:
-      case LPP_ANALOG_INPUT:
-      case LPP_ANALOG_OUTPUT:
-        return 100;
-      case LPP_TEMPERATURE:
-      case LPP_BAROMETRIC_PRESSURE:
-        return 10;
-    }
-    return 1;
-}
-
-static bool isSigned(uint8_t type) {
-  return type == LPP_ALTITUDE || type == LPP_TEMPERATURE || type == LPP_GYROMETER ||
-      type == LPP_ANALOG_INPUT || type == LPP_ANALOG_OUTPUT || type == LPP_GPS || type == LPP_ACCELEROMETER;
-}
-
-static float getFloat(const uint8_t * buffer, uint8_t size, uint32_t multiplier, bool is_signed) {
-  uint32_t value = 0;
-  for (uint8_t i = 0; i < size; i++) {
-    value = (value << 8) + buffer[i];
-  }
-
-  int sign = 1;
-  if (is_signed) {
-    uint32_t bit = 1ul << ((size * 8) - 1);
-    if ((value & bit) == bit) {
-      value = (bit << 1) - value;
-      sign = -1;
-    }
-  }
-  return sign * ((float) value / multiplier);
 }
 
 float SensorMesh::getTelemValue(uint8_t channel, uint8_t type) {
