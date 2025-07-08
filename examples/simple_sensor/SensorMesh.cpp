@@ -521,19 +521,6 @@ void SensorMesh::getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) {
   }
 }
 
-void SensorMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len) {
-  mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);  // chain to super impl
-#if 0
-  // if this a zero hop advert, add it to neighbours
-  if (packet->path_len == 0) {
-    AdvertDataParser parser(app_data, app_data_len);
-    if (parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) {   // just keep neigbouring Repeaters
-      putNeighbour(id, timestamp, packet->getSNR());
-    }
-  }
-#endif
-}
-
 void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) {
   int i = matching_peer_indexes[sender_idx];
   if (i < 0 || i >= num_contacts) {
