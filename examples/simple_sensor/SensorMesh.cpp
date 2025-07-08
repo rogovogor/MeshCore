@@ -327,6 +327,7 @@ void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) 
     memset(c, 0, sizeof(*c));
   } else {
     c->permissions = perms;  // update their permissions
+    self_id.calcSharedSecret(c->shared_secret, pubkey);
   }
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);   // trigger saveContacts()
 }
@@ -464,6 +465,15 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
         strcpy(reply, "Err - bad pubkey");
       }
     }
+  } else if (sender_timestamp == 0 && strcmp(command, "getperm") == 0) {
+    Serial.println("Permissions:");
+    for (int i = 0; i < num_contacts; i++) {
+      auto c = &contacts[i];
+
+      mesh::Utils::printHex(Serial, c->id.pub_key, PUB_KEY_SIZE);
+      Serial.printf(" %04X\n", c->permissions);
+    }
+    reply[0] = 0;
   } else {
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
   }
