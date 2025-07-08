@@ -774,9 +774,16 @@ public:
 #endif
 
         if (f16 == crc) {
-          mesh::Packet *pkt = _mgr->allocNew();
-          pkt->readFrom(bytes, len);
-          _mgr->queueInbound(pkt, millis());
+          Packet *pkt = _mgr->allocNew();
+
+          if (pkt != NULL) {
+            pkt->readFrom(bytes, len);
+            _mgr->queueInbound(pkt, millis());
+          } else {
+#if MESH_PACKET_LOGGING
+            Serial.printf("BRIDGE: Unable to allocate new Packet *pkt");
+#endif
+          }
         }
       }
     }
