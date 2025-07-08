@@ -79,7 +79,7 @@
 /* ------------------------------ Code -------------------------------- */
 
 #ifdef BRIDGE_OVER_SERIAL
-#define SERIAL_PKT_MAGIC 0xbeef
+#define SERIAL_PKT_MAGIC 0xcafe
 
 struct SerialPacket {
   uint16_t magic, len, crc;
@@ -316,15 +316,17 @@ protected:
   }
   void logTx(mesh::Packet* pkt, int len) override {
 #ifdef BRIDGE_OVER_SERIAL
-    SerialPacket spkt;
-    spkt.len = pkt->writeTo(spkt.payload);
+    SerialPacket serialpkt;
+    size_t seriallen = pkt->writeTo(serialpkt.payload);
 
-    if (spkt.len > 0) {
-      spkt.crc = fletcher16(spkt.payload, spkt.len);
-      BRIDGE_OVER_SERIAL.write((uint8_t *)&spkt, sizeof(SerialPacket));
+    if (seriallen - 1 < MAX_TRANS_UNIT - 1) {
+      serialpkt.len = seriallen;
+      serialpkt.crc = fletcher16(serialpkt.payload, serialpkt.len);
+      BRIDGE_OVER_SERIAL.write((uint8_t *)&serialpkt, sizeof(SerialPacket));
 
 #if MESH_PACKET_LOGGING
-      Serial.printf("BRIDGE: Write to serial len=%d crc=0x%04x\n", spkt.len, spkt.crc);
+      Serial.print(getLogDateTime());
+      Serial.printf(": BRIDGE: Write to serial len=%d crc=0x%04x\n", serialpkt.len, serialpkt.crc);
 #endif
     }
 #endif
@@ -763,26 +765,31 @@ public:
         const uint16_t len = buffer[(head + 2) % size] | (buffer[(head + 3) % size] << 8);
         const uint16_t crc = buffer[(head + 4) % size] | (buffer[(head + 5) % size] << 8);
 
-        for (size_t i = 0; i < len; i++) {
-          bytes[i] = buffer[(head + 6 + i) % size];
-        }
+        if (len - 1 < MAX_TRANS_UNIT - 1) {
+          for (size_t i = 0; i < len; i++) {
+            bytes[i] = buffer[(head + 6 + i) % size];
+          }
 
-        uint16_t f16 = fletcher16(bytes, len);
+          uint16_t f16 = fletcher16(bytes, len);
 
 #if MESH_PACKET_LOGGING
-        Serial.printf("BRIDGE: Read from serial len=%d crc=0x%04x valid=%s\n", len, crc, (f16 == crc) ? "true" : "false");
+          Serial.print(getLogDateTime());
+          Serial.printf(": BRIDGE: Read from serial len=%d crc=0x%04x valid=%s\n", len, crc,
+                        (f16 == crc) ? "true" : "false");
 #endif
 
-        if (f16 == crc) {
-          Packet *pkt = _mgr->allocNew();
+          if (f16 == crc) {
+            mesh::Packet *pkt = _mgr->allocNew();
 
-          if (pkt != NULL) {
-            pkt->readFrom(bytes, len);
-            _mgr->queueInbound(pkt, millis());
-          } else {
+            if (pkt == NULL) {
 #if MESH_PACKET_LOGGING
-            Serial.printf("BRIDGE: Unable to allocate new Packet *pkt");
+              Serial.print(getLogDateTime());
+              Serial.printf(": BRIDGE: Unable to allocate new Packet *pkt\n");
 #endif
+            } else {
+              pkt->readFrom(bytes, len);
+              _mgr->queueInbound(pkt, millis());
+            }
           }
         }
       }
