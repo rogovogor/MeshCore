@@ -182,7 +182,7 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
           uint8_t data[MAX_PACKET_PAYLOAD];
           int len = Utils::MACThenDecrypt(secret, data, macAndData, pkt->payload_len - i);
           if (len > 0) {  // success!
-            onAnonDataRecv(pkt, pkt->getPayloadType(), sender, data, len);
+            onAnonDataRecv(pkt, secret, sender, data, len);
             pkt->markDoNotRetransmit();
           }
         }
