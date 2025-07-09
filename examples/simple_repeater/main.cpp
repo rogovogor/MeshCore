@@ -80,25 +80,6 @@
 
 #ifdef BRIDGE_OVER_SERIAL
 #define SERIAL_PKT_MAGIC 0xcafe
-
-struct SerialPacket {
-  uint16_t magic, len, crc;
-  uint8_t payload[MAX_TRANS_UNIT];
-  SerialPacket() : magic(SERIAL_PKT_MAGIC), len(0), crc(0) {}
-};
-
-// Fletcher-16
-// https://en.wikipedia.org/wiki/Fletcher%27s_checksum
-static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
-  uint8_t sum1 = 0, sum2 = 0;
-
-  for (size_t i = 0; i < len; i++) {
-    sum1 = (sum1 + bytes[i]) % 255;
-    sum2 = (sum2 + sum1) % 255;
-  }
-
-  return (sum2 << 8) | sum1;
-};
 #endif
 
 #define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
@@ -267,6 +248,89 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   #endif
   }
 
+#ifdef BRIDGE_OVER_SERIAL
+  struct SerialPacket {
+    uint16_t magic, len, crc;
+    uint8_t payload[MAX_TRANS_UNIT];
+    SerialPacket() : magic(SERIAL_PKT_MAGIC), len(0), crc(0) {}
+  };
+
+  // Fletcher-16
+  // https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+  inline static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
+    uint8_t sum1 = 0, sum2 = 0;
+
+    for (size_t i = 0; i < len; i++) {
+      sum1 = (sum1 + bytes[i]) % 255;
+      sum2 = (sum2 + sum1) % 255;
+    }
+
+    return (sum2 << 8) | sum1;
+  };
+
+  inline void serialBridgeSendPkt(const mesh::Packet *pkt) {
+    SerialPacket spkt;
+    spkt.len = pkt->writeTo(spkt.payload);
+    spkt.crc = fletcher16(spkt.payload, spkt.len);
+    BRIDGE_OVER_SERIAL.write((uint8_t *)&spkt, sizeof(SerialPacket));
+
+#if MESH_PACKET_LOGGING
+    Serial.printf("%s: BRIDGE: TX, len=%d crc=0x%04x\n", getLogDateTime(), spkt.len, spkt.crc);
+#endif
+  }
+
+  inline void serialBridgeReceivePkt() {
+    static constexpr uint16_t size = sizeof(SerialPacket) + 1;
+    static uint8_t buffer[size];
+    static uint16_t tail = 0;
+
+    while (BRIDGE_OVER_SERIAL.available()) {
+      buffer[tail] = (uint8_t)BRIDGE_OVER_SERIAL.read();
+      MESH_DEBUG_PRINT("%02x ", buffer[tail]);
+      tail = (tail + 1) % size;
+
+      // Check for complete packet by looking back to where the magic number should be
+      const uint16_t head = (tail - sizeof(SerialPacket) + size) % size;
+      if ((buffer[head] | (buffer[(head + 1) % size] << 8)) != SERIAL_PKT_MAGIC) {
+        return;
+      }
+
+      uint8_t bytes[MAX_TRANS_UNIT];
+      const uint16_t len = buffer[(head + 2) % size] | (buffer[(head + 3) % size] << 8);
+
+      if (len == 0 || len > sizeof(bytes)) {
+        MESH_DEBUG_PRINTLN("%s: BRIDGE: RX, invalid packet len", getLogDateTime());
+        return;
+      }
+
+      for (size_t i = 0; i < len; i++) {
+        bytes[i] = buffer[(head + 6 + i) % size];
+      }
+
+      const uint16_t crc = buffer[(head + 4) % size] | (buffer[(head + 5) % size] << 8);
+      const uint16_t f16 = fletcher16(bytes, len);
+
+#if MESH_PACKET_LOGGING
+      Serial.printf("%s: BRIDGE: RX, len=%d crc=0x%04x\n", getLogDateTime(), len, crc);
+#endif
+
+      if ((f16 != crc)) {
+        MESH_DEBUG_PRINTLN("%s: BRIDGE: RX, invalid packet checksum", getLogDateTime());
+        return;
+      }
+
+      mesh::Packet *pkt = _mgr->allocNew();
+      if (pkt == NULL) {
+        MESH_DEBUG_PRINTLN("%s: BRIDGE: RX, no unused packets available", getLogDateTime());
+        return;
+      }
+
+      pkt->readFrom(bytes, len);
+      _mgr->queueInbound(pkt, futureMillis(0));
+    }
+  }
+#endif
+
 protected:
   float getAirtimeBudgetFactor() const override {
     return _prefs.airtime_factor;
@@ -316,21 +380,10 @@ protected:
   }
   void logTx(mesh::Packet* pkt, int len) override {
 #ifdef BRIDGE_OVER_SERIAL
-    SerialPacket serialpkt;
-    size_t seriallen = pkt->writeTo(serialpkt.payload);
-
-    if (seriallen - 1 < MAX_TRANS_UNIT - 1) {
-      serialpkt.len = seriallen;
-      serialpkt.crc = fletcher16(serialpkt.payload, serialpkt.len);
-      BRIDGE_OVER_SERIAL.write((uint8_t *)&serialpkt, sizeof(SerialPacket));
-
-#if MESH_PACKET_LOGGING
-      Serial.print(getLogDateTime());
-      Serial.printf(": BRIDGE: Write to serial len=%d crc=0x%04x\n", serialpkt.len, serialpkt.crc);
-#endif
+    if (!pkt->isMarkedDoNotRetransmit()) {
+      serialBridgeSendPkt(pkt);
     }
 #endif
-
     if (_logging) {
       File f = openAppend(PACKET_LOG_FILE);
       if (f) {
@@ -747,53 +800,7 @@ public:
 
   void loop() {
 #ifdef BRIDGE_OVER_SERIAL
-    static constexpr uint16_t size = sizeof(SerialPacket) + 1;
-    static uint8_t buffer[size];
-    static uint16_t tail = 0;
-
-    while (BRIDGE_OVER_SERIAL.available()) {
-      buffer[tail] = (uint8_t)BRIDGE_OVER_SERIAL.read();
-      MESH_DEBUG_PRINT("%02x ", buffer[tail]);
-      tail = (tail + 1) % size;
-
-      // Check for complete packet by looking back to where the magic number should be
-      uint16_t head = (tail - sizeof(SerialPacket) + size) % size;
-      const uint16_t magic = buffer[head] | (buffer[(head + 1) % size] << 8);
-
-      if (magic == SERIAL_PKT_MAGIC) {
-        uint8_t bytes[MAX_TRANS_UNIT];
-        const uint16_t len = buffer[(head + 2) % size] | (buffer[(head + 3) % size] << 8);
-        const uint16_t crc = buffer[(head + 4) % size] | (buffer[(head + 5) % size] << 8);
-
-        if (len - 1 < MAX_TRANS_UNIT - 1) {
-          for (size_t i = 0; i < len; i++) {
-            bytes[i] = buffer[(head + 6 + i) % size];
-          }
-
-          uint16_t f16 = fletcher16(bytes, len);
-
-#if MESH_PACKET_LOGGING
-          Serial.print(getLogDateTime());
-          Serial.printf(": BRIDGE: Read from serial len=%d crc=0x%04x valid=%s\n", len, crc,
-                        (f16 == crc) ? "true" : "false");
-#endif
-
-          if (f16 == crc) {
-            mesh::Packet *pkt = _mgr->allocNew();
-
-            if (pkt == NULL) {
-#if MESH_PACKET_LOGGING
-              Serial.print(getLogDateTime());
-              Serial.printf(": BRIDGE: Unable to allocate new Packet *pkt\n");
-#endif
-            } else {
-              pkt->readFrom(bytes, len);
-              _mgr->queueInbound(pkt, millis());
-            }
-          }
-        }
-      }
-    }
+    serialBridgeReceivePkt();
 #endif
 
     mesh::Mesh::loop();
@@ -829,6 +836,7 @@ static char command[80];
 
 void setup() {
   Serial.begin(115200);
+  delay(1000);
 
 #ifdef BRIDGE_OVER_SERIAL
 #if defined(ESP32)
@@ -842,12 +850,8 @@ void setup() {
 #else
 #error SerialBridge was not tested on the current platform
 #endif
-
   BRIDGE_OVER_SERIAL.begin(115200);
-  MESH_DEBUG_PRINTLN("Bridge over serial: enabled");
 #endif
-
-  delay(1000);
 
   board.begin();
 
