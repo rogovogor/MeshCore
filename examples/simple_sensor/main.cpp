@@ -22,7 +22,7 @@ protected:
     float batt_voltage = getVoltage(TELEM_CHANNEL_SELF);
 
     battery_data.recordData(getRTCClock(), batt_voltage);   // record battery
-    alertIf(batt_voltage < 3.4f, low_batt, "Battery low!");
+    alertIf(batt_voltage < 3.4f, low_batt, HIGH_PRI_ALERT, "Battery low!");
   }
 
   int querySeriesData(uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg dest[], int max_num) override {
