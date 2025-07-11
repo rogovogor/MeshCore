@@ -94,7 +94,7 @@ Here are some general principals you should try to adhere to:
 
 - Report bugs and request features on the [GitHub Issues](https://github.com/ripplebiz/MeshCore/issues) page.
 - Find additional guides and components on [my site](https://buymeacoffee.com/ripplebiz).
-- Join [Andy Kirby's Discord](https://discord.gg/GBxVx2JMAy) to chat with the developers and get help from the community.
+- Join [MeshCore Discord](https://discord.gg/BMwCtwHj5V) to chat with the developers and get help from the community.
 
 ## RAK Wireless Board Support in PlatformIO
 
