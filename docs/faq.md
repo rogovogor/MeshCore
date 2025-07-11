@@ -179,7 +179,7 @@ The T-Deck firmware is free to download and most features are available without 
 
 In UK and EU, 867.5MHz is not allowed to use 250kHz bandwidth and it only allows 2.5% duty cycle for clients.  869.525Mhz allows an airtime of 10%, 250KHz bandwidth, and a higher EIRP, therefore MeshCore nodes can send more often and with more power. That is why this frequency is chosen for UK and EU.  This is also why Meshtastic also uses this frequency.  
 
-[Source]([https://](https://discord.com/channels/826570251612323860/1330643963501351004/1356540643853209641))
+[Source](https://discord.com/channels/826570251612323860/1330643963501351004/1356540643853209641)
 
 the rest of the radio settings are the same for all frequencies:  
 - Spread Factor (SF): 11  
@@ -271,7 +271,7 @@ You can get the latitude and longitude from Google Maps by right-clicking the lo
 
 GPS on T-Deck is always enabled.  You can skip the "GPS clock sync" and the T-Deck will continue to try to get a GPS lock.  You can go to the `GPS Info` screen; you should see the `Sentences:` counter increasing if the baud rate is correct.
 
-[Source]([https://](https://discord.com/channels/826570251612323860/1330643963501351004/1356609240302616689))
+[Source](https://discord.com/channels/826570251612323860/1330643963501351004/1356609240302616689)
 
 ### 4.3. Q: Why is my OG (non-Plus) T-Deck not getting any satellite lock?
 **A:** The OG (non-Plus) T-Deck doesn't come with a GPS. If you added a GPS to your OG T-Deck, please refer to the manual of your GPS to see what baud rate it requires. Alternatively, you can try to set the baud rate from 9600, 19200, etc., and up to 115200 to see which one works.
@@ -396,7 +396,7 @@ The third character is the capital letter 'O', not zero `0`
 - Firmware repo: <https://github.com/ripplebiz/MeshCore>  
 
 ### 5.8. Q: How can I support MeshCore?
-**A:** Provide your honest feedback on GitHub and on AndyKirby's Discord server <http://discord.com/invite/H62Re4DCeD>. Spread the word of MeshCore to your friends and communities; help them get started with MeshCore. Support Scott's MeshCore development at <https://buymeacoffee.com/ripplebiz>.
+**A:** Provide your honest feedback on GitHub and on [MeshCore Discord server](https://discord.gg/BMwCtwHj5V). Spread the word of MeshCore to your friends and communities; help them get started with MeshCore. Support Scott's MeshCore development at <https://buymeacoffee.com/ripplebiz>.
 
 Support Liam Cottle's smartphone client development by unlocking the server administration wait gate with in-app purchase
 
