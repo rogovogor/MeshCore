@@ -55,7 +55,8 @@ struct ContactInfo {
   #define MAX_CONTACTS           32
 #endif
 
-#define MAX_SEARCH_RESULTS   8
+#define MAX_SEARCH_RESULTS      8
+#define MAX_CONCURRENT_ALERTS   4
 
 class SensorMesh : public mesh::Mesh, public CommonCLICallbacks {
 public:
@@ -99,13 +100,20 @@ protected:
   bool  getGPS(uint8_t channel, float& lat, float& lon, float& alt);
 
   // alerts
-  struct Trigger {
-    bool triggered;
-    uint32_t time;
-
-    Trigger() { triggered = false; time = 0; }
-  };
   enum AlertPriority { LOW_PRI_ALERT, HIGH_PRI_ALERT };
+
+  struct Trigger {
+    uint32_t timestamp;
+    AlertPriority pri;
+    uint32_t expected_acks[4];
+    int8_t   curr_contact_idx;
+    uint8_t  attempt;
+    unsigned long send_expiry;
+    char text[MAX_PACKET_PAYLOAD];
+
+    Trigger() { text[0] = 0; }
+    bool isTriggered() const { return text[0] != 0; }
+  };
   void alertIf(bool condition, Trigger& t, AlertPriority pri, const char* text);
 
   virtual void onSensorDataRead() = 0;   // for app to implement
@@ -124,6 +132,7 @@ protected:
   void getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) override;
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override;
   bool onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
+  void onAckRecv(mesh::Packet* packet, uint32_t ack_crc) override;
 
 private:
   FILESYSTEM* _fs;
@@ -137,6 +146,8 @@ private:
   CayenneLPP telemetry;
   uint32_t last_read_time;
   int matching_peer_indexes[MAX_SEARCH_RESULTS];
+  int num_alert_tasks;
+  Trigger* alert_tasks[MAX_CONCURRENT_ALERTS];
 
   void loadContacts();
   void saveContacts();
@@ -146,6 +157,6 @@ private:
   ContactInfo* putContact(const mesh::Identity& id);
   void applyContactPermissions(const uint8_t* pubkey, uint16_t perms);
 
-  void sendAlert(AlertPriority pri, const char* text);
+  void sendAlert(ContactInfo* c, Trigger* t);
 
 };

@@ -10,7 +10,7 @@ void TimeSeriesData::recordData(mesh::RTCClock* clock, float value) {
   }
 }
 
-void TimeSeriesData::calcDataMinMaxAvg(mesh::RTCClock* clock, uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg* dest, uint8_t channel, uint8_t lpp_type) const {
+void TimeSeriesData::calcMinMaxAvg(mesh::RTCClock* clock, uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg* dest, uint8_t channel, uint8_t lpp_type) const {
   int i = next, n = num_slots;
   uint32_t ago = clock->getCurrentTime() - last_timestamp;
   int num_values = 0;
@@ -40,6 +40,6 @@ void TimeSeriesData::calcDataMinMaxAvg(mesh::RTCClock* clock, uint32_t start_sec
   if (num_values > 0) {
     dest->_avg = total / num_values;
   } else {
-    dest->_avg = NAN;
+    dest->_max = dest->_min = dest->_avg = NAN;
   }
 }

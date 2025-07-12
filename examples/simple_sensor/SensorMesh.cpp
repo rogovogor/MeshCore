@@ -58,6 +58,8 @@
 
 #define LAZY_CONTACTS_WRITE_DELAY       5000
 
+#define ALERT_ACK_EXPIRY_MILLIS         6000   // wait 6 secs for ACKs to alert messages
+
 static File openAppend(FILESYSTEM* _fs, const char* fname) {
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     return _fs->open(fname, FILE_O_WRITE);
@@ -163,6 +165,7 @@ static uint8_t getDataSize(uint8_t type) {
       case LPP_TEMPERATURE:
       case LPP_CONCENTRATION:
       case LPP_BAROMETRIC_PRESSURE:
+      case LPP_RELATIVE_HUMIDITY:
       case LPP_ALTITUDE:
       case LPP_VOLTAGE:
       case LPP_CURRENT:
@@ -185,6 +188,7 @@ static uint32_t getMultiplier(uint8_t type) {
         return 100;
       case LPP_TEMPERATURE:
       case LPP_BAROMETRIC_PRESSURE:
+      case LPP_RELATIVE_HUMIDITY:
         return 10;
     }
     return 1;
@@ -332,46 +336,54 @@ void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);   // trigger saveContacts()
 }
 
-void SensorMesh::sendAlert(AlertPriority pri, const char* text) {
-  int text_len = strlen(text);
-  uint16_t pri_mask = (pri == HIGH_PRI_ALERT) ? PERM_RECV_ALERTS_HI : PERM_RECV_ALERTS_LO;
+void SensorMesh::sendAlert(ContactInfo* c, Trigger* t) {
+  int text_len = strlen(t->text);
 
-  // send text message to all contacts with RECV_ALERT permission
-  for (int i = 0; i < num_contacts; i++) {
-    auto c = &contacts[i];
-    if ((c->permissions & pri_mask) == 0) continue;   // contact does NOT want alert
+  uint8_t data[MAX_PACKET_PAYLOAD];
+  memcpy(data, &t->timestamp, 4);
+  data[4] = (TXT_TYPE_PLAIN << 2) | t->attempt;  // attempt and flags
+  memcpy(&data[5], t->text, text_len);
 
-    uint8_t data[MAX_PACKET_PAYLOAD];
-    uint32_t now = getRTCClock()->getCurrentTimeUnique();  // need different timestamp per packet
-    memcpy(data, &now, 4);
-    data[4] = (TXT_TYPE_PLAIN << 2);  // attempt and flags
-    memcpy(&data[5], text, text_len);
-    // calc expected ACK reply
-    // uint32_t expected_ack;
-    // mesh::Utils::sha256((uint8_t *)&expected_ack, 4, data, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+  // calc expected ACK reply
+  mesh::Utils::sha256((uint8_t *)&t->expected_acks[t->attempt], 4, data, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+  t->attempt++;
 
-    auto pkt = createDatagram(PAYLOAD_TYPE_TXT_MSG, c->id, c->shared_secret, data, 5 + text_len);
-    if (pkt) {
-      if (c->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-        sendDirect(pkt, c->out_path, c->out_path_len);
-      } else {
-        sendFlood(pkt);
-      }
+  auto pkt = createDatagram(PAYLOAD_TYPE_TXT_MSG, c->id, c->shared_secret, data, 5 + text_len);
+  if (pkt) {
+    if (c->out_path_len >= 0) {  // we have an out_path, so send DIRECT
+      sendDirect(pkt, c->out_path, c->out_path_len);
+    } else {
+      sendFlood(pkt);
     }
   }
+  t->send_expiry = futureMillis(ALERT_ACK_EXPIRY_MILLIS);
 }
 
 void SensorMesh::alertIf(bool condition, Trigger& t, AlertPriority pri, const char* text) {
   if (condition) {
-    if (!t.triggered) {
-      t.triggered = true;
-      t.time = getRTCClock()->getCurrentTime();
-      sendAlert(pri, text);
+    if (!t.isTriggered() && num_alert_tasks < MAX_CONCURRENT_ALERTS) {
+      StrHelper::strncpy(t.text, text, sizeof(t.text));
+      t.pri = pri;
+      t.send_expiry = 0;  // signal that initial send is needed
+      t.attempt = 4;
+      t.curr_contact_idx = -1;  // start iterating thru contacts[]
+
+      alert_tasks[num_alert_tasks++] = &t;  // add to queue
     }
   } else {
-    if (t.triggered) {
-      t.triggered = false;
-      // TODO: apply debounce logic
+    if (t.isTriggered()) {
+      t.text[0] = 0;
+      // remove 't' from alert queue
+      int i = 0;
+      while (i < num_alert_tasks && alert_tasks[i] != &t) i++;
+
+      if (i < num_alert_tasks) {  // found,  now delete from array
+        num_alert_tasks--;
+        while (i < num_alert_tasks) {
+          alert_tasks[i] = alert_tasks[i + 1];
+          i++;
+        }
+      }
     }
   }
 }
@@ -629,6 +641,20 @@ bool SensorMesh::onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint
   return false;
 }
 
+void SensorMesh::onAckRecv(mesh::Packet* packet, uint32_t ack_crc) {
+  if (num_alert_tasks > 0) {
+    auto t = alert_tasks[0];   // check current alert task
+    for (int i = 0; i < t->attempt; i++) {
+      if (ack_crc == t->expected_acks[i]) {   // matching ACK!
+        t->attempt = 4;  // signal to move to next contact
+        t->send_expiry = 0;
+        packet->markDoNotRetransmit();   // ACK was for this node, so don't retransmit
+        return;
+      }
+    }
+  }
+}
+
 SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
@@ -637,6 +663,7 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   next_local_advert = next_flood_advert = 0;
   dirty_contacts_expiry = 0;
   last_read_time = 0;
+  num_alert_tasks = 0;
 
   // defaults
   memset(&_prefs, 0, sizeof(_prefs));
@@ -736,7 +763,14 @@ float SensorMesh::getTelemValue(uint8_t channel, uint8_t type) {
 }
 
 bool  SensorMesh::getGPS(uint8_t channel, float& lat, float& lon, float& alt) {
-  return false;   // TODO
+  if (channel == TELEM_CHANNEL_SELF) {
+    lat = sensors.node_lat;
+    lon = sensors.node_lon;
+    alt = sensors.node_altitude;
+    return true;
+  }
+  // REVISIT: custom GPS channels??
+  return false;
 }
 
 void SensorMesh::loop() {
@@ -765,6 +799,42 @@ void SensorMesh::loop() {
     onSensorDataRead();
 
     last_read_time = curr;
+  }
+
+  // check the alert send queue
+  if (num_alert_tasks > 0) {
+    auto t = alert_tasks[0];   // process head of queue
+
+    if (millisHasNowPassed(t->send_expiry)) {  // next send needed?
+      if (t->attempt >= 4) {  // max attempts reached, try next contact
+        t->curr_contact_idx++;
+        if (t->curr_contact_idx >= num_contacts) {  // no more contacts to try?
+          num_alert_tasks--;   // remove t from queue
+          for (int i = 0; i < num_alert_tasks; i++) {
+            alert_tasks[i] = alert_tasks[i + 1];
+          }
+        } else {
+          auto c = &contacts[t->curr_contact_idx];
+          uint16_t pri_mask = (t->pri == HIGH_PRI_ALERT) ? PERM_RECV_ALERTS_HI : PERM_RECV_ALERTS_LO;
+
+          if (c->permissions & pri_mask) {   // contact wants alert
+            // reset attempts
+            t->attempt = (t->pri == LOW_PRI_ALERT) ? 3 : 0;   // Low pri alerts, start at attempt #3 (ie. only make ONE attempt)
+            t->timestamp = getRTCClock()->getCurrentTimeUnique();   // need unique timestamp per contact
+
+            sendAlert(c, t);  // NOTE: modifies attempt, expected_acks[] and send_expiry
+          } else {
+            // next contact tested in next ::loop()
+          }
+        }
+      } else if (t->curr_contact_idx < num_contacts) {
+        auto c = &contacts[t->curr_contact_idx];   // send next attempt
+        sendAlert(c, t);  // NOTE: modifies attempt, expected_acks[] and send_expiry
+      } else {
+        // contact list has likely been modified while waiting for alert ACK, cancel this task
+        t->attempt = 4;   // next ::loop() will remove t from queue
+      }
+    }
   }
 
   // is there are pending dirty contacts write needed?
