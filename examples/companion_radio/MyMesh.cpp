@@ -45,6 +45,7 @@
 #define CMD_GET_CUSTOM_VARS           40
 #define CMD_SET_CUSTOM_VAR            41
 #define CMD_GET_ADVERT_PATH           42
+#define CMD_GET_TUNING_PARAMS         43
 
 #define RESP_CODE_OK                  0
 #define RESP_CODE_ERR                 1
@@ -69,6 +70,7 @@
 #define RESP_CODE_SIGNATURE           20
 #define RESP_CODE_CUSTOM_VARS         21
 #define RESP_CODE_ADVERT_PATH         22
+#define RESP_CODE_TUNING_PARAMS       23
 
 #define SEND_TIMEOUT_BASE_MILLIS        500
 #define FLOOD_SEND_TIMEOUT_FACTOR       16.0f
@@ -1016,6 +1018,13 @@ void MyMesh::handleCmdFrame(size_t len) {
     _prefs.airtime_factor = ((float)af) / 1000.0f;
     savePrefs();
     writeOKFrame();
+  } else if (cmd_frame[0] == CMD_GET_TUNING_PARAMS) {
+    uint32_t rx = _prefs.rx_delay_base * 1000, af = _prefs.airtime_factor * 1000;
+    int i = 0;
+    out_frame[i++] = RESP_CODE_TUNING_PARAMS;
+    memcpy(&out_frame[i], &rx, 4); i += 4;
+    memcpy(&out_frame[i], &af, 4); i += 4;
+    _serial->writeFrame(out_frame, i);
   } else if (cmd_frame[0] == CMD_SET_OTHER_PARAMS) {
     _prefs.manual_add_contacts = cmd_frame[1];
     if (len >= 3) {

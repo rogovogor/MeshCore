@@ -332,13 +332,14 @@ void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);   // trigger saveContacts()
 }
 
-void SensorMesh::sendAlert(const char* text) {
+void SensorMesh::sendAlert(AlertPriority pri, const char* text) {
   int text_len = strlen(text);
+  uint16_t pri_mask = (pri == HIGH_PRI_ALERT) ? PERM_RECV_ALERTS_HI : PERM_RECV_ALERTS_LO;
 
   // send text message to all contacts with RECV_ALERT permission
   for (int i = 0; i < num_contacts; i++) {
     auto c = &contacts[i];
-    if ((c->permissions & PERM_RECV_ALERTS) == 0) continue;   // contact does NOT want alerts
+    if ((c->permissions & pri_mask) == 0) continue;   // contact does NOT want alert
 
     uint8_t data[MAX_PACKET_PAYLOAD];
     uint32_t now = getRTCClock()->getCurrentTimeUnique();  // need different timestamp per packet
@@ -360,12 +361,12 @@ void SensorMesh::sendAlert(const char* text) {
   }
 }
 
-void SensorMesh::alertIf(bool condition, Trigger& t, const char* text) {
+void SensorMesh::alertIf(bool condition, Trigger& t, AlertPriority pri, const char* text) {
   if (condition) {
     if (!t.triggered) {
       t.triggered = true;
       t.time = getRTCClock()->getCurrentTime();
-      sendAlert(text);
+      sendAlert(pri, text);
     }
   } else {
     if (t.triggered) {
@@ -422,7 +423,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   MESH_DEBUG_PRINTLN("Login success!");
   client->last_timestamp = sender_timestamp;
   client->last_activity = getRTCClock()->getCurrentTime();
-  client->permissions = PERM_IS_ADMIN | PERM_RECV_ALERTS;
+  client->permissions = PERM_IS_ADMIN | PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO;  // initially opt-in to receive alerts (can opt out)
   memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);

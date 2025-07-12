@@ -26,7 +26,8 @@
 #define PERM_IS_ADMIN          0x8000
 #define PERM_GET_TELEMETRY     0x0001
 #define PERM_GET_MIN_MAX_AVG   0x0002
-#define PERM_RECV_ALERTS       0x0100
+#define PERM_RECV_ALERTS_LO    0x0100   // low priority alerts
+#define PERM_RECV_ALERTS_HI    0x0200   // high priority alerts
 
 struct ContactInfo {
   mesh::Identity id;
@@ -104,8 +105,8 @@ protected:
 
     Trigger() { triggered = false; time = 0; }
   };
-
-  void alertIf(bool condition, Trigger& t, const char* text);
+  enum AlertPriority { LOW_PRI_ALERT, HIGH_PRI_ALERT };
+  void alertIf(bool condition, Trigger& t, AlertPriority pri, const char* text);
 
   virtual void onSensorDataRead() = 0;   // for app to implement
   virtual int querySeriesData(uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg dest[], int max_num) = 0;  // for app to implement
@@ -145,6 +146,6 @@ private:
   ContactInfo* putContact(const mesh::Identity& id);
   void applyContactPermissions(const uint8_t* pubkey, uint16_t perms);
 
-  void sendAlert(const char* text);
+  void sendAlert(AlertPriority pri, const char* text);
 
 };
