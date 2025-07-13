@@ -51,9 +51,7 @@ struct ContactInfo {
 
 #define FIRMWARE_ROLE "sensor"
 
-#ifndef MAX_CONTACTS
-  #define MAX_CONTACTS           32
-#endif
+#define MAX_CONTACTS           20
 
 #define MAX_SEARCH_RESULTS      8
 #define MAX_CONCURRENT_ALERTS   4
