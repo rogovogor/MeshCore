@@ -2,9 +2,9 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <helpers/RadioLibWrappers.h>
+#include <helpers/radiolib/RadioLibWrappers.h>
 #include <helpers/stm32/STM32Board.h>
-#include <helpers/CustomSTM32WLxWrapper.h>
+#include <helpers/radiolib/CustomSTM32WLxWrapper.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 
@@ -16,7 +16,7 @@ public:
 
     // Just returns ADC value for now to test adc
     uint16_t getBattMilliVolts() override {
-        uint32_t raw = analogRead(PIN_A3);            
+        uint32_t raw = analogRead(PIN_A3);
         return raw;
     }
 };

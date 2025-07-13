@@ -4,8 +4,8 @@
 
 #include <RadioLib.h>
 #include <helpers/AutoDiscoverRTCClock.h>
-#include <helpers/CustomSX1262Wrapper.h>
-#include <helpers/RadioLibWrappers.h>
+#include <helpers/radiolib/CustomSX1262Wrapper.h>
+#include <helpers/radiolib/RadioLibWrappers.h>
 #include <helpers/SensorManager.h>
 #include <helpers/rp2040/XiaoRP2040Board.h>
 

@@ -2,9 +2,9 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <helpers/RadioLibWrappers.h>
+#include <helpers/radiolib/RadioLibWrappers.h>
 #include <helpers/stm32/STM32Board.h>
-#include <helpers/CustomSTM32WLxWrapper.h>
+#include <helpers/radiolib/CustomSTM32WLxWrapper.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 #ifdef DISPLAY_CLASS
@@ -37,14 +37,14 @@ public:
         uint32_t raw = 0;
         for (int i=0; i<8;i++) {
             raw += analogRead(PIN_A3);
-        }            
+        }
         return ((double)raw) * 1.73 * 5 * 1000 / 8 / 4096;
     }
 };
 
 class WIOE5SensorManager : public SensorManager {
     BME280I2C bme;
-    bool has_bme = false;   
+    bool has_bme = false;
 
 public:
     WIOE5SensorManager() {}
