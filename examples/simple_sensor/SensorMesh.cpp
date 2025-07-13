@@ -51,6 +51,7 @@
 #define REQ_TYPE_KEEP_ALIVE          0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA  0x03
 #define REQ_TYPE_GET_AVG_MIN_MAX     0x04
+#define REQ_TYPE_GET_ACCESS_LIST     0x05
 
 #define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
 
@@ -285,6 +286,19 @@ uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uin
       ofs += putFloat(&reply_data[ofs], d->_avg, sz, mult, is_signed);
     }
     return ofs;
+  }
+  if (req_type == REQ_TYPE_GET_ACCESS_LIST && (perms & PERM_IS_ADMIN) != 0) {
+    uint8_t res1 = payload[0];   // reserved for future  (extra query params)
+    uint8_t res2 = payload[1];
+    if (res1 == 0 && res2 == 0) {
+      uint8_t ofs = 4;
+      for (int i = 0; i < num_contacts && ofs + 8 <= sizeof(reply_data) - 4; i++) {
+        auto c = &contacts[i];
+        memcpy(&reply_data[ofs], c->id.pub_key, 6); ofs += 6;  // just 6-byte pub_key prefix
+        memcpy(&reply_data[ofs], &c->permissions, 2); ofs += 2;
+      }
+      return ofs;
+    }
   }
   return 0;  // unknown command
 }
