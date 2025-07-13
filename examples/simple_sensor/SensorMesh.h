@@ -118,6 +118,7 @@ protected:
 
   virtual void onSensorDataRead() = 0;   // for app to implement
   virtual int querySeriesData(uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg dest[], int max_num) = 0;  // for app to implement
+  virtual bool handleCustomCommand(uint32_t sender_timestamp, char* command, char* reply) { return false; }
 
   // Mesh overrides
   float getAirtimeBudgetFactor() const override;

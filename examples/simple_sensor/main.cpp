@@ -30,6 +30,14 @@ protected:
     battery_data.calcMinMaxAvg(getRTCClock(), start_secs_ago, end_secs_ago, &dest[0], TELEM_CHANNEL_SELF, LPP_VOLTAGE);
     return 1;
   }
+
+  bool handleCustomCommand(uint32_t sender_timestamp, char* command, char* reply) override {
+    if (strcmp(command, "magic") == 0) {    // example 'custom' command handling
+      strcpy(reply, "**Magic now done**");
+      return true;   // handled
+    }
+    return false;  // not handled
+  }
   /* ======================================================================= */
 };
 

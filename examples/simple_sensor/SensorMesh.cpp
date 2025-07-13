@@ -257,7 +257,7 @@ uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uin
     memcpy(&start_secs_ago, &payload[0], 4);
     memcpy(&end_secs_ago, &payload[4], 4);
     uint8_t res1 = payload[8];   // reserved for future  (extra query params)
-    uint8_t res2 = payload[8];
+    uint8_t res2 = payload[9];
 
     MinMaxAvg data[8];
     int n;
@@ -458,6 +458,11 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
     memcpy(reply, command, 3);  // reflect the prefix back
     reply += 3;
     command += 3;
+  }
+
+  // first, see if this is a custom-handled CLI command (ie. in main.cpp)
+  if (handleCustomCommand(sender_timestamp, command, reply)) {
+    return;   // command has been handled
   }
 
   // handle sensor-specific CLI commands
