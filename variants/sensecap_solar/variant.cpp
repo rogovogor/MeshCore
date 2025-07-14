@@ -64,6 +64,8 @@ void initVariant() {
     pinMode(LED_BLUE, OUTPUT);
     digitalWrite(LED_BLUE, LOW);
 
+    /* disable gps until we actually support it.
     pinMode(GPS_EN, OUTPUT);
     digitalWrite(GPS_EN, HIGH);
+    */
 }
