@@ -160,7 +160,7 @@ private:
   NodePrefs _prefs;
   uint32_t pending_login;
   uint32_t pending_status;
-  uint32_t pending_telemetry;
+  uint32_t pending_req;   // pending _BINARY_REQ (or legacy _TELEMETRY_REQ)
   BaseSerialInterface *_serial;
 
   ContactsIterator _iter;
