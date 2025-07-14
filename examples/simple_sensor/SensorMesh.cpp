@@ -59,7 +59,7 @@
 
 #define LAZY_CONTACTS_WRITE_DELAY       5000
 
-#define ALERT_ACK_EXPIRY_MILLIS         6000   // wait 6 secs for ACKs to alert messages
+#define ALERT_ACK_EXPIRY_MILLIS         8000   // wait 8 secs for ACKs to alert messages
 
 static File openAppend(FILESYSTEM* _fs, const char* fname) {
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -497,13 +497,14 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
         strcpy(reply, "Err - bad pubkey");
       }
     }
-  } else if (sender_timestamp == 0 && strcmp(command, "getperm") == 0) {
-    Serial.println("Permissions:");
+  } else if (sender_timestamp == 0 && strcmp(command, "get acl") == 0) {
+    Serial.println("ACL:");
     for (int i = 0; i < num_contacts; i++) {
       auto c = &contacts[i];
 
+      Serial.printf("%04X ", c->permissions);
       mesh::Utils::printHex(Serial, c->id.pub_key, PUB_KEY_SIZE);
-      Serial.printf(" %04X\n", c->permissions);
+      Serial.printf("\n");
     }
     reply[0] = 0;
   } else {
