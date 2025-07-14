@@ -94,7 +94,8 @@
 #define PUSH_CODE_LOG_RX_DATA           0x88
 #define PUSH_CODE_TRACE_DATA            0x89
 #define PUSH_CODE_NEW_ADVERT            0x8A
-#define PUSH_CODE_BINARY_RESPONSE       0x8B   // was 'PUSH_CODE_TELEMETRY_RESPONSE'
+#define PUSH_CODE_TELEMETRY_RESPONSE    0x8B
+#define PUSH_CODE_BINARY_RESPONSE       0x8C
 
 #define ERR_CODE_UNSUPPORTED_CMD        1
 #define ERR_CODE_NOT_FOUND              2
@@ -492,14 +493,25 @@ void MyMesh::onContactResponse(const ContactInfo &contact, const uint8_t *data, 
     memcpy(&out_frame[i], &data[4], len - 4);
     i += (len - 4);
     _serial->writeFrame(out_frame, i);
+  } else if (len > 4 && tag == pending_telemetry) {  // check for matching response tag
+    pending_telemetry = 0;
+
+    int i = 0;
+    out_frame[i++] = PUSH_CODE_TELEMETRY_RESPONSE;
+    out_frame[i++] = 0; // reserved
+    memcpy(&out_frame[i], contact.id.pub_key, 6);
+    i += 6; // pub_key_prefix
+    memcpy(&out_frame[i], &data[4], len - 4);
+    i += (len - 4);
+    _serial->writeFrame(out_frame, i);
   } else if (len > 4 && tag == pending_req) {  // check for matching response tag
     pending_req = 0;
 
     int i = 0;
     out_frame[i++] = PUSH_CODE_BINARY_RESPONSE;
     out_frame[i++] = 0; // reserved
-    memcpy(&out_frame[i], contact.id.pub_key, 6);
-    i += 6; // pub_key_prefix
+    memcpy(&out_frame[i], &tag, 4);   // app needs to match this to RESP_CODE_SENT.tag
+    i += 4;
     memcpy(&out_frame[i], &data[4], len - 4);
     i += (len - 4);
     _serial->writeFrame(out_frame, i);
@@ -568,7 +580,7 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   _cli_rescue = false;
   offline_queue_len = 0;
   app_target_ver = 0;
-  pending_login = pending_status = pending_req = 0;
+  pending_login = pending_status = pending_telemetry = pending_req = 0;
   next_ack_idx = 0;
   sign_data = NULL;
   dirty_contacts_expiry = 0;
@@ -1105,7 +1117,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_req = pending_status = 0;
+        pending_req = pending_telemetry = pending_status = 0;
         memcpy(&pending_login, recipient->id.pub_key, 4); // match this to onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
@@ -1125,7 +1137,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_req = pending_login = 0;
+        pending_req = pending_telemetry = pending_login = 0;
         // FUTURE:  pending_status = tag;  // match this in onContactResponse()
         memcpy(&pending_status, recipient->id.pub_key, 4); // legacy matching scheme
         out_frame[0] = RESP_CODE_SENT;
@@ -1146,8 +1158,8 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_status = pending_login = 0;
-        pending_req = tag; // match this in onContactResponse()
+        pending_status = pending_login = pending_req = 0;
+        pending_telemetry = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
         memcpy(&out_frame[2], &tag, 4);
@@ -1164,7 +1176,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     sensors.querySensors(0xFF, telemetry);
 
     int i = 0;
-    out_frame[i++] = PUSH_CODE_BINARY_RESPONSE;
+    out_frame[i++] = PUSH_CODE_TELEMETRY_RESPONSE;
     out_frame[i++] = 0; // reserved
     memcpy(&out_frame[i], self_id.pub_key, 6);
     i += 6; // pub_key_prefix
@@ -1182,7 +1194,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_status = pending_login = 0;
+        pending_status = pending_login = pending_telemetry = 0;
         pending_req = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
