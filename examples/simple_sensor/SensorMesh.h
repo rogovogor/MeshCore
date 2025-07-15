@@ -23,22 +23,29 @@
 #include <RTClib.h>
 #include <target.h>
 
-#define PERM_IS_ADMIN          0x8000
-#define PERM_GET_TELEMETRY     0x0001
-#define PERM_GET_MIN_MAX_AVG   0x0002
-#define PERM_RECV_ALERTS_LO    0x0100   // low priority alerts
-#define PERM_RECV_ALERTS_HI    0x0200   // high priority alerts
+#define PERM_ACL_ROLE_MASK     3   // lower 2 bits
+#define PERM_ACL_GUEST         0
+#define PERM_ACL_LEVEL1        1
+#define PERM_ACL_LEVEL2        2
+#define PERM_ACL_LEVEL3        3   // admin
+
+#define PERM_GET_TELEMETRY     (1 << 2)
+#define PERM_GET_OTHER_STATS   (1 << 3)
+#define PERM_RESERVED1         (1 << 4)
+#define PERM_RESERVED2         (1 << 5)
+#define PERM_RECV_ALERTS_LO    (1 << 6)   // low priority alerts
+#define PERM_RECV_ALERTS_HI    (1 << 7)   // high priority alerts
 
 struct ContactInfo {
   mesh::Identity id;
-  uint16_t permissions;
+  uint8_t permissions;
   int8_t out_path_len;
   uint8_t out_path[MAX_PATH_SIZE];
   uint8_t shared_secret[PUB_KEY_SIZE];
   uint32_t last_timestamp;   // by THEIR clock  (transient)
   uint32_t last_activity;    // by OUR clock    (transient)
 
-  bool isAdmin() const { return (permissions & PERM_IS_ADMIN) != 0; }
+  bool isAdmin() const { return (permissions & PERM_ACL_ROLE_MASK) == PERM_ACL_LEVEL3; }
 };
 
 #ifndef FIRMWARE_BUILD_DATE
@@ -51,11 +58,10 @@ struct ContactInfo {
 
 #define FIRMWARE_ROLE "sensor"
 
-#ifndef MAX_CONTACTS
-  #define MAX_CONTACTS           32
-#endif
+#define MAX_CONTACTS           20
 
-#define MAX_SEARCH_RESULTS   8
+#define MAX_SEARCH_RESULTS      8
+#define MAX_CONCURRENT_ALERTS   4
 
 class SensorMesh : public mesh::Mesh, public CommonCLICallbacks {
 public:
@@ -99,17 +105,25 @@ protected:
   bool  getGPS(uint8_t channel, float& lat, float& lon, float& alt);
 
   // alerts
-  struct Trigger {
-    bool triggered;
-    uint32_t time;
-
-    Trigger() { triggered = false; time = 0; }
-  };
   enum AlertPriority { LOW_PRI_ALERT, HIGH_PRI_ALERT };
+
+  struct Trigger {
+    uint32_t timestamp;
+    AlertPriority pri;
+    uint32_t expected_acks[4];
+    int8_t   curr_contact_idx;
+    uint8_t  attempt;
+    unsigned long send_expiry;
+    char text[MAX_PACKET_PAYLOAD];
+
+    Trigger() { text[0] = 0; }
+    bool isTriggered() const { return text[0] != 0; }
+  };
   void alertIf(bool condition, Trigger& t, AlertPriority pri, const char* text);
 
   virtual void onSensorDataRead() = 0;   // for app to implement
   virtual int querySeriesData(uint32_t start_secs_ago, uint32_t end_secs_ago, MinMaxAvg dest[], int max_num) = 0;  // for app to implement
+  virtual bool handleCustomCommand(uint32_t sender_timestamp, char* command, char* reply) { return false; }
 
   // Mesh overrides
   float getAirtimeBudgetFactor() const override;
@@ -124,6 +138,7 @@ protected:
   void getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) override;
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override;
   bool onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
+  void onAckRecv(mesh::Packet* packet, uint32_t ack_crc) override;
 
 private:
   FILESYSTEM* _fs;
@@ -137,15 +152,17 @@ private:
   CayenneLPP telemetry;
   uint32_t last_read_time;
   int matching_peer_indexes[MAX_SEARCH_RESULTS];
+  int num_alert_tasks;
+  Trigger* alert_tasks[MAX_CONCURRENT_ALERTS];
 
   void loadContacts();
   void saveContacts();
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data);
-  uint8_t handleRequest(uint16_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len);
+  uint8_t handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len);
   mesh::Packet* createSelfAdvert();
   ContactInfo* putContact(const mesh::Identity& id);
-  void applyContactPermissions(const uint8_t* pubkey, uint16_t perms);
+  void applyContactPermissions(const uint8_t* pubkey, uint8_t perms);
 
-  void sendAlert(AlertPriority pri, const char* text);
+  void sendAlert(ContactInfo* c, Trigger* t);
 
 };

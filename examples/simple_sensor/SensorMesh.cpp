@@ -51,12 +51,15 @@
 #define REQ_TYPE_KEEP_ALIVE          0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA  0x03
 #define REQ_TYPE_GET_AVG_MIN_MAX     0x04
+#define REQ_TYPE_GET_ACCESS_LIST     0x05
 
 #define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
 
 #define CLI_REPLY_DELAY_MILLIS  1000
 
 #define LAZY_CONTACTS_WRITE_DELAY       5000
+
+#define ALERT_ACK_EXPIRY_MILLIS         8000   // wait 8 secs for ACKs to alert messages
 
 static File openAppend(FILESYSTEM* _fs, const char* fname) {
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -92,11 +95,11 @@ void SensorMesh::loadContacts() {
       while (!full) {
         ContactInfo c;
         uint8_t pub_key[32];
-        uint8_t unused[5];
+        uint8_t unused[6];
 
         bool success = (file.read(pub_key, 32) == 32);
-        success = success && (file.read((uint8_t *) &c.permissions, 2) == 2);
-        success = success && (file.read(unused, 5) == 5);
+        success = success && (file.read((uint8_t *) &c.permissions, 1) == 1);
+        success = success && (file.read(unused, 6) == 6);
         success = success && (file.read((uint8_t *)&c.out_path_len, 1) == 1);
         success = success && (file.read(c.out_path, 64) == 64);
         success = success && (file.read(c.shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE);
@@ -128,8 +131,8 @@ void SensorMesh::saveContacts() {
       if (c->permissions == 0) continue;    // skip deleted entries
 
       bool success = (file.write(c->id.pub_key, 32) == 32);
-      success = success && (file.write((uint8_t *) &c->permissions, 2) == 2);
-      success = success && (file.write(unused, 5) == 5);
+      success = success && (file.write((uint8_t *) &c->permissions, 1) == 1);
+      success = success && (file.write(unused, 6) == 6);
       success = success && (file.write((uint8_t *)&c->out_path_len, 1) == 1);
       success = success && (file.write(c->out_path, 64) == 64);
       success = success && (file.write(c->shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE);
@@ -163,6 +166,7 @@ static uint8_t getDataSize(uint8_t type) {
       case LPP_TEMPERATURE:
       case LPP_CONCENTRATION:
       case LPP_BAROMETRIC_PRESSURE:
+      case LPP_RELATIVE_HUMIDITY:
       case LPP_ALTITUDE:
       case LPP_VOLTAGE:
       case LPP_CURRENT:
@@ -185,6 +189,7 @@ static uint32_t getMultiplier(uint8_t type) {
         return 100;
       case LPP_TEMPERATURE:
       case LPP_BAROMETRIC_PRESSURE:
+      case LPP_RELATIVE_HUMIDITY:
         return 10;
     }
     return 1;
@@ -235,7 +240,7 @@ static uint8_t putFloat(uint8_t * dest, float value, uint8_t size, uint32_t mult
   return size;
 }
 
-uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
+uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
   if (req_type == REQ_TYPE_GET_TELEMETRY_DATA && (perms & PERM_GET_TELEMETRY) != 0) {
@@ -243,17 +248,18 @@ uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uin
     telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
     // query other sensors -- target specific
     sensors.querySensors(0xFF, telemetry);  // allow all telemetry permissions for admin or guest
+    // TODO: let requester know permissions they have:  telemetry.addPresence(TELEM_CHANNEL_SELF, perms);
 
     uint8_t tlen = telemetry.getSize();
     memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
     return 4 + tlen;  // reply_len
   }
-  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_GET_MIN_MAX_AVG) != 0) {
+  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_GET_OTHER_STATS) != 0) {
     uint32_t start_secs_ago, end_secs_ago;
     memcpy(&start_secs_ago, &payload[0], 4);
     memcpy(&end_secs_ago, &payload[4], 4);
     uint8_t res1 = payload[8];   // reserved for future  (extra query params)
-    uint8_t res2 = payload[8];
+    uint8_t res2 = payload[9];
 
     MinMaxAvg data[8];
     int n;
@@ -281,6 +287,19 @@ uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uin
       ofs += putFloat(&reply_data[ofs], d->_avg, sz, mult, is_signed);
     }
     return ofs;
+  }
+  if (req_type == REQ_TYPE_GET_ACCESS_LIST && (perms & PERM_ACL_ROLE_MASK) == PERM_ACL_LEVEL3) {
+    uint8_t res1 = payload[0];   // reserved for future  (extra query params)
+    uint8_t res2 = payload[1];
+    if (res1 == 0 && res2 == 0) {
+      uint8_t ofs = 4;
+      for (int i = 0; i < num_contacts && ofs + 7 <= sizeof(reply_data) - 4; i++) {
+        auto c = &contacts[i];
+        memcpy(&reply_data[ofs], c->id.pub_key, 6); ofs += 6;  // just 6-byte pub_key prefix
+        reply_data[ofs++] = c->permissions;
+      }
+      return ofs;
+    }
   }
   return 0;  // unknown command
 }
@@ -319,11 +338,11 @@ ContactInfo* SensorMesh::putContact(const mesh::Identity& id) {
   return c;
 }
 
-void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) {
+void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint8_t perms) {
   mesh::Identity id(pubkey);
   auto c = putContact(id);
 
-  if (perms == 0) {  // no permissions, remove from contacts
+  if ((perms & PERM_ACL_ROLE_MASK) == PERM_ACL_GUEST) {  // guest role is not persisted in contacts
     memset(c, 0, sizeof(*c));
   } else {
     c->permissions = perms;  // update their permissions
@@ -332,46 +351,54 @@ void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);   // trigger saveContacts()
 }
 
-void SensorMesh::sendAlert(AlertPriority pri, const char* text) {
-  int text_len = strlen(text);
-  uint16_t pri_mask = (pri == HIGH_PRI_ALERT) ? PERM_RECV_ALERTS_HI : PERM_RECV_ALERTS_LO;
+void SensorMesh::sendAlert(ContactInfo* c, Trigger* t) {
+  int text_len = strlen(t->text);
 
-  // send text message to all contacts with RECV_ALERT permission
-  for (int i = 0; i < num_contacts; i++) {
-    auto c = &contacts[i];
-    if ((c->permissions & pri_mask) == 0) continue;   // contact does NOT want alert
+  uint8_t data[MAX_PACKET_PAYLOAD];
+  memcpy(data, &t->timestamp, 4);
+  data[4] = (TXT_TYPE_PLAIN << 2) | t->attempt;  // attempt and flags
+  memcpy(&data[5], t->text, text_len);
 
-    uint8_t data[MAX_PACKET_PAYLOAD];
-    uint32_t now = getRTCClock()->getCurrentTimeUnique();  // need different timestamp per packet
-    memcpy(data, &now, 4);
-    data[4] = (TXT_TYPE_PLAIN << 2);  // attempt and flags
-    memcpy(&data[5], text, text_len);
-    // calc expected ACK reply
-    // uint32_t expected_ack;
-    // mesh::Utils::sha256((uint8_t *)&expected_ack, 4, data, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+  // calc expected ACK reply
+  mesh::Utils::sha256((uint8_t *)&t->expected_acks[t->attempt], 4, data, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+  t->attempt++;
 
-    auto pkt = createDatagram(PAYLOAD_TYPE_TXT_MSG, c->id, c->shared_secret, data, 5 + text_len);
-    if (pkt) {
-      if (c->out_path_len >= 0) {  // we have an out_path, so send DIRECT
-        sendDirect(pkt, c->out_path, c->out_path_len);
-      } else {
-        sendFlood(pkt);
-      }
+  auto pkt = createDatagram(PAYLOAD_TYPE_TXT_MSG, c->id, c->shared_secret, data, 5 + text_len);
+  if (pkt) {
+    if (c->out_path_len >= 0) {  // we have an out_path, so send DIRECT
+      sendDirect(pkt, c->out_path, c->out_path_len);
+    } else {
+      sendFlood(pkt);
     }
   }
+  t->send_expiry = futureMillis(ALERT_ACK_EXPIRY_MILLIS);
 }
 
 void SensorMesh::alertIf(bool condition, Trigger& t, AlertPriority pri, const char* text) {
   if (condition) {
-    if (!t.triggered) {
-      t.triggered = true;
-      t.time = getRTCClock()->getCurrentTime();
-      sendAlert(pri, text);
+    if (!t.isTriggered() && num_alert_tasks < MAX_CONCURRENT_ALERTS) {
+      StrHelper::strncpy(t.text, text, sizeof(t.text));
+      t.pri = pri;
+      t.send_expiry = 0;  // signal that initial send is needed
+      t.attempt = 4;
+      t.curr_contact_idx = -1;  // start iterating thru contacts[]
+
+      alert_tasks[num_alert_tasks++] = &t;  // add to queue
     }
   } else {
-    if (t.triggered) {
-      t.triggered = false;
-      // TODO: apply debounce logic
+    if (t.isTriggered()) {
+      t.text[0] = 0;
+      // remove 't' from alert queue
+      int i = 0;
+      while (i < num_alert_tasks && alert_tasks[i] != &t) i++;
+
+      if (i < num_alert_tasks) {  // found,  now delete from array
+        num_alert_tasks--;
+        while (i < num_alert_tasks) {
+          alert_tasks[i] = alert_tasks[i + 1];
+          i++;
+        }
+      }
     }
   }
 }
@@ -423,7 +450,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   MESH_DEBUG_PRINTLN("Login success!");
   client->last_timestamp = sender_timestamp;
   client->last_activity = getRTCClock()->getCurrentTime();
-  client->permissions = PERM_IS_ADMIN | PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO;  // initially opt-in to receive alerts (can opt out)
+  client->permissions = PERM_ACL_LEVEL3 | PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO;  // initially opt-in to receive alerts (can opt out)
   memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
@@ -433,7 +460,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   reply_data[4] = RESP_SERVER_LOGIN_OK;
   reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
   reply_data[6] = 1;  // 1 = is admin
-  reply_data[7] = 0;  // FUTURE: reserved
+  reply_data[7] = client->permissions;
   getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
 
   return 12;  // reply length
@@ -448,8 +475,13 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
     command += 3;
   }
 
+  // first, see if this is a custom-handled CLI command (ie. in main.cpp)
+  if (handleCustomCommand(sender_timestamp, command, reply)) {
+    return;   // command has been handled
+  }
+
   // handle sensor-specific CLI commands
-  if (memcmp(command, "setperm ", 8) == 0) {   // format:  setperm {pubkey-hex} {permissions-int16}
+  if (memcmp(command, "setperm ", 8) == 0) {   // format:  setperm {pubkey-hex} {permissions-int8}
     char* hex = &command[8];
     char* sp = strchr(hex, ' ');   // look for separator char
     if (sp == NULL || sp - hex != PUB_KEY_SIZE*2) {
@@ -459,20 +491,21 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
 
       uint8_t pubkey[PUB_KEY_SIZE];
       if (mesh::Utils::fromHex(pubkey, PUB_KEY_SIZE, hex)) {
-        uint16_t perms = atoi(sp);
+        uint8_t perms = atoi(sp);
         applyContactPermissions(pubkey, perms);
         strcpy(reply, "OK");
       } else {
         strcpy(reply, "Err - bad pubkey");
       }
     }
-  } else if (sender_timestamp == 0 && strcmp(command, "getperm") == 0) {
-    Serial.println("Permissions:");
+  } else if (sender_timestamp == 0 && strcmp(command, "get acl") == 0) {
+    Serial.println("ACL:");
     for (int i = 0; i < num_contacts; i++) {
       auto c = &contacts[i];
 
+      Serial.printf("%02X ", c->permissions);
       mesh::Utils::printHex(Serial, c->id.pub_key, PUB_KEY_SIZE);
-      Serial.printf(" %04X\n", c->permissions);
+      Serial.printf("\n");
     }
     reply[0] = 0;
   } else {
@@ -629,6 +662,20 @@ bool SensorMesh::onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint
   return false;
 }
 
+void SensorMesh::onAckRecv(mesh::Packet* packet, uint32_t ack_crc) {
+  if (num_alert_tasks > 0) {
+    auto t = alert_tasks[0];   // check current alert task
+    for (int i = 0; i < t->attempt; i++) {
+      if (ack_crc == t->expected_acks[i]) {   // matching ACK!
+        t->attempt = 4;  // signal to move to next contact
+        t->send_expiry = 0;
+        packet->markDoNotRetransmit();   // ACK was for this node, so don't retransmit
+        return;
+      }
+    }
+  }
+}
+
 SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
@@ -637,6 +684,7 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   next_local_advert = next_flood_advert = 0;
   dirty_contacts_expiry = 0;
   last_read_time = 0;
+  num_alert_tasks = 0;
 
   // defaults
   memset(&_prefs, 0, sizeof(_prefs));
@@ -736,7 +784,14 @@ float SensorMesh::getTelemValue(uint8_t channel, uint8_t type) {
 }
 
 bool  SensorMesh::getGPS(uint8_t channel, float& lat, float& lon, float& alt) {
-  return false;   // TODO
+  if (channel == TELEM_CHANNEL_SELF) {
+    lat = sensors.node_lat;
+    lon = sensors.node_lon;
+    alt = sensors.node_altitude;
+    return true;
+  }
+  // REVISIT: custom GPS channels??
+  return false;
 }
 
 void SensorMesh::loop() {
@@ -765,6 +820,42 @@ void SensorMesh::loop() {
     onSensorDataRead();
 
     last_read_time = curr;
+  }
+
+  // check the alert send queue
+  if (num_alert_tasks > 0) {
+    auto t = alert_tasks[0];   // process head of queue
+
+    if (millisHasNowPassed(t->send_expiry)) {  // next send needed?
+      if (t->attempt >= 4) {  // max attempts reached, try next contact
+        t->curr_contact_idx++;
+        if (t->curr_contact_idx >= num_contacts) {  // no more contacts to try?
+          num_alert_tasks--;   // remove t from queue
+          for (int i = 0; i < num_alert_tasks; i++) {
+            alert_tasks[i] = alert_tasks[i + 1];
+          }
+        } else {
+          auto c = &contacts[t->curr_contact_idx];
+          uint16_t pri_mask = (t->pri == HIGH_PRI_ALERT) ? PERM_RECV_ALERTS_HI : PERM_RECV_ALERTS_LO;
+
+          if (c->permissions & pri_mask) {   // contact wants alert
+            // reset attempts
+            t->attempt = (t->pri == LOW_PRI_ALERT) ? 3 : 0;   // Low pri alerts, start at attempt #3 (ie. only make ONE attempt)
+            t->timestamp = getRTCClock()->getCurrentTimeUnique();   // need unique timestamp per contact
+
+            sendAlert(c, t);  // NOTE: modifies attempt, expected_acks[] and send_expiry
+          } else {
+            // next contact tested in next ::loop()
+          }
+        }
+      } else if (t->curr_contact_idx < num_contacts) {
+        auto c = &contacts[t->curr_contact_idx];   // send next attempt
+        sendAlert(c, t);  // NOTE: modifies attempt, expected_acks[] and send_expiry
+      } else {
+        // contact list has likely been modified while waiting for alert ACK, cancel this task
+        t->attempt = 4;   // next ::loop() will remove t from queue
+      }
+    }
   }
 
   // is there are pending dirty contacts write needed?
