@@ -2,10 +2,10 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <helpers/AutoDiscoverRTCClock.h>
-#include <helpers/CustomSX1262Wrapper.h>
-#include <helpers/HeltecV3Board.h>
 #include <helpers/RadioLibWrappers.h>
+#include <helpers/HeltecV3Board.h>
+#include <helpers/CustomSX1262Wrapper.h>
+#include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 #ifdef DISPLAY_CLASS
 #include <helpers/ui/E213Display.h>
