@@ -48,6 +48,7 @@
 #define CMD_GET_TUNING_PARAMS         43
 // NOTE: CMD range 44..49 parked, potentially for WiFi operations
 #define CMD_SEND_BINARY_REQ           50
+#define CMD_FACTORY_RESET             51
 
 #define RESP_CODE_OK                  0
 #define RESP_CODE_ERR                 1
@@ -1360,6 +1361,15 @@ void MyMesh::handleCmdFrame(size_t len) {
       _serial->writeFrame(out_frame, 6 + found->path_len);
     } else {
       writeErrFrame(ERR_CODE_NOT_FOUND);
+    }
+  } else if (cmd_frame[0] == CMD_FACTORY_RESET && memcmp(&cmd_frame[1], "reset", 5) == 0) {
+    bool success = _store->formatFileSystem();
+    if (success) {
+      writeOKFrame();
+      delay(1000);
+      board.reboot();  // doesn't return
+    } else {
+      writeErrFrame(ERR_CODE_FILE_IO_ERROR);
     }
   } else {
     writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
