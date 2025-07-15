@@ -471,6 +471,7 @@ void MyMesh::onContactResponse(const ContactInfo &contact, const uint8_t *data, 
       i += 6; // pub_key_prefix
       memcpy(&out_frame[i], &tag, 4);
       i += 4; // NEW: include server timestamp
+      out_frame[i++] = data[7]; // NEW (v7): ACL permissions
     } else {
       out_frame[i++] = PUSH_CODE_LOGIN_FAIL;
       out_frame[i++] = 0; // reserved

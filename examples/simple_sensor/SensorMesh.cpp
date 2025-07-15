@@ -95,11 +95,11 @@ void SensorMesh::loadContacts() {
       while (!full) {
         ContactInfo c;
         uint8_t pub_key[32];
-        uint8_t unused[5];
+        uint8_t unused[6];
 
         bool success = (file.read(pub_key, 32) == 32);
-        success = success && (file.read((uint8_t *) &c.permissions, 2) == 2);
-        success = success && (file.read(unused, 5) == 5);
+        success = success && (file.read((uint8_t *) &c.permissions, 1) == 1);
+        success = success && (file.read(unused, 6) == 6);
         success = success && (file.read((uint8_t *)&c.out_path_len, 1) == 1);
         success = success && (file.read(c.out_path, 64) == 64);
         success = success && (file.read(c.shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE);
@@ -131,8 +131,8 @@ void SensorMesh::saveContacts() {
       if (c->permissions == 0) continue;    // skip deleted entries
 
       bool success = (file.write(c->id.pub_key, 32) == 32);
-      success = success && (file.write((uint8_t *) &c->permissions, 2) == 2);
-      success = success && (file.write(unused, 5) == 5);
+      success = success && (file.write((uint8_t *) &c->permissions, 1) == 1);
+      success = success && (file.write(unused, 6) == 6);
       success = success && (file.write((uint8_t *)&c->out_path_len, 1) == 1);
       success = success && (file.write(c->out_path, 64) == 64);
       success = success && (file.write(c->shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE);
@@ -240,7 +240,7 @@ static uint8_t putFloat(uint8_t * dest, float value, uint8_t size, uint32_t mult
   return size;
 }
 
-uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
+uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
   if (req_type == REQ_TYPE_GET_TELEMETRY_DATA && (perms & PERM_GET_TELEMETRY) != 0) {
@@ -248,12 +248,13 @@ uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uin
     telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
     // query other sensors -- target specific
     sensors.querySensors(0xFF, telemetry);  // allow all telemetry permissions for admin or guest
+    // TODO: let requester know permissions they have:  telemetry.addPresence(TELEM_CHANNEL_SELF, perms);
 
     uint8_t tlen = telemetry.getSize();
     memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
     return 4 + tlen;  // reply_len
   }
-  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_GET_MIN_MAX_AVG) != 0) {
+  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_GET_OTHER_STATS) != 0) {
     uint32_t start_secs_ago, end_secs_ago;
     memcpy(&start_secs_ago, &payload[0], 4);
     memcpy(&end_secs_ago, &payload[4], 4);
@@ -287,15 +288,15 @@ uint8_t SensorMesh::handleRequest(uint16_t perms, uint32_t sender_timestamp, uin
     }
     return ofs;
   }
-  if (req_type == REQ_TYPE_GET_ACCESS_LIST && (perms & PERM_IS_ADMIN) != 0) {
+  if (req_type == REQ_TYPE_GET_ACCESS_LIST && (perms & PERM_ACL_ROLE_MASK) == PERM_ACL_LEVEL3) {
     uint8_t res1 = payload[0];   // reserved for future  (extra query params)
     uint8_t res2 = payload[1];
     if (res1 == 0 && res2 == 0) {
       uint8_t ofs = 4;
-      for (int i = 0; i < num_contacts && ofs + 8 <= sizeof(reply_data) - 4; i++) {
+      for (int i = 0; i < num_contacts && ofs + 7 <= sizeof(reply_data) - 4; i++) {
         auto c = &contacts[i];
         memcpy(&reply_data[ofs], c->id.pub_key, 6); ofs += 6;  // just 6-byte pub_key prefix
-        memcpy(&reply_data[ofs], &c->permissions, 2); ofs += 2;
+        reply_data[ofs++] = c->permissions;
       }
       return ofs;
     }
@@ -337,11 +338,11 @@ ContactInfo* SensorMesh::putContact(const mesh::Identity& id) {
   return c;
 }
 
-void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint16_t perms) {
+void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint8_t perms) {
   mesh::Identity id(pubkey);
   auto c = putContact(id);
 
-  if (perms == 0) {  // no permissions, remove from contacts
+  if ((perms & PERM_ACL_ROLE_MASK) == PERM_ACL_GUEST) {  // guest role is not persisted in contacts
     memset(c, 0, sizeof(*c));
   } else {
     c->permissions = perms;  // update their permissions
@@ -449,7 +450,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   MESH_DEBUG_PRINTLN("Login success!");
   client->last_timestamp = sender_timestamp;
   client->last_activity = getRTCClock()->getCurrentTime();
-  client->permissions = PERM_IS_ADMIN | PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO;  // initially opt-in to receive alerts (can opt out)
+  client->permissions = PERM_ACL_LEVEL3 | PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO;  // initially opt-in to receive alerts (can opt out)
   memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
@@ -459,7 +460,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   reply_data[4] = RESP_SERVER_LOGIN_OK;
   reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
   reply_data[6] = 1;  // 1 = is admin
-  reply_data[7] = 0;  // FUTURE: reserved
+  reply_data[7] = client->permissions;
   getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
 
   return 12;  // reply length
@@ -480,7 +481,7 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
   }
 
   // handle sensor-specific CLI commands
-  if (memcmp(command, "setperm ", 8) == 0) {   // format:  setperm {pubkey-hex} {permissions-int16}
+  if (memcmp(command, "setperm ", 8) == 0) {   // format:  setperm {pubkey-hex} {permissions-int8}
     char* hex = &command[8];
     char* sp = strchr(hex, ' ');   // look for separator char
     if (sp == NULL || sp - hex != PUB_KEY_SIZE*2) {
@@ -490,7 +491,7 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
 
       uint8_t pubkey[PUB_KEY_SIZE];
       if (mesh::Utils::fromHex(pubkey, PUB_KEY_SIZE, hex)) {
-        uint16_t perms = atoi(sp);
+        uint8_t perms = atoi(sp);
         applyContactPermissions(pubkey, perms);
         strcpy(reply, "OK");
       } else {
@@ -502,7 +503,7 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
     for (int i = 0; i < num_contacts; i++) {
       auto c = &contacts[i];
 
-      Serial.printf("%04X ", c->permissions);
+      Serial.printf("%02X ", c->permissions);
       mesh::Utils::printHex(Serial, c->id.pub_key, PUB_KEY_SIZE);
       Serial.printf("\n");
     }
