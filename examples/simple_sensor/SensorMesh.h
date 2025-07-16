@@ -160,8 +160,9 @@ private:
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data);
   uint8_t handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len);
   mesh::Packet* createSelfAdvert();
+  ContactInfo* getContact(const uint8_t* pubkey, int key_len);
   ContactInfo* putContact(const mesh::Identity& id, uint8_t init_perms);
-  void applyContactPermissions(const uint8_t* pubkey, uint8_t perms);
+  bool applyContactPermissions(const uint8_t* pubkey, int key_len, uint8_t perms);
 
   void sendAlert(ContactInfo* c, Trigger* t);
 

@@ -316,6 +316,13 @@ mesh::Packet* SensorMesh::createSelfAdvert() {
   return createAdvert(self_id, app_data, app_data_len);
 }
 
+ContactInfo* SensorMesh::getContact(const uint8_t* pubkey, int key_len) {
+  for (int i = 0; i < num_contacts; i++) {
+    if (memcmp(pubkey, contacts[i].id.pub_key, key_len) == 0) return &contacts[i];  // already known
+  }
+  return NULL;  // not found
+}
+
 ContactInfo* SensorMesh::putContact(const mesh::Identity& id, uint8_t init_perms) {
   uint32_t min_time = 0xFFFFFFFF;
   ContactInfo* oldest = &contacts[MAX_CONTACTS - 1];
@@ -340,17 +347,29 @@ ContactInfo* SensorMesh::putContact(const mesh::Identity& id, uint8_t init_perms
   return c;
 }
 
-void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint8_t perms) {
-  mesh::Identity id(pubkey);
-  auto c = putContact(id, 0);
-
+bool SensorMesh::applyContactPermissions(const uint8_t* pubkey, int key_len, uint8_t perms) {
+  ContactInfo* c;
   if ((perms & PERM_ACL_ROLE_MASK) == PERM_ACL_GUEST) {  // guest role is not persisted in contacts
-    memset(c, 0, sizeof(*c));
+    c = getContact(pubkey, key_len);
+    if (c == NULL) return false;   // partial pubkey not found
+
+    num_contacts--;   // delete from contacts[]
+    int i = c - contacts;
+    while (i < num_contacts) {
+      contacts[i] = contacts[i + 1];
+      i++;
+    }
   } else {
+    if (key_len < PUB_KEY_SIZE) return false;   // need complete pubkey when adding/modifying
+
+    mesh::Identity id(pubkey);
+    c = putContact(id, 0);
+
     c->permissions = perms;  // update their permissions
     self_id.calcSharedSecret(c->shared_secret, pubkey);
   }
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);   // trigger saveContacts()
+  return true;
 }
 
 void SensorMesh::sendAlert(ContactInfo* c, Trigger* t) {
@@ -436,32 +455,43 @@ int SensorMesh::getAGCResetInterval() const {
 }
 
 uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data) {
-  if (strcmp((char *) data, _prefs.password) != 0) {  // check for valid password
-  #if MESH_DEBUG
-    MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
-  #endif
-    return 0;
+  ContactInfo* client;
+  if (data[0] == 0) {   // blank password, just check if sender is in ACL
+    client = getContact(sender.pub_key, PUB_KEY_SIZE);
+    if (client == NULL) {
+    #if MESH_DEBUG
+      MESH_DEBUG_PRINTLN("Login, sender not in ACL");
+    #endif
+      return 0;
+    }
+  } else {
+    if (strcmp((char *) data, _prefs.password) != 0) {  // check for valid admin password
+    #if MESH_DEBUG
+      MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
+    #endif
+      return 0;
+    }
+
+    client = putContact(sender, PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO);  // add to contacts (if not already known)
+    if (sender_timestamp <= client->last_timestamp) {
+      MESH_DEBUG_PRINTLN("Possible login replay attack!");
+      return 0;  // FATAL: client table is full -OR- replay attack
+    }
+
+    MESH_DEBUG_PRINTLN("Login success!");
+    client->last_timestamp = sender_timestamp;
+    client->last_activity = getRTCClock()->getCurrentTime();
+    client->permissions |= PERM_ACL_ADMIN;
+    memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
+
+    dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
   }
-
-  auto client = putContact(sender, PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO);  // add to contacts (if not already known)
-  if (sender_timestamp <= client->last_timestamp) {
-    MESH_DEBUG_PRINTLN("Possible login replay attack!");
-    return 0;  // FATAL: client table is full -OR- replay attack
-  }
-
-  MESH_DEBUG_PRINTLN("Login success!");
-  client->last_timestamp = sender_timestamp;
-  client->last_activity = getRTCClock()->getCurrentTime();
-  client->permissions |= PERM_ACL_ADMIN;
-  memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
-
-  dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
 
   uint32_t now = getRTCClock()->getCurrentTimeUnique();
   memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
   reply_data[4] = RESP_SERVER_LOGIN_OK;
   reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
-  reply_data[6] = 1;  // 1 = is admin
+  reply_data[6] = client->isAdmin() ? 1 : 0;
   reply_data[7] = client->permissions;
   getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
 
@@ -486,16 +516,20 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
   if (memcmp(command, "setperm ", 8) == 0) {   // format:  setperm {pubkey-hex} {permissions-int8}
     char* hex = &command[8];
     char* sp = strchr(hex, ' ');   // look for separator char
-    if (sp == NULL || sp - hex != PUB_KEY_SIZE*2) {
-      strcpy(reply, "Err - bad pubkey len");
+    if (sp == NULL) {
+      strcpy(reply, "Err - bad params");
     } else {
       *sp++ = 0;   // replace space with null terminator
 
       uint8_t pubkey[PUB_KEY_SIZE];
-      if (mesh::Utils::fromHex(pubkey, PUB_KEY_SIZE, hex)) {
+      int hex_len = min(sp - hex, PUB_KEY_SIZE*2);
+      if (mesh::Utils::fromHex(pubkey, hex_len / 2, hex)) {
         uint8_t perms = atoi(sp);
-        applyContactPermissions(pubkey, perms);
-        strcpy(reply, "OK");
+        if (applyContactPermissions(pubkey, hex_len / 2, perms)) {
+          strcpy(reply, "OK");
+        } else {
+          strcpy(reply, "Err - invalid params");
+        }
       } else {
         strcpy(reply, "Err - bad pubkey");
       }
