@@ -22,6 +22,9 @@ uint32_t Mesh::getRetransmitDelay(const mesh::Packet* packet) {
 uint32_t Mesh::getDirectRetransmitDelay(const Packet* packet) {
   return 0;  // by default, no delay
 }
+uint8_t Mesh::getExtraAckTransmitCount() const {
+  return 0;
+}
 
 uint32_t Mesh::getCADFailRetryDelay() const {
   return _rng->nextInt(1, 4)*120;
@@ -99,7 +102,6 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
       } else if (!_tables->hasSeen(pkt)) {
         onAckRecv(pkt, ack_crc);
         action = routeRecvPacket(pkt);
-        // routeRecvAcks(pkt, 0);  // experimental, double Acks in flood mode(?)
       }
       break;
     }
@@ -280,7 +282,6 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
             memcpy(&ack_crc, tmp.payload, 4);
 
             onAckRecv(&tmp, ack_crc);
-            // routeRecvAcks(&tmp, ((uint32_t)remaining) * 600);  // expect multipart ACK 300ms apart (x2)
             //action = routeRecvPacket(&tmp);  // NOTE: currently not needed, as multipart ACKs not sent Flood
           }
         } else {
@@ -324,37 +325,6 @@ DispatcherAction Mesh::routeRecvPacket(Packet* packet) {
   return ACTION_RELEASE;
 }
 
-#if 0
-void Mesh::routeRecvAcks(Packet* packet, uint32_t delay_millis) {
-  if (packet->isRouteFlood() && !packet->isMarkedDoNotRetransmit()
-    && packet->path_len + PATH_HASH_SIZE <= MAX_PATH_SIZE && allowPacketForward(packet)) {
-    // append this node's hash to 'path'
-    packet->path_len += self_id.copyHashTo(&packet->path[packet->path_len]);
-
-    uint32_t crc;
-    memcpy(&crc, packet->payload, 4);
-
-    delay_millis += getRetransmitDelay(packet);
-    auto a1 = createMultiAck(crc, 1);
-    if (a1) {
-      memcpy(a1->path, packet->path, a1->path_len = packet->path_len);
-      a1->header &= ~PH_ROUTE_MASK;
-      a1->header |= ROUTE_TYPE_FLOOD;
-      sendPacket(a1, 1, delay_millis);
-    }
-
-    delay_millis += 300;
-    auto a2 = createAck(crc);
-    if (a2) {
-      memcpy(a2->path, packet->path, a2->path_len = packet->path_len);
-      a2->header &= ~PH_ROUTE_MASK;
-      a2->header |= ROUTE_TYPE_FLOOD;
-      sendPacket(a2, 1, delay_millis);
-    }
-  }
-}
-#endif
-
 DispatcherAction Mesh::forwardMultipartDirect(Packet* pkt) {
   uint8_t remaining = pkt->payload[0] >> 4;  // num of packets in this multipart sequence still to be sent
   uint8_t type = pkt->payload[0] & 0x0F;
@@ -369,7 +339,7 @@ DispatcherAction Mesh::forwardMultipartDirect(Packet* pkt) {
 
     if (!_tables->hasSeen(&tmp)) {   // don't retransmit!
       removeSelfFromPath(&tmp);
-      routeDirectRecvAcks(&tmp, ((uint32_t)remaining) * 600);  // expect multipart ACKs 300ms apart (x2)
+      routeDirectRecvAcks(&tmp, ((uint32_t)remaining + 1) * 300);  // expect multipart ACKs 300ms apart (x2)
     }
   }
   return ACTION_RELEASE;
@@ -380,16 +350,19 @@ void Mesh::routeDirectRecvAcks(Packet* packet, uint32_t delay_millis) {
     uint32_t crc;
     memcpy(&crc, packet->payload, 4);
 
-    delay_millis += getDirectRetransmitDelay(packet);
-    auto a1 = createMultiAck(crc, 1);
-    if (a1) {
-      memcpy(a1->path, packet->path, a1->path_len = packet->path_len);
-      a1->header &= ~PH_ROUTE_MASK;
-      a1->header |= ROUTE_TYPE_DIRECT;
-      sendPacket(a1, 0, delay_millis);
+    uint8_t extra = getExtraAckTransmitCount();
+    while (extra > 0) {
+      delay_millis += getDirectRetransmitDelay(packet) + 300;
+      auto a1 = createMultiAck(crc, extra);
+      if (a1) {
+        memcpy(a1->path, packet->path, a1->path_len = packet->path_len);
+        a1->header &= ~PH_ROUTE_MASK;
+        a1->header |= ROUTE_TYPE_DIRECT;
+        sendPacket(a1, 0, delay_millis);
+      }
+      extra--;
     }
 
-    delay_millis += 300;
     auto a2 = createAck(crc);
     if (a2) {
       memcpy(a2->path, packet->path, a2->path_len = packet->path_len);

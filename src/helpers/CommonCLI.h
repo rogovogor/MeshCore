@@ -21,7 +21,7 @@ struct NodePrefs {  // persisted to file
     uint8_t sf;
     uint8_t cr;
     uint8_t allow_read_only;
-    uint8_t reserved2;
+    uint8_t multi_acks;
     float bw;
     uint8_t flood_max;
     uint8_t interference_threshold;

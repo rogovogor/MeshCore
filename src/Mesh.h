@@ -60,6 +60,11 @@ protected:
   virtual uint32_t getDirectRetransmitDelay(const Packet* packet);
 
   /**
+   * \returns  number of extra (Direct) ACK transmissions wanted.
+   */
+  virtual uint8_t getExtraAckTransmitCount() const;
+
+  /**
    * \brief  Perform search of local DB of peers/contacts.
    * \returns  Number of peers with matching hash
    */

@@ -424,6 +424,9 @@ protected:
   int getAGCResetInterval() const override {
     return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
   }
+  uint8_t getExtraAckTransmitCount() const override {
+    return _prefs.multi_acks;
+  }
 
   bool allowPacketForward(const mesh::Packet* packet) override {
     if (_prefs.disable_fwd) return false;
@@ -583,12 +586,16 @@ protected:
             if (ack) sendFlood(ack, TXT_ACK_DELAY);
             delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS;
           } else {
-            mesh::Packet* a1 = createMultiAck(ack_hash, 1);
-            if (a1) sendDirect(a1, client->out_path, client->out_path_len, TXT_ACK_DELAY);
+            uint32_t d = TXT_ACK_DELAY;
+            if (getExtraAckTransmitCount() > 0) {
+              mesh::Packet* a1 = createMultiAck(ack_hash, 1);
+              if (a1) sendDirect(a1, client->out_path, client->out_path_len, d);
+              d += 300;
+            }
 
             mesh::Packet* a2 = createAck(ack_hash);
-            if (a2) sendDirect(a2, client->out_path, client->out_path_len, TXT_ACK_DELAY + 300);
-            delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS + 300;
+            if (a2) sendDirect(a2, client->out_path, client->out_path_len, d);
+            delay_millis = d + REPLY_DELAY_MILLIS;
           }
         } else {
           delay_millis = 0;
