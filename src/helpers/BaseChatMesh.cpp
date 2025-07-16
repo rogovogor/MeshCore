@@ -36,11 +36,15 @@ void BaseChatMesh::sendAckTo(const ContactInfo& dest, uint32_t ack_hash) {
     mesh::Packet* ack = createAck(ack_hash);
     if (ack) sendFlood(ack, TXT_ACK_DELAY);
   } else {
-    mesh::Packet* a1 = createMultiAck(ack_hash, 1);
-    if (a1) sendDirect(a1, dest.out_path, dest.out_path_len, TXT_ACK_DELAY);
+    uint32_t d = TXT_ACK_DELAY;
+    if (getExtraAckTransmitCount() > 0) {
+      mesh::Packet* a1 = createMultiAck(ack_hash, 1);
+      if (a1) sendDirect(a1, dest.out_path, dest.out_path_len, d);
+      d += 300;
+    }
 
     mesh::Packet* a2 = createAck(ack_hash);
-    if (a2) sendDirect(a2, dest.out_path, dest.out_path_len, TXT_ACK_DELAY + 300);
+    if (a2) sendDirect(a2, dest.out_path, dest.out_path_len, d);
   }
 }
 
