@@ -243,7 +243,7 @@ static uint8_t putFloat(uint8_t * dest, float value, uint8_t size, uint32_t mult
 uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
-  if (req_type == REQ_TYPE_GET_TELEMETRY_DATA && (perms & PERM_GET_TELEMETRY) != 0) {
+  if (req_type == REQ_TYPE_GET_TELEMETRY_DATA) {  // allow all
     telemetry.reset();
     telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
     // query other sensors -- target specific
@@ -254,7 +254,7 @@ uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint
     memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
     return 4 + tlen;  // reply_len
   }
-  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_GET_OTHER_STATS) != 0) {
+  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_ACL_ROLE_MASK) >= PERM_ACL_READ_ONLY) {
     uint32_t start_secs_ago, end_secs_ago;
     memcpy(&start_secs_ago, &payload[0], 4);
     memcpy(&end_secs_ago, &payload[4], 4);
@@ -288,13 +288,14 @@ uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint
     }
     return ofs;
   }
-  if (req_type == REQ_TYPE_GET_ACCESS_LIST && (perms & PERM_ACL_ROLE_MASK) == PERM_ACL_LEVEL3) {
+  if (req_type == REQ_TYPE_GET_ACCESS_LIST && (perms & PERM_ACL_ROLE_MASK) == PERM_ACL_ADMIN) {
     uint8_t res1 = payload[0];   // reserved for future  (extra query params)
     uint8_t res2 = payload[1];
     if (res1 == 0 && res2 == 0) {
       uint8_t ofs = 4;
       for (int i = 0; i < num_contacts && ofs + 7 <= sizeof(reply_data) - 4; i++) {
         auto c = &contacts[i];
+        if (c->permissions == 0) continue;  // skip deleted entries
         memcpy(&reply_data[ofs], c->id.pub_key, 6); ofs += 6;  // just 6-byte pub_key prefix
         reply_data[ofs++] = c->permissions;
       }
@@ -315,7 +316,7 @@ mesh::Packet* SensorMesh::createSelfAdvert() {
   return createAdvert(self_id, app_data, app_data_len);
 }
 
-ContactInfo* SensorMesh::putContact(const mesh::Identity& id) {
+ContactInfo* SensorMesh::putContact(const mesh::Identity& id, uint8_t init_perms) {
   uint32_t min_time = 0xFFFFFFFF;
   ContactInfo* oldest = &contacts[MAX_CONTACTS - 1];
   for (int i = 0; i < num_contacts; i++) {
@@ -333,6 +334,7 @@ ContactInfo* SensorMesh::putContact(const mesh::Identity& id) {
     c = oldest;  // evict least active contact
   }
   memset(c, 0, sizeof(*c));
+  c->permissions = init_perms;
   c->id = id;
   c->out_path_len = -1;  // initially out_path is unknown
   return c;
@@ -340,7 +342,7 @@ ContactInfo* SensorMesh::putContact(const mesh::Identity& id) {
 
 void SensorMesh::applyContactPermissions(const uint8_t* pubkey, uint8_t perms) {
   mesh::Identity id(pubkey);
-  auto c = putContact(id);
+  auto c = putContact(id, 0);
 
   if ((perms & PERM_ACL_ROLE_MASK) == PERM_ACL_GUEST) {  // guest role is not persisted in contacts
     memset(c, 0, sizeof(*c));
@@ -441,7 +443,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
     return 0;
   }
 
-  auto client = putContact(sender);  // add to contacts (if not already known)
+  auto client = putContact(sender, PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO);  // add to contacts (if not already known)
   if (sender_timestamp <= client->last_timestamp) {
     MESH_DEBUG_PRINTLN("Possible login replay attack!");
     return 0;  // FATAL: client table is full -OR- replay attack
@@ -450,7 +452,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   MESH_DEBUG_PRINTLN("Login success!");
   client->last_timestamp = sender_timestamp;
   client->last_activity = getRTCClock()->getCurrentTime();
-  client->permissions = PERM_ACL_LEVEL3 | PERM_RECV_ALERTS_HI | PERM_RECV_ALERTS_LO;  // initially opt-in to receive alerts (can opt out)
+  client->permissions |= PERM_ACL_ADMIN;
   memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
@@ -502,6 +504,7 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
     Serial.println("ACL:");
     for (int i = 0; i < num_contacts; i++) {
       auto c = &contacts[i];
+      if (c->permissions == 0) continue;  // skip deleted entries
 
       Serial.printf("%02X ", c->permissions);
       mesh::Utils::printHex(Serial, c->id.pub_key, PUB_KEY_SIZE);
@@ -569,7 +572,7 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
     memcpy(&timestamp, data, 4);
 
     if (timestamp > from.last_timestamp) {  // prevent replay attacks
-      uint8_t reply_len = handleRequest(from.isAdmin() ? 0xFFFF : from.permissions, timestamp, data[4], &data[5], len - 5);
+      uint8_t reply_len = handleRequest(from.isAdmin() ? 0xFF : from.permissions, timestamp, data[4], &data[5], len - 5);
       if (reply_len == 0) return;  // invalid command
 
       from.last_timestamp = timestamp;
