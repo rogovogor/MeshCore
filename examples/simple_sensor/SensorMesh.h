@@ -25,14 +25,14 @@
 
 #define PERM_ACL_ROLE_MASK     3   // lower 2 bits
 #define PERM_ACL_GUEST         0
-#define PERM_ACL_LEVEL1        1
-#define PERM_ACL_LEVEL2        2
-#define PERM_ACL_LEVEL3        3   // admin
+#define PERM_ACL_READ_ONLY     1
+#define PERM_ACL_READ_WRITE    2
+#define PERM_ACL_ADMIN         3
 
-#define PERM_GET_TELEMETRY     (1 << 2)
-#define PERM_GET_OTHER_STATS   (1 << 3)
-#define PERM_RESERVED1         (1 << 4)
-#define PERM_RESERVED2         (1 << 5)
+#define PERM_RESERVED1         (1 << 2)
+#define PERM_RESERVED2         (1 << 3)
+#define PERM_RESERVED3         (1 << 4)
+#define PERM_RESERVED4         (1 << 5)
 #define PERM_RECV_ALERTS_LO    (1 << 6)   // low priority alerts
 #define PERM_RECV_ALERTS_HI    (1 << 7)   // high priority alerts
 
@@ -45,7 +45,7 @@ struct ContactInfo {
   uint32_t last_timestamp;   // by THEIR clock  (transient)
   uint32_t last_activity;    // by OUR clock    (transient)
 
-  bool isAdmin() const { return (permissions & PERM_ACL_ROLE_MASK) == PERM_ACL_LEVEL3; }
+  bool isAdmin() const { return (permissions & PERM_ACL_ROLE_MASK) == PERM_ACL_ADMIN; }
 };
 
 #ifndef FIRMWARE_BUILD_DATE
@@ -160,8 +160,9 @@ private:
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data);
   uint8_t handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len);
   mesh::Packet* createSelfAdvert();
-  ContactInfo* putContact(const mesh::Identity& id);
-  void applyContactPermissions(const uint8_t* pubkey, uint8_t perms);
+  ContactInfo* getContact(const uint8_t* pubkey, int key_len);
+  ContactInfo* putContact(const mesh::Identity& id, uint8_t init_perms);
+  bool applyContactPermissions(const uint8_t* pubkey, int key_len, uint8_t perms);
 
   void sendAlert(ContactInfo* c, Trigger* t);
 

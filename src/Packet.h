@@ -26,6 +26,7 @@ namespace mesh {
 #define PAYLOAD_TYPE_ANON_REQ    0x07    // generic request (prefixed with dest_hash, ephemeral pub_key, MAC) (enc data: ...)
 #define PAYLOAD_TYPE_PATH        0x08    // returned path (prefixed with dest/src hashes, MAC) (enc data: path, extra)
 #define PAYLOAD_TYPE_TRACE       0x09    // trace a path, collecting SNI for each hop
+#define PAYLOAD_TYPE_MULTIPART   0x0A    // packet is one of a set of packets
 //...
 #define PAYLOAD_TYPE_RAW_CUSTOM   0x0F    // custom packet as raw bytes, for applications with custom encryption, payloads, etc
 
