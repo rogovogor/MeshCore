@@ -70,6 +70,8 @@
 #define  P_LORA_NSS             (4)
 #define  SX126X_RXEN            (5)
 #define  SX126X_TXEN            RADIOLIB_NC
+#define  SX126X_DIO2_AS_RF_SWITCH true
+#define  SX126X_DIO3_TCXO_VOLTAGE (1.8f)
 
 // Wire Interfaces
 #define WIRE_INTERFACES_COUNT   (2)
