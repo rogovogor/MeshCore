@@ -2,9 +2,9 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <helpers/RadioLibWrappers.h>
+#include <helpers/radiolib/RadioLibWrappers.h>
 #include <helpers/stm32/STM32Board.h>
-#include <helpers/CustomSTM32WLxWrapper.h>
+#include <helpers/radiolib/CustomSTM32WLxWrapper.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 
@@ -22,7 +22,7 @@ public:
         uint32_t raw = 0;
         for (int i=0; i<8;i++) {
             raw += analogRead(PIN_VBAT_READ);
-        }            
+        }
         return ((double)raw) * ADC_MULTIPLIER / 8 / 4096;
     }
 };
