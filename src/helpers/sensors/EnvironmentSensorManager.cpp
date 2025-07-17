@@ -47,9 +47,25 @@ static Adafruit_INA3221 INA3221;
 static Adafruit_INA219 INA219(TELEM_INA219_ADDRESS);
 #endif
 
+#if ENV_INCLUDE_GPS & RAK_BOARD
+uint32_t gpsResetPin = 0;
+bool i2cGPSFlag = false;
+bool serialGPSFlag = false;
+//#define PIN_GPS_STANDBY_A 34  //GPS Reset/Standby pin (IO2 for socket A)
+//#define PIN_GPS_STANDBY_C 4   //GPS Reset/Standby pin (IO4 for socket C)
+//#define PIN_GPS_STANDBY_F 9   //GPS Reset/Standby pin (IO5 for socket F)
+#define TELEM_RAK12500_ADDRESS   0x42     //RAK12500 Ublox GPS via i2c
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+static SFE_UBLOX_GNSS ublox_GNSS;
+#endif
+
 bool EnvironmentSensorManager::begin() {
   #if ENV_INCLUDE_GPS
+  #if RAK_BOARD
+  rakGPSInit();   //probe base board/sockets for GPS
+  #else
   initBasicGPS();
+  #endif
   #endif
 
   #if ENV_INCLUDE_AHTX0
@@ -296,8 +312,87 @@ void EnvironmentSensorManager::initBasicGPS() {
   gps_active = false; //Set GPS visibility off until setting is changed
 }
 
+#ifdef RAK_BOARD
+void EnvironmentSensorManager::rakGPSInit(){
+
+  Serial1.setPins(PIN_GPS_TX, PIN_GPS_RX);
+
+  #ifdef GPS_BAUD_RATE
+  Serial1.begin(GPS_BAUD_RATE);
+  #else
+  Serial1.begin(9600);
+  #endif
+
+  delay(1000);
+
+  //search for the correct IO standby pin depending on socket used
+  if(gpsIsAwake(WB_IO2)){
+  //  MESH_DEBUG_PRINTLN("RAK base board is RAK19007/10");
+  //  MESH_DEBUG_PRINTLN("GPS is installed on Socket A");
+  }
+  else if(gpsIsAwake(WB_IO4)){
+  //  MESH_DEBUG_PRINTLN("RAK base board is RAK19003/9");
+  //  MESH_DEBUG_PRINTLN("GPS is installed on Socket C"); 
+  }
+  else if(gpsIsAwake(WB_IO5)){
+  //  MESH_DEBUG_PRINTLN("RAK base board is RAK19001/11");
+  //  MESH_DEBUG_PRINTLN("GPS is installed on Socket F");
+  }
+  else{
+    MESH_DEBUG_PRINTLN("No GPS found"); 
+    gps_active = false;
+    gps_detected = false;
+    return;
+  }
+
+  #ifndef FORCE_GPS_ALIVE // for use with repeaters, until GPS toggle is implimented
+  //Now that GPS is found and set up, set to sleep for initial state
+  stop_gps();
+  #endif
+}
+
+bool EnvironmentSensorManager::gpsIsAwake(uint8_t ioPin){
+
+  //set initial waking state
+  pinMode(ioPin,OUTPUT);
+  digitalWrite(ioPin,LOW);
+  delay(1000);
+  digitalWrite(ioPin,HIGH);
+  delay(1000);
+
+  //Try to init RAK12500 on I2C
+  if (ublox_GNSS.begin(Wire) == true){
+    MESH_DEBUG_PRINTLN("RAK12500 GPS init correctly with pin %i",ioPin);
+    ublox_GNSS.setI2COutput(COM_TYPE_NMEA);
+    ublox_GNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);
+    gpsResetPin = ioPin;
+    i2cGPSFlag = true;
+    gps_active = true;
+    gps_detected = true;
+    return true;
+  }
+  else if(Serial1){
+    MESH_DEBUG_PRINTLN("Serial GPS init correctly and is turned on");
+    if(PIN_GPS_EN){
+      gpsResetPin = PIN_GPS_EN;
+    }
+    serialGPSFlag = true;
+    gps_active = true;
+    gps_detected = true;
+    return true;
+  }
+  MESH_DEBUG_PRINTLN("GPS did not init with this IO pin... try the next");
+  return false;
+}
+#endif
+
 void EnvironmentSensorManager::start_gps() {
   gps_active = true;
+  #ifdef RAK_BOARD
+    pinMode(gpsResetPin, OUTPUT);
+    digitalWrite(gpsResetPin, HIGH);
+    return;
+  #endif
   #ifdef PIN_GPS_EN
     pinMode(PIN_GPS_EN, OUTPUT);
     digitalWrite(PIN_GPS_EN, HIGH);
@@ -309,6 +404,11 @@ void EnvironmentSensorManager::start_gps() {
 
 void EnvironmentSensorManager::stop_gps() {
   gps_active = false;
+  #ifdef RAK_BOARD
+    pinMode(gpsResetPin, OUTPUT);
+    digitalWrite(gpsResetPin, LOW);
+    return;
+  #endif
   #ifdef PIN_GPS_EN
     pinMode(PIN_GPS_EN, OUTPUT);
     digitalWrite(PIN_GPS_EN, LOW);
@@ -324,10 +424,27 @@ void EnvironmentSensorManager::loop() {
   _location->loop();
 
   if (millis() > next_gps_update) {
-    if (gps_active && _location->isValid()) {
+    if(gps_active){
+    #ifndef RAK_BOARD
+    if (_location->isValid()) {
       node_lat = ((double)_location->getLatitude())/1000000.;
       node_lon = ((double)_location->getLongitude())/1000000.;
       MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
+    }
+    #else
+    if(i2cGPSFlag){
+      node_lat = ((double)ublox_GNSS.getLatitude())/10000000.;
+      node_lon = ((double)ublox_GNSS.getLongitude())/10000000.;
+      MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
+    }
+    else if (serialGPSFlag && _location->isValid()) {
+      node_lat = ((double)_location->getLatitude())/1000000.;
+      node_lon = ((double)_location->getLongitude())/1000000.;
+      MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
+    }
+    //else
+    //MESH_DEBUG_PRINTLN("No valid GPS data");
+    #endif
     }
     next_gps_update = millis() + 1000;
   }
