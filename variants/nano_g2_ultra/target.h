@@ -3,8 +3,8 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
 #include "nano-g2.h"
-#include <helpers/RadioLibWrappers.h>
-#include <helpers/CustomSX1262Wrapper.h>
+#include <helpers/radiolib/RadioLibWrappers.h>
+#include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 #ifdef DISPLAY_CLASS
@@ -12,8 +12,7 @@
 #endif
 #include <helpers/sensors/LocationProvider.h>
 
-class NanoG2UltraSensorManager : public SensorManager
-{
+class NanoG2UltraSensorManager : public SensorManager {
   bool gps_active = false;
   LocationProvider *_location;
 
