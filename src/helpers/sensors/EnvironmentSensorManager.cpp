@@ -1,5 +1,11 @@
 #include "EnvironmentSensorManager.h"
 
+#if ENV_PIN_SDA && ENV_PIN_SCL
+#define TELEM_WIRE &Wire1  // Use Wire1 as the I2C bus for Environment Sensors
+#else
+#define TELEM_WIRE &Wire  // Use default I2C bus for Environment Sensors
+#endif
+
 #if ENV_INCLUDE_AHTX0
 #define TELEM_AHTX_ADDRESS      0x38      // AHT10, AHT20 temperature and humidity sensor I2C address
 #include <Adafruit_AHTX0.h>
@@ -47,6 +53,18 @@ static Adafruit_INA3221 INA3221;
 static Adafruit_INA219 INA219(TELEM_INA219_ADDRESS);
 #endif
 
+#if ENV_INCLUDE_MLX90614
+#define TELEM_MLX90614_ADDRESS 0x5A      // MLX90614 IR temperature sensor I2C address
+#include <Adafruit_MLX90614.h>
+static Adafruit_MLX90614 MLX90614;
+#endif
+
+#if ENV_INCLUDE_VL53L0X
+#define TELEM_VL53L0X_ADDRESS 0x29      // VL53L0X time-of-flight distance sensor I2C address
+#include <Adafruit_VL53L0X.h>
+static Adafruit_VL53L0X VL53L0X;
+#endif
+
 #if ENV_INCLUDE_GPS && RAK_BOARD
 static uint32_t gpsResetPin = 0;
 static bool i2cGPSFlag = false;
@@ -65,8 +83,13 @@ bool EnvironmentSensorManager::begin() {
   #endif
   #endif
 
+  #if ENV_PIN_SDA && ENV_PIN_SCL
+  Wire1.begin(ENV_PIN_SDA, ENV_PIN_SCL, 100000);
+  MESH_DEBUG_PRINTLN("Second I2C initialized on pins SDA: %d SCL: %d", ENV_PIN_SDA, ENV_PIN_SCL);
+  #endif
+
   #if ENV_INCLUDE_AHTX0
-  if (AHTX0.begin(&Wire, 0, TELEM_AHTX_ADDRESS)) {
+  if (AHTX0.begin(TELEM_WIRE, 0, TELEM_AHTX_ADDRESS)) {
     MESH_DEBUG_PRINTLN("Found AHT10/AHT20 at address: %02X", TELEM_AHTX_ADDRESS);
     AHTX0_initialized = true;
   } else {
@@ -76,7 +99,7 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
   #if ENV_INCLUDE_BME280
-  if (BME280.begin(TELEM_BME280_ADDRESS, &Wire)) {
+  if (BME280.begin(TELEM_BME280_ADDRESS, TELEM_WIRE)) {
     MESH_DEBUG_PRINTLN("Found BME280 at address: %02X", TELEM_BME280_ADDRESS);
     MESH_DEBUG_PRINTLN("BME sensor ID: %02X", BME280.sensorID());
     BME280_initialized = true;
@@ -118,7 +141,7 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
   #if ENV_INCLUDE_INA3221
-  if (INA3221.begin(TELEM_INA3221_ADDRESS, &Wire)) {
+  if (INA3221.begin(TELEM_INA3221_ADDRESS, TELEM_WIRE)) {
     MESH_DEBUG_PRINTLN("Found INA3221 at address: %02X", TELEM_INA3221_ADDRESS);
     MESH_DEBUG_PRINTLN("%04X %04X", INA3221.getDieID(), INA3221.getManufacturerID());
 
@@ -133,12 +156,32 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
   #if ENV_INCLUDE_INA219
-  if (INA219.begin(&Wire)) {
+  if (INA219.begin(TELEM_WIRE)) {
     MESH_DEBUG_PRINTLN("Found INA219 at address: %02X", TELEM_INA219_ADDRESS);
     INA219_initialized = true;
   } else {
     INA219_initialized = false;
     MESH_DEBUG_PRINTLN("INA219 was not found at I2C address %02X", TELEM_INA219_ADDRESS);
+  }
+  #endif
+
+  #if ENV_INCLUDE_MLX90614
+  if (MLX90614.begin(TELEM_MLX90614_ADDRESS, TELEM_WIRE)) {
+    MESH_DEBUG_PRINTLN("Found MLX90614 at address: %02X", TELEM_MLX90614_ADDRESS);
+    MLX90614_initialized = true;
+  } else {
+    MLX90614_initialized = false;
+    MESH_DEBUG_PRINTLN("MLX90614 was not found at I2C address %02X", TELEM_MLX90614_ADDRESS);
+  }
+  #endif
+
+  #if ENV_INCLUDE_VL53L0X
+  if (VL53L0X.begin(TELEM_VL53L0X_ADDRESS, false, TELEM_WIRE)) {
+    MESH_DEBUG_PRINTLN("Found VL53L0X at address: %02X", TELEM_VL53L0X_ADDRESS);
+    VL53L0X_initialized = true;
+  } else {
+    VL53L0X_initialized = false;
+    MESH_DEBUG_PRINTLN("VL53L0X was not found at I2C address %02X", TELEM_VL53L0X_ADDRESS);
   }
   #endif
 
@@ -219,6 +262,25 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
       telemetry.addCurrent(next_available_channel, INA219.getCurrent_mA() / 1000);
       telemetry.addPower(next_available_channel, INA219.getPower_mW() / 1000);
       next_available_channel++;
+    }
+    #endif
+
+    #if ENV_INCLUDE_MLX90614
+    if (MLX90614_initialized) {
+      telemetry.addTemperature(TELEM_CHANNEL_SELF, MLX90614.readObjectTempC());
+      telemetry.addTemperature(TELEM_CHANNEL_SELF + 1, MLX90614.readAmbientTempC());
+    }
+    #endif
+
+    #if ENV_INCLUDE_VL53L0X
+    if (VL53L0X_initialized) {
+      VL53L0X_RangingMeasurementData_t measure;
+      VL53L0X.rangingTest(&measure, false); // pass in 'true' to get debug data
+      if (measure.RangeStatus != 4) { // phase failures
+        telemetry.addDistance(TELEM_CHANNEL_SELF, measure.RangeMilliMeter / 1000.0f); // convert mm to m
+      } else {
+        telemetry.addDistance(TELEM_CHANNEL_SELF, 0.0f); // no valid measurement
+      }
     }
     #endif
 
@@ -327,14 +389,14 @@ void EnvironmentSensorManager::rakGPSInit(){
   }
   else if(gpsIsAwake(WB_IO4)){
   //  MESH_DEBUG_PRINTLN("RAK base board is RAK19003/9");
-  //  MESH_DEBUG_PRINTLN("GPS is installed on Socket C"); 
+  //  MESH_DEBUG_PRINTLN("GPS is installed on Socket C");
   }
   else if(gpsIsAwake(WB_IO5)){
   //  MESH_DEBUG_PRINTLN("RAK base board is RAK19001/11");
   //  MESH_DEBUG_PRINTLN("GPS is installed on Socket F");
   }
   else{
-    MESH_DEBUG_PRINTLN("No GPS found"); 
+    MESH_DEBUG_PRINTLN("No GPS found");
     gps_active = false;
     gps_detected = false;
     return;
