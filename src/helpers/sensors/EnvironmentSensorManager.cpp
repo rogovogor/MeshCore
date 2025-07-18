@@ -53,6 +53,12 @@ static Adafruit_INA3221 INA3221;
 static Adafruit_INA219 INA219(TELEM_INA219_ADDRESS);
 #endif
 
+#if ENV_INCLUDE_MLX90614
+#define TELEM_MLX90614_ADDRESS 0x5A      // MLX90614 IR temperature sensor I2C address
+#include <Adafruit_MLX90614.h>
+static Adafruit_MLX90614 MLX90614;
+#endif
+
 #if ENV_INCLUDE_GPS && RAK_BOARD
 static uint32_t gpsResetPin = 0;
 static bool i2cGPSFlag = false;
@@ -153,6 +159,16 @@ bool EnvironmentSensorManager::begin() {
   }
   #endif
 
+  #if ENV_INCLUDE_MLX90614
+  if (MLX90614.begin(TELEM_MLX90614_ADDRESS, TELEM_WIRE)) {
+    MESH_DEBUG_PRINTLN("Found MLX90614 at address: %02X", TELEM_MLX90614_ADDRESS);
+    MLX90614_initialized = true;
+  } else {
+    MLX90614_initialized = false;
+    MESH_DEBUG_PRINTLN("MLX90614 was not found at I2C address %02X", TELEM_MLX90614_ADDRESS);
+  }
+  #endif
+
   return true;
 }
 
@@ -230,6 +246,13 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
       telemetry.addCurrent(next_available_channel, INA219.getCurrent_mA() / 1000);
       telemetry.addPower(next_available_channel, INA219.getPower_mW() / 1000);
       next_available_channel++;
+    }
+    #endif
+
+    #if ENV_INCLUDE_MLX90614
+    if (MLX90614_initialized) {
+      telemetry.addTemperature(TELEM_CHANNEL_SELF, MLX90614.readObjectTempC());
+      telemetry.addTemperature(TELEM_CHANNEL_SELF + 1, MLX90614.readAmbientTempC());
     }
     #endif
 
