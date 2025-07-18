@@ -59,6 +59,12 @@ static Adafruit_INA219 INA219(TELEM_INA219_ADDRESS);
 static Adafruit_MLX90614 MLX90614;
 #endif
 
+#if ENV_INCLUDE_VL53L0X
+#define TELEM_VL53L0X_ADDRESS 0x29      // VL53L0X time-of-flight distance sensor I2C address
+#include <Adafruit_VL53L0X.h>
+static Adafruit_VL53L0X VL53L0X;
+#endif
+
 #if ENV_INCLUDE_GPS && RAK_BOARD
 static uint32_t gpsResetPin = 0;
 static bool i2cGPSFlag = false;
@@ -169,6 +175,16 @@ bool EnvironmentSensorManager::begin() {
   }
   #endif
 
+  #if ENV_INCLUDE_VL53L0X
+  if (VL53L0X.begin(TELEM_VL53L0X_ADDRESS, false, TELEM_WIRE)) {
+    MESH_DEBUG_PRINTLN("Found VL53L0X at address: %02X", TELEM_VL53L0X_ADDRESS);
+    VL53L0X_initialized = true;
+  } else {
+    VL53L0X_initialized = false;
+    MESH_DEBUG_PRINTLN("VL53L0X was not found at I2C address %02X", TELEM_VL53L0X_ADDRESS);
+  }
+  #endif
+
   return true;
 }
 
@@ -253,6 +269,18 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
     if (MLX90614_initialized) {
       telemetry.addTemperature(TELEM_CHANNEL_SELF, MLX90614.readObjectTempC());
       telemetry.addTemperature(TELEM_CHANNEL_SELF + 1, MLX90614.readAmbientTempC());
+    }
+    #endif
+
+    #if ENV_INCLUDE_VL53L0X
+    if (VL53L0X_initialized) {
+      VL53L0X_RangingMeasurementData_t measure;
+      VL53L0X.rangingTest(&measure, false); // pass in 'true' to get debug data
+      if (measure.RangeStatus != 4) { // phase failures
+        telemetry.addDistance(TELEM_CHANNEL_SELF, measure.RangeMilliMeter / 1000.0f); // convert mm to m
+      } else {
+        telemetry.addDistance(TELEM_CHANNEL_SELF, 0.0f); // no valid measurement
+      }
     }
     #endif
 
