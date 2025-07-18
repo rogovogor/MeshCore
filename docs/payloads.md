@@ -10,13 +10,16 @@ Inside of each [meshcore packet](./packet_structure.md) is a payload, identified
 * Anonymous request.
 * Group text message (unverified).
 * Group datagram (unverified).
+* Multi-part packet
 * Custom packet (raw bytes, custom encryption).
 
-This document defines the structure of each of these payload types
+This document defines the structure of each of these payload types.
+
+NOTE: all 16 and 32-bit integer fields are Little Endian.
 
 ## Important concepts:
 
-* Node/channel hash: the first byte of the node or channel's public key
+* Node hash: the first byte of the node's public key
 
 # Node advertisement
 This kind of payload notifies receivers that a node exists, and gives information about the node
@@ -33,10 +36,10 @@ Appdata
 | Field         | Size (bytes)    | Description                                           |
 |---------------|-----------------|-------------------------------------------------------|
 | flags         | 1               | specifies which of the fields are present, see below  |
-| latitude      | 4               | decimal latitude multiplied by 1000000, integer       |
-| longitude     | 4               | decimal longitude multiplied by 1000000, integer      |
-| feature 1     | 2               | reserved for future use                               |
-| feature 2     | 2               | reserved for future use                               |
+| latitude      | 4 (optional)    | decimal latitude multiplied by 1000000, integer       |
+| longitude     | 4 (optional)    | decimal longitude multiplied by 1000000, integer      |
+| feature 1     | 2  (optional)   | reserved for future use                               |
+| feature 2     | 2  (optional)   | reserved for future use                               |
 | name          | rest of appdata | name of the node                                      |
 
 Appdata Flags
@@ -46,6 +49,7 @@ Appdata Flags
 | `0x01` | is chat node   | advert is for a chat node             |
 | `0x02` | is repeater    | advert is for a repeater              |
 | `0x03` | is room server | advert is for a room server           |
+| `0x04` | is sensor      | advert is for a sensor server         |
 | `0x10` | has location   | appdata contains lat/long information |
 | `0x20` | has feature 1  | Reserved for future use.              |
 | `0x40` | has feature 2  | Reserved for future use.              |
@@ -92,13 +96,15 @@ Returned path messages provide a description of the route a packet took from the
 
 Request type
 
-| Value  | Name               | Description                           |
-|--------|--------------------|---------------------------------------|
-| `0x01` | get status         | get status of repeater or room server |
-| `0x02` | keepalive          | TODO |
-| `0x03` | get telemetry data | TODO |
+| Value  | Name                 | Description                           |
+|--------|----------------------|---------------------------------------|
+| `0x01` | get stats            | get stats of repeater or room server  |
+| `0x02` | keepalive            | (deprecated) |
+| `0x03` | get telemetry data   | TODO |
+| `0x04` | get min,max,avg data | sensor nodes - get min, max, average for given time span |
+| `0x05` | get access list      | get node's approved access list       |
 
-### Get status
+### Get stats
 
 Gets information about the node, possibly including the following:
 
@@ -121,10 +127,6 @@ Gets information about the node, possibly including the following:
 * Number posted (?)
 * Number of post pushes (?)
 
-### Keepalive
-
-No-op request.
-
 ### Get telemetry data
 
 Request data about sensors on the node, including battery level.
@@ -138,11 +140,11 @@ Request data about sensors on the node, including battery level.
 
 ## Plain text message
 
-| Field        | Size (bytes)    | Description                                                  |
-|--------------|-----------------|--------------------------------------------------------------|
-| timestamp    | 4               | send time (unix timestamp)                                   |
-| flags + TODO | 1               | first six bits are flags (see below), last two bits are TODO |
-| message      | rest of payload | the message content, see next table                          |
+| Field           | Size (bytes)    | Description                                                  |
+|-----------------|-----------------|--------------------------------------------------------------|
+| timestamp       | 4               | send time (unix timestamp)                                   |
+| flags + attempt | 1               | upper six bits are flags (see below), lower two bits are attempt number (0..3) |
+| message         | rest of payload | the message content, see next table                          |
 
 Flags
 
@@ -150,7 +152,7 @@ Flags
 |--------|---------------------------|------------------------------------------------------------|
 | `0x00` | plain text message        | the plain text of the message                              |
 | `0x01` | CLI command               | the command text of the message                            |
-| `0x02` | signed plain text message | two bytes of sender prefix, followed by plain text message |
+| `0x02` | signed plain text message | first four bytes is sender pubkey prefix, followed by plain text message |
 
 # Anonymous request
 
@@ -166,14 +168,14 @@ Plaintext message
 | Field          | Size (bytes)    | Description                                                                   |
 |----------------|-----------------|-------------------------------------------------------------------------------|
 | timestamp      | 4               | send time (unix timestamp)                                                    |
-| sync timestamp | 4               | for room server, otherwise absent: sender's "sync messages SINCE x" timestamp |
+| sync timestamp | 4               | NOTE: room server only! - sender's "sync messages SINCE x" timestamp |
 | password       | rest of message | password for repeater/room                                                    |
 
 # Group text message / datagram
 
 | Field        | Size (bytes)    | Description                                |
 |--------------|-----------------|--------------------------------------------|
-| channel hash | 1               | the first byte of the channel's public key | 
+| channel hash | 1               | first byte of SHA256 of channel's shared key  |
 | cipher MAC   | 2               | MAC for encrypted data in next field       |
 | ciphertext   | rest of payload | encrypted message, see below for details   |
 
