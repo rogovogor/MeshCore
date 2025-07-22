@@ -545,7 +545,16 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
       Serial.printf("\n");
     }
     reply[0] = 0;
-  } else {
+  } else if (memcmp(command, "gpio ", 4) == 0) { // gpio {value}: write, gpio: read 
+    if (command[4] == ' ') { // it's a write
+      uint32_t val;
+      sscanf(&command[5], "%x", &val);
+      board.setGpio(val);
+      strcpy(reply, "Ok");
+    } else {
+      sprintf(reply, "%x", board.getGpio());
+    }
+  } else{
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
   }
 }
