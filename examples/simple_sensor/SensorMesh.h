@@ -90,6 +90,7 @@ public:
   }
   const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
   void clearStats() override { }
+  void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override;
 
   float getTelemValue(uint8_t channel, uint8_t type);
 
@@ -154,6 +155,11 @@ private:
   int matching_peer_indexes[MAX_SEARCH_RESULTS];
   int num_alert_tasks;
   Trigger* alert_tasks[MAX_CONCURRENT_ALERTS];
+  unsigned long set_radio_at, revert_radio_at;
+  float pending_freq;
+  float pending_bw;
+  uint8_t pending_sf;
+  uint8_t pending_cr;
 
   void loadContacts();
   void saveContacts();

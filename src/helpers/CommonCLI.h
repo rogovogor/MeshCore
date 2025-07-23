@@ -45,6 +45,7 @@ public:
   virtual void formatNeighborsReply(char *reply) = 0;
   virtual const uint8_t* getSelfIdPubKey() = 0;
   virtual void clearStats() = 0;
+  virtual void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) = 0;
 };
 
 class CommonCLI {
