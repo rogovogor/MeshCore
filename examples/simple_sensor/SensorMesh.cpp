@@ -722,6 +722,7 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   dirty_contacts_expiry = 0;
   last_read_time = 0;
   num_alert_tasks = 0;
+  set_radio_at = revert_radio_at = 0;
 
   // defaults
   memset(&_prefs, 0, sizeof(_prefs));
@@ -770,6 +771,16 @@ bool SensorMesh::formatFileSystem() {
     #error "need to implement file system erase"
     return false;
 #endif
+}
+
+void SensorMesh::applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) {
+  set_radio_at = futureMillis(2000);   // give CLI reply some time to be sent back, before applying temp radio params
+  pending_freq = freq;
+  pending_bw = bw;
+  pending_sf = sf;
+  pending_cr = cr;
+
+  revert_radio_at = futureMillis(2000 + timeout_mins*60*1000);   // schedule when to revert radio params
 }
 
 void SensorMesh::sendSelfAdvertisement(int delay_millis) {
@@ -845,6 +856,18 @@ void SensorMesh::loop() {
     if (pkt) sendZeroHop(pkt);
 
     updateAdvertTimer();   // schedule next local advert
+  }
+
+  if (set_radio_at && millisHasNowPassed(set_radio_at)) {   // apply pending (temporary) radio params
+    set_radio_at = 0;  // clear timer
+    radio_set_params(pending_freq, pending_bw, pending_sf, pending_cr);
+    MESH_DEBUG_PRINTLN("Temp radio params");
+  }
+
+  if (revert_radio_at && millisHasNowPassed(revert_radio_at)) {   // revert radio params to orig
+    revert_radio_at = 0;  // clear timer
+    radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+    MESH_DEBUG_PRINTLN("Radio params restored");
   }
 
   uint32_t curr = getRTCClock()->getCurrentTime();

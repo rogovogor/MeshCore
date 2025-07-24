@@ -132,7 +132,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
     if (memcmp(command, "reboot", 6) == 0) {
       _board->reboot();  // doesn't return
     } else if (memcmp(command, "advert", 6) == 0) {
-      _callbacks->sendSelfAdvertisement(400);
+      _callbacks->sendSelfAdvertisement(1500);  // longer delay, give CLI response time to be sent first
       strcpy(reply, "OK - Advert sent");
     } else if (memcmp(command, "clock sync", 10) == 0) {
       uint32_t curr = getRTCClock()->getCurrentTime();
@@ -165,6 +165,21 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       }
     } else if (memcmp(command, "neighbors", 9) == 0) {
       _callbacks->formatNeighborsReply(reply);
+    } else if (memcmp(command, "tempradio ", 10) == 0) {
+      strcpy(tmp, &command[10]);
+      const char *parts[5];
+      int num = mesh::Utils::parseTextParts(tmp, parts, 5);
+      float freq  = num > 0 ? atof(parts[0]) : 0.0f;
+      float bw    = num > 1 ? atof(parts[1]) : 0.0f;
+      uint8_t sf  = num > 2 ? atoi(parts[2]) : 0;
+      uint8_t cr  = num > 3 ? atoi(parts[3]) : 0;
+      int temp_timeout_mins  = num > 4 ? atoi(parts[4]) : 0;
+      if (freq >= 300.0f && freq <= 2500.0f && sf >= 7 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f && temp_timeout_mins > 0) {
+        _callbacks->applyTempRadioParams(freq, bw, sf, cr, temp_timeout_mins);
+        sprintf(reply, "OK - temp params for %d mins", temp_timeout_mins);
+      } else {
+        strcpy(reply, "Error, invalid params");
+      }
     } else if (memcmp(command, "password ", 9) == 0) {
       // change admin password
       StrHelper::strncpy(_prefs->password, &command[9], sizeof(_prefs->password));
