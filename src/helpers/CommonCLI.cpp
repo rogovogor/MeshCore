@@ -51,7 +51,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *) &_prefs->sf, sizeof(_prefs->sf));  // 112
     file.read((uint8_t *) &_prefs->cr, sizeof(_prefs->cr));  // 113
     file.read((uint8_t *) &_prefs->allow_read_only, sizeof(_prefs->allow_read_only));  // 114
-    file.read((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
+    file.read((uint8_t *) &_prefs->multi_acks, sizeof(_prefs->multi_acks));  // 115
     file.read((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
     file.read((uint8_t *) &_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));  // 120
     file.read(pad, 3);   // 121
@@ -69,6 +69,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     _prefs->sf = constrain(_prefs->sf, 7, 12);
     _prefs->cr = constrain(_prefs->cr, 5, 8);
     _prefs->tx_power_dbm = constrain(_prefs->tx_power_dbm, 1, 30);
+    _prefs->multi_acks = constrain(_prefs->multi_acks, 0, 1);
 
     file.close();
   }
@@ -106,7 +107,7 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *) &_prefs->sf, sizeof(_prefs->sf));  // 112
     file.write((uint8_t *) &_prefs->cr, sizeof(_prefs->cr));  // 113
     file.write((uint8_t *) &_prefs->allow_read_only, sizeof(_prefs->allow_read_only));  // 114
-    file.write((uint8_t *) &_prefs->reserved2, sizeof(_prefs->reserved2));  // 115
+    file.write((uint8_t *) &_prefs->multi_acks, sizeof(_prefs->multi_acks));  // 115
     file.write((uint8_t *) &_prefs->bw, sizeof(_prefs->bw));  // 116
     file.write((uint8_t *) &_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));  // 120
     file.write(pad, 3);   // 121
@@ -131,7 +132,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
     if (memcmp(command, "reboot", 6) == 0) {
       _board->reboot();  // doesn't return
     } else if (memcmp(command, "advert", 6) == 0) {
-      _callbacks->sendSelfAdvertisement(400);
+      _callbacks->sendSelfAdvertisement(1500);  // longer delay, give CLI response time to be sent first
       strcpy(reply, "OK - Advert sent");
     } else if (memcmp(command, "clock sync", 10) == 0) {
       uint32_t curr = getRTCClock()->getCurrentTime();
@@ -164,6 +165,21 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       }
     } else if (memcmp(command, "neighbors", 9) == 0) {
       _callbacks->formatNeighborsReply(reply);
+    } else if (memcmp(command, "tempradio ", 10) == 0) {
+      strcpy(tmp, &command[10]);
+      const char *parts[5];
+      int num = mesh::Utils::parseTextParts(tmp, parts, 5);
+      float freq  = num > 0 ? atof(parts[0]) : 0.0f;
+      float bw    = num > 1 ? atof(parts[1]) : 0.0f;
+      uint8_t sf  = num > 2 ? atoi(parts[2]) : 0;
+      uint8_t cr  = num > 3 ? atoi(parts[3]) : 0;
+      int temp_timeout_mins  = num > 4 ? atoi(parts[4]) : 0;
+      if (freq >= 300.0f && freq <= 2500.0f && sf >= 7 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f && temp_timeout_mins > 0) {
+        _callbacks->applyTempRadioParams(freq, bw, sf, cr, temp_timeout_mins);
+        sprintf(reply, "OK - temp params for %d mins", temp_timeout_mins);
+      } else {
+        strcpy(reply, "Error, invalid params");
+      }
     } else if (memcmp(command, "password ", 9) == 0) {
       // change admin password
       StrHelper::strncpy(_prefs->password, &command[9], sizeof(_prefs->password));
@@ -180,6 +196,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         sprintf(reply, "> %d", (uint32_t) _prefs->interference_threshold);
       } else if (memcmp(config, "agc.reset.interval", 18) == 0) {
         sprintf(reply, "> %d", ((uint32_t) _prefs->agc_reset_interval) * 4);
+      } else if (memcmp(config, "multi.acks", 10) == 0) {
+        sprintf(reply, "> %d", (uint32_t) _prefs->multi_acks);
       } else if (memcmp(config, "allow.read.only", 15) == 0) {
         sprintf(reply, "> %s", _prefs->allow_read_only ? "on" : "off");
       } else if (memcmp(config, "flood.advert.interval", 21) == 0) {
@@ -233,6 +251,10 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         strcpy(reply, "OK");
       } else if (memcmp(config, "agc.reset.interval ", 19) == 0) {
         _prefs->agc_reset_interval = atoi(&config[19]) / 4;
+        savePrefs();
+        strcpy(reply, "OK");
+      } else if (memcmp(config, "multi.acks ", 11) == 0) {
+        _prefs->multi_acks = atoi(&config[11]);
         savePrefs();
         strcpy(reply, "OK");
       } else if (memcmp(config, "allow.read.only ", 16) == 0) {

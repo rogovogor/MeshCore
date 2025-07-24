@@ -31,6 +31,23 @@ mesh::Packet* BaseChatMesh::createSelfAdvert(const char* name, double lat, doubl
   return createAdvert(self_id, app_data, app_data_len);
 }
 
+void BaseChatMesh::sendAckTo(const ContactInfo& dest, uint32_t ack_hash) {
+  if (dest.out_path_len < 0) {
+    mesh::Packet* ack = createAck(ack_hash);
+    if (ack) sendFlood(ack, TXT_ACK_DELAY);
+  } else {
+    uint32_t d = TXT_ACK_DELAY;
+    if (getExtraAckTransmitCount() > 0) {
+      mesh::Packet* a1 = createMultiAck(ack_hash, 1);
+      if (a1) sendDirect(a1, dest.out_path, dest.out_path_len, d);
+      d += 300;
+    }
+
+    mesh::Packet* a2 = createAck(ack_hash);
+    if (a2) sendDirect(a2, dest.out_path, dest.out_path_len, d);
+  }
+}
+
 void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len) {
   AdvertDataParser parser(app_data, app_data_len);
   if (!(parser.isValid() && parser.hasName())) {
@@ -152,14 +169,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
         if (path) sendFlood(path, TXT_ACK_DELAY);
       } else {
-        mesh::Packet* ack = createAck(ack_hash);
-        if (ack) {
-          if (from.out_path_len < 0) {
-            sendFlood(ack, TXT_ACK_DELAY);
-          } else {
-            sendDirect(ack, from.out_path, from.out_path_len, TXT_ACK_DELAY);
-          }
-        }
+        sendAckTo(from, ack_hash);
       }
     } else if (flags == TXT_TYPE_CLI_DATA) {
       onCommandDataRecv(from, packet, timestamp, (const char *) &data[5]);  // let UI know
@@ -185,14 +195,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
         if (path) sendFlood(path, TXT_ACK_DELAY);
       } else {
-        mesh::Packet* ack = createAck(ack_hash);
-        if (ack) {
-          if (from.out_path_len < 0) {
-            sendFlood(ack, TXT_ACK_DELAY);
-          } else {
-            sendDirect(ack, from.out_path, from.out_path_len, TXT_ACK_DELAY);
-          }
-        }
+        sendAckTo(from, ack_hash);
       }
     } else {
       MESH_DEBUG_PRINTLN("onPeerDataRecv: unsupported message type: %u", (uint32_t) flags);

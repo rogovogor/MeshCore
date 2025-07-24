@@ -14,7 +14,7 @@ struct NodePrefs {  // persisted to file
   float freq;
   uint8_t sf;
   uint8_t cr;
-  uint8_t reserved1;
+  uint8_t multi_acks;
   uint8_t manual_add_contacts;
   float bw;
   uint8_t tx_power_dbm;

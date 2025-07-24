@@ -13,14 +13,11 @@
 #define  P_LORA_MOSI    44
 #define  SX126X_POWER_EN  37
 
-#define P_GPS_SDA       13  //GPS SDA pin (output option)
-#define P_GPS_SCL       14  //GPS SCL pin (output option)
-#define P_GPS_TX        16  //GPS TX pin
-#define P_GPS_RX        15  //GPS RX pin
-#define P_GPS_STANDBY_A 34  //GPS Reset/Standby pin (IO2 for socket A)
-#define P_GPS_STANDBY_C 4   //GPS Reset/Standby pin (IO4 for socket C)
-#define P_GPS_STANDBY_F 9   //GPS Reset/Standby pin (IO5 for socket F)
-#define P_GPS_1PPS      17  //GPS PPS pin
+//#define PIN_GPS_SDA       13  //GPS SDA pin (output option)
+//#define PIN_GPS_SCL       14  //GPS SCL pin (output option)
+//#define PIN_GPS_TX        16  //GPS TX pin
+//#define PIN_GPS_RX        15  //GPS RX pin
+#define PIN_GPS_1PPS      17  //GPS PPS pin
 #define GPS_BAUD_RATE   9600
 #define GPS_ADDRESS   0x42  //i2c address for GPS
  

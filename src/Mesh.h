@@ -28,6 +28,11 @@ class Mesh : public Dispatcher {
   RNG* _rng;
   MeshTables* _tables;
 
+  void removeSelfFromPath(Packet* packet);
+  void routeDirectRecvAcks(Packet* packet, uint32_t delay_millis);
+  //void routeRecvAcks(Packet* packet, uint32_t delay_millis);
+  DispatcherAction forwardMultipartDirect(Packet* pkt);
+
 protected:
   DispatcherAction onRecvPacket(Packet* pkt) override;
 
@@ -53,6 +58,11 @@ protected:
    * \returns  number of milliseconds delay to apply to retransmitting the given packet, for DIRECT mode.
    */
   virtual uint32_t getDirectRetransmitDelay(const Packet* packet);
+
+  /**
+   * \returns  number of extra (Direct) ACK transmissions wanted.
+   */
+  virtual uint8_t getExtraAckTransmitCount() const;
 
   /**
    * \brief  Perform search of local DB of peers/contacts.
@@ -165,6 +175,7 @@ public:
   Packet* createAnonDatagram(uint8_t type, const LocalIdentity& sender, const Identity& dest, const uint8_t* secret, const uint8_t* data, size_t data_len);
   Packet* createGroupDatagram(uint8_t type, const GroupChannel& channel, const uint8_t* data, size_t data_len);
   Packet* createAck(uint32_t ack_crc);
+  Packet* createMultiAck(uint32_t ack_crc, uint8_t remaining);
   Packet* createPathReturn(const uint8_t* dest_hash, const uint8_t* secret, const uint8_t* path, uint8_t path_len, uint8_t extra_type, const uint8_t*extra, size_t extra_len);
   Packet* createPathReturn(const Identity& dest, const uint8_t* secret, const uint8_t* path, uint8_t path_len, uint8_t extra_type, const uint8_t*extra, size_t extra_len);
   Packet* createRawData(const uint8_t* data, size_t len);

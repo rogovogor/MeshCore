@@ -25,14 +25,14 @@
 
 #define PERM_ACL_ROLE_MASK     3   // lower 2 bits
 #define PERM_ACL_GUEST         0
-#define PERM_ACL_LEVEL1        1
-#define PERM_ACL_LEVEL2        2
-#define PERM_ACL_LEVEL3        3   // admin
+#define PERM_ACL_READ_ONLY     1
+#define PERM_ACL_READ_WRITE    2
+#define PERM_ACL_ADMIN         3
 
-#define PERM_GET_TELEMETRY     (1 << 2)
-#define PERM_GET_OTHER_STATS   (1 << 3)
-#define PERM_RESERVED1         (1 << 4)
-#define PERM_RESERVED2         (1 << 5)
+#define PERM_RESERVED1         (1 << 2)
+#define PERM_RESERVED2         (1 << 3)
+#define PERM_RESERVED3         (1 << 4)
+#define PERM_RESERVED4         (1 << 5)
 #define PERM_RECV_ALERTS_LO    (1 << 6)   // low priority alerts
 #define PERM_RECV_ALERTS_HI    (1 << 7)   // high priority alerts
 
@@ -45,15 +45,15 @@ struct ContactInfo {
   uint32_t last_timestamp;   // by THEIR clock  (transient)
   uint32_t last_activity;    // by OUR clock    (transient)
 
-  bool isAdmin() const { return (permissions & PERM_ACL_ROLE_MASK) == PERM_ACL_LEVEL3; }
+  bool isAdmin() const { return (permissions & PERM_ACL_ROLE_MASK) == PERM_ACL_ADMIN; }
 };
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "2 Jul 2025"
+  #define FIRMWARE_BUILD_DATE   "24 Jul 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.7.2"
+  #define FIRMWARE_VERSION   "v1.7.4"
 #endif
 
 #define FIRMWARE_ROLE "sensor"
@@ -90,6 +90,7 @@ public:
   }
   const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
   void clearStats() override { }
+  void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override;
 
   float getTelemValue(uint8_t channel, uint8_t type);
 
@@ -154,14 +155,20 @@ private:
   int matching_peer_indexes[MAX_SEARCH_RESULTS];
   int num_alert_tasks;
   Trigger* alert_tasks[MAX_CONCURRENT_ALERTS];
+  unsigned long set_radio_at, revert_radio_at;
+  float pending_freq;
+  float pending_bw;
+  uint8_t pending_sf;
+  uint8_t pending_cr;
 
   void loadContacts();
   void saveContacts();
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data);
   uint8_t handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len);
   mesh::Packet* createSelfAdvert();
-  ContactInfo* putContact(const mesh::Identity& id);
-  void applyContactPermissions(const uint8_t* pubkey, uint8_t perms);
+  ContactInfo* getContact(const uint8_t* pubkey, int key_len);
+  ContactInfo* putContact(const mesh::Identity& id, uint8_t init_perms);
+  bool applyContactPermissions(const uint8_t* pubkey, int key_len, uint8_t perms);
 
   void sendAlert(ContactInfo* c, Trigger* t);
 

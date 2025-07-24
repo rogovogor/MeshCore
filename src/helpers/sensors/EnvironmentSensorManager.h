@@ -15,6 +15,8 @@ protected:
   bool INA219_initialized = false;
   bool SHTC3_initialized = false;
   bool LPS22HB_initialized = false;
+  bool MLX90614_initialized = false;
+  bool VL53L0X_initialized = false;
 
   bool gps_detected = false;
   bool gps_active = false;
@@ -24,6 +26,10 @@ protected:
   void start_gps();
   void stop_gps();
   void initBasicGPS();
+  #ifdef RAK_BOARD
+  void rakGPSInit();
+  bool gpsIsAwake(uint8_t ioPin);
+  #endif
   #endif
 
 

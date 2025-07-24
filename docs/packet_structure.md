@@ -1,11 +1,12 @@
 # Packet Structure
 
-| Field    | Size (bytes)                     | Description                                               |
-|----------|----------------------------------|-----------------------------------------------------------|
-| header   | 1                                | Contains routing type, payload type, and payload version. |
-| path_len | 1                                | Length of the path field in bytes.                        |
-| path     | up to 64 (`MAX_PATH_SIZE`)       | Stores the routing path if applicable.                    |
-| payload  | up to 184 (`MAX_PACKET_PAYLOAD`) | The actual data being transmitted.                        |
+| Field           | Size (bytes)                     | Description                                               |
+|-----------------|----------------------------------|-----------------------------------------------------------|
+| header          | 1                                | Contains routing type, payload type, and payload version. |
+| transport_codes | 4 (optional)                     | 2x 16-bit transport codes (if ROUTE_TYPE_TRANSPORT_*)     |
+| path_len        | 1                                | Length of the path field in bytes.                        |
+| path            | up to 64 (`MAX_PATH_SIZE`)       | Stores the routing path if applicable.                    |
+| payload         | up to 184 (`MAX_PACKET_PAYLOAD`) | The actual data being transmitted.                        |
 
 Note: see the [payloads doc](./payloads.md) for more information about the content of payload.
 
@@ -42,6 +43,7 @@ bit 0 means the lowest bit (1s place)
 | `0x07` | `PAYLOAD_TYPE_ANON_REQ`   | Anonymous request.                            |
 | `0x08` | `PAYLOAD_TYPE_PATH`       | Returned path.                                |
 | `0x09` | `PAYLOAD_TYPE_TRACE`      | trace a path, collecting SNI for each hop.    |
+| `0x0A` | `PAYLOAD_TYPE_MULTIPART`  | packet is part of a sequence of packets.      |
 | `0x0F` | `PAYLOAD_TYPE_RAW_CUSTOM` | Custom packet (raw bytes, custom encryption). |
 
 ## Payload Version Values

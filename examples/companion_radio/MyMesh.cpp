@@ -210,6 +210,10 @@ int MyMesh::calcRxDelay(float score, uint32_t air_time) const {
   return (int)((pow(_prefs.rx_delay_base, 0.85f - score) - 1.0) * air_time);
 }
 
+uint8_t MyMesh::getExtraAckTransmitCount() const {
+  return _prefs.multi_acks;
+}
+
 void MyMesh::logRxRaw(float snr, float rssi, const uint8_t raw[], int len) {
   if (_serial->isConnected() && len + 3 <= MAX_FRAME_SIZE) {
     int i = 0;
@@ -719,7 +723,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     i += 4;
     memcpy(&out_frame[i], &lon, 4);
     i += 4;
-    out_frame[i++] = 0; // reserved
+    out_frame[i++] = _prefs.multi_acks; // new v7+
     out_frame[i++] = _prefs.advert_loc_policy;
     out_frame[i++] = (_prefs.telemetry_mode_env << 4) | (_prefs.telemetry_mode_loc << 2) |
                      (_prefs.telemetry_mode_base); // v5+
@@ -1050,6 +1054,9 @@ void MyMesh::handleCmdFrame(size_t len) {
 
       if (len >= 4) {
         _prefs.advert_loc_policy = cmd_frame[3];
+        if (len >= 5) {
+          _prefs.multi_acks = cmd_frame[4];
+        }
       }
     }
     savePrefs();
