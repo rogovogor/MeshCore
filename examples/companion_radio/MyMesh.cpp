@@ -152,7 +152,7 @@ void MyMesh::writeContactRespFrame(uint8_t code, const ContactInfo &contact) {
   _serial->writeFrame(out_frame, i);
 }
 
-void MyMesh::updateContactFromFrame(ContactInfo &contact, const uint8_t *frame, int len) {
+void MyMesh::updateContactFromFrame(ContactInfo &contact, uint32_t& last_mod, const uint8_t *frame, int len) {
   int i = 0;
   uint8_t code = frame[i++]; // eg. CMD_ADD_UPDATE_CONTACT
   memcpy(contact.id.pub_key, &frame[i], PUB_KEY_SIZE);
@@ -171,6 +171,9 @@ void MyMesh::updateContactFromFrame(ContactInfo &contact, const uint8_t *frame, 
     i += 4;
     memcpy(&contact.gps_lon, &frame[i], 4);
     i += 4;
+    if (i + 4 >= len) {
+      memcpy(&last_mod, &frame[i], 4);
+    }
   }
 }
 
@@ -896,15 +899,16 @@ void MyMesh::handleCmdFrame(size_t len) {
   } else if (cmd_frame[0] == CMD_ADD_UPDATE_CONTACT && len >= 1 + 32 + 2 + 1) {
     uint8_t *pub_key = &cmd_frame[1];
     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+    uint32_t last_mod = getRTCClock()->getCurrentTime();  // fallback value if not present in cmd_frame
     if (recipient) {
-      updateContactFromFrame(*recipient, cmd_frame, len);
-      // recipient->lastmod = ??   shouldn't be needed, app already has this version of contact
+      updateContactFromFrame(*recipient, last_mod, cmd_frame, len);
+      recipient->lastmod = last_mod;
       dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
       writeOKFrame();
     } else {
       ContactInfo contact;
-      updateContactFromFrame(contact, cmd_frame, len);
-      contact.lastmod = getRTCClock()->getCurrentTime();
+      updateContactFromFrame(contact, last_mod, cmd_frame, len);
+      contact.lastmod = last_mod;
       contact.sync_since = 0;
       if (addContact(contact)) {
         dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
