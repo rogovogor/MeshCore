@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "2 Jul 2025"
+  #define FIRMWARE_BUILD_DATE   "24 Jul 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.7.2"
+  #define FIRMWARE_VERSION   "v1.7.4"
 #endif
 
 #ifndef LORA_FREQ
@@ -165,6 +165,11 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   int next_post_idx;
   PostInfo posts[MAX_UNSYNCED_POSTS];   // cyclic queue
   CayenneLPP telemetry;
+  unsigned long set_radio_at, revert_radio_at;
+  float pending_freq;
+  float pending_bw;
+  uint8_t pending_sf;
+  uint8_t pending_cr;
 
   ClientInfo* putClient(const mesh::Identity& id) {
     for (int i = 0; i < num_clients; i++) {
@@ -188,7 +193,6 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     newClient->id = id;
     newClient->out_path_len = -1;  // initially out_path is unknown
     newClient->last_timestamp = 0;
-    self_id.calcSharedSecret(newClient->secret, id);   // calc ECDH shared secret
     return newClient;
   }
 
@@ -334,7 +338,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     }
     return 0;  // unknown command
   }
-   
+
 protected:
   float getAirtimeBudgetFactor() const override {
     return _prefs.airtime_factor;
@@ -425,6 +429,9 @@ protected:
   int getAGCResetInterval() const override {
     return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
   }
+  uint8_t getExtraAckTransmitCount() const override {
+    return _prefs.multi_acks;
+  }
 
   bool allowPacketForward(const mesh::Packet* packet) override {
     if (_prefs.disable_fwd) return false;
@@ -432,8 +439,8 @@ protected:
     return true;
   }
 
-  void onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) override {
-    if (type == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
+  void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override {
+    if (packet->getPayloadType() == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
       uint32_t sender_timestamp, sender_sync_since;
       memcpy(&sender_timestamp, data, 4);
       memcpy(&sender_sync_since, &data[4], 4);  // sender's "sync messags SINCE x" timestamp
@@ -465,6 +472,7 @@ protected:
       client->sync_since = sender_sync_since;
       client->pending_ack = 0;
       client->push_failures = 0;
+      memcpy(client->secret, secret, PUB_KEY_SIZE);
 
       uint32_t now = getRTCClock()->getCurrentTime();
       client->last_activity = now;
@@ -555,7 +563,7 @@ protected:
             if (is_retry) {
               temp[5] = 0;  // no reply
             } else {
-              _cli.handleCommand(sender_timestamp, (const char *) &data[5], (char *) &temp[5]);
+              handleCommand(sender_timestamp, (char *) &data[5], (char *) &temp[5]);
               temp[4] = (TXT_TYPE_CLI_DATA << 2);  // attempt and flags,  (NOTE: legacy was: TXT_TYPE_PLAIN)
             }
             send_ack = false;
@@ -578,15 +586,22 @@ protected:
 
         uint32_t delay_millis;
         if (send_ack) {
-          mesh::Packet* ack = createAck(ack_hash);
-          if (ack) {
-            if (client->out_path_len < 0) {
-              sendFlood(ack, TXT_ACK_DELAY);
-            } else {
-              sendDirect(ack, client->out_path, client->out_path_len, TXT_ACK_DELAY);
+          if (client->out_path_len < 0) {
+            mesh::Packet* ack = createAck(ack_hash);
+            if (ack) sendFlood(ack, TXT_ACK_DELAY);
+            delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS;
+          } else {
+            uint32_t d = TXT_ACK_DELAY;
+            if (getExtraAckTransmitCount() > 0) {
+              mesh::Packet* a1 = createMultiAck(ack_hash, 1);
+              if (a1) sendDirect(a1, client->out_path, client->out_path_len, d);
+              d += 300;
             }
+
+            mesh::Packet* a2 = createAck(ack_hash);
+            if (a2) sendDirect(a2, client->out_path, client->out_path_len, d);
+            delay_millis = d + REPLY_DELAY_MILLIS;
           }
-          delay_millis = TXT_ACK_DELAY + REPLY_DELAY_MILLIS;
         } else {
           delay_millis = 0;
         }
@@ -711,6 +726,7 @@ public:
   {
     next_local_advert = next_flood_advert = 0;
     _logging = false;
+    set_radio_at = revert_radio_at = 0;
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -743,8 +759,6 @@ public:
     _num_posted = _num_post_pushes = 0;
   }
 
-  CommonCLI* getCLI() { return &_cli; }
-
   void begin(FILESYSTEM* fs) {
     mesh::Mesh::begin();
     _fs = fs;
@@ -768,6 +782,16 @@ public:
 
   void savePrefs() override {
     _cli.savePrefs(_fs);
+  }
+
+  void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override {
+    set_radio_at = futureMillis(2000);   // give CLI reply some time to be sent back, before applying temp radio params
+    pending_freq = freq;
+    pending_bw = bw;
+    pending_sf = sf;
+    pending_cr = cr;
+
+    revert_radio_at = futureMillis(2000 + timeout_mins*60*1000);   // schedule when to revert radio params
   }
 
   bool formatFileSystem() override {
@@ -845,6 +869,18 @@ public:
     ((SimpleMeshTables *)getTables())->resetStats();
   }
 
+  void handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
+    while (*command == ' ') command++;   // skip leading spaces
+
+    if (strlen(command) > 4 && command[2] == '|') {  // optional prefix (for companion radio CLI)
+      memcpy(reply, command, 3);  // reflect the prefix back
+      reply += 3;
+      command += 3;
+    }
+
+    _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
+  }
+
   void loop() {
     mesh::Mesh::loop();
 
@@ -900,6 +936,18 @@ public:
       if (pkt) sendZeroHop(pkt);
 
       updateAdvertTimer();   // schedule next local advert
+    }
+
+    if (set_radio_at && millisHasNowPassed(set_radio_at)) {   // apply pending (temporary) radio params
+      set_radio_at = 0;  // clear timer
+      radio_set_params(pending_freq, pending_bw, pending_sf, pending_cr);
+      MESH_DEBUG_PRINTLN("Temp radio params");
+    }
+
+    if (revert_radio_at && millisHasNowPassed(revert_radio_at)) {   // revert radio params to orig
+      revert_radio_at = 0;  // clear timer
+      radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+      MESH_DEBUG_PRINTLN("Radio params restored");
     }
 
   #ifdef DISPLAY_CLASS
@@ -998,7 +1046,7 @@ void loop() {
   if (len > 0 && command[len - 1] == '\r') {  // received complete line
     command[len - 1] = 0;  // replace newline with C string null terminator
     char reply[160];
-    the_mesh.getCLI()->handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
+    the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
     if (reply[0]) {
       Serial.print("  -> "); Serial.println(reply);
     }

@@ -408,8 +408,12 @@ void UITask::handleButtonQuadruplePress() {
       if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
         if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
           _sensors->setSettingValue("gps", "0");
+          soundBuzzer(UIEventType::ack);
+          sprintf(_alert, "GPS: Disabled");
         } else {
           _sensors->setSettingValue("gps", "1");
+          soundBuzzer(UIEventType::ack);
+          sprintf(_alert, "GPS: Enabled");
         }
         break;
       }

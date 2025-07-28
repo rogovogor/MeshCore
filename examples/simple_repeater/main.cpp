@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "2 Jul 2025"
+  #define FIRMWARE_BUILD_DATE   "24 Jul 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.7.2"
+  #define FIRMWARE_VERSION   "v1.7.4"
 #endif
 
 #ifndef LORA_FREQ
@@ -124,7 +124,7 @@ struct NeighbourInfo {
   int8_t snr; // multiplied by 4, user should divide to get float value
 };
 
-#define CLI_REPLY_DELAY_MILLIS  1000
+#define CLI_REPLY_DELAY_MILLIS  600
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
@@ -138,6 +138,11 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
 #endif
   CayenneLPP telemetry;
+  unsigned long set_radio_at, revert_radio_at;
+  float pending_freq;
+  float pending_bw;
+  uint8_t pending_sf;
+  uint8_t pending_cr;
 
   ClientInfo* putClient(const mesh::Identity& id) {
     uint32_t min_time = 0xFFFFFFFF;
@@ -153,7 +158,6 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
     oldest->id = id;
     oldest->out_path_len = -1;  // initially out_path is unknown
     oldest->last_timestamp = 0;
-    self_id.calcSharedSecret(oldest->secret, id);   // calc ECDH shared secret
     return oldest;
   }
 
@@ -432,9 +436,12 @@ protected:
   int getAGCResetInterval() const override {
     return ((int)_prefs.agc_reset_interval) * 4000;   // milliseconds
   }
+  uint8_t getExtraAckTransmitCount() const override {
+    return _prefs.multi_acks;
+  }
 
-  void onAnonDataRecv(mesh::Packet* packet, uint8_t type, const mesh::Identity& sender, uint8_t* data, size_t len) override {
-    if (type == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
+  void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override {
+    if (packet->getPayloadType() == PAYLOAD_TYPE_ANON_REQ) {  // received an initial request by a possible admin client (unknown at this stage)
       uint32_t timestamp;
       memcpy(&timestamp, data, 4);
 
@@ -461,6 +468,7 @@ protected:
       client->last_timestamp = timestamp;
       client->last_activity = getRTCClock()->getCurrentTime();
       client->is_admin = is_admin;
+      memcpy(client->secret, secret, PUB_KEY_SIZE);
 
       uint32_t now = getRTCClock()->getCurrentTimeUnique();
       memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
@@ -592,12 +600,12 @@ protected:
         }
 
         uint8_t temp[166];
-        const char *command = (const char *) &data[5];
+        char *command = (char *) &data[5];
         char *reply = (char *) &temp[5];
         if (is_retry) {
           *reply = 0;
         } else {
-          _cli.handleCommand(sender_timestamp, command, reply);
+          handleCommand(sender_timestamp, command, reply);
         }
         int text_len = strlen(reply);
         if (text_len > 0) {
@@ -647,6 +655,7 @@ public:
   {
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
+    set_radio_at = revert_radio_at = 0;
     _logging = false;
 
 #if MAX_NEIGHBOURS
@@ -673,8 +682,6 @@ public:
     _prefs.interference_threshold = 0;  // disabled
   }
 
-  CommonCLI* getCLI() { return &_cli; }
-
   void begin(FILESYSTEM* fs) {
     mesh::Mesh::begin();
     _fs = fs;
@@ -698,6 +705,16 @@ public:
 
   void savePrefs() override {
     _cli.savePrefs(_fs);
+  }
+
+  void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override {
+    set_radio_at = futureMillis(2000);   // give CLI reply some time to be sent back, before applying temp radio params
+    pending_freq = freq;
+    pending_bw = bw;
+    pending_sf = sf;
+    pending_cr = cr;
+
+    revert_radio_at = futureMillis(2000 + timeout_mins*60*1000);   // schedule when to revert radio params
   }
 
   bool formatFileSystem() override {
@@ -798,6 +815,18 @@ public:
     ((SimpleMeshTables *)getTables())->resetStats();
   }
 
+  void handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
+    while (*command == ' ') command++;   // skip leading spaces
+
+    if (strlen(command) > 4 && command[2] == '|') {  // optional prefix (for companion radio CLI)
+      memcpy(reply, command, 3);  // reflect the prefix back
+      reply += 3;
+      command += 3;
+    }
+
+    _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
+  }
+
   void loop() {
 #ifdef BRIDGE_OVER_SERIAL
     serialBridgeReceivePkt();
@@ -817,6 +846,19 @@ public:
 
       updateAdvertTimer();   // schedule next local advert
     }
+
+    if (set_radio_at && millisHasNowPassed(set_radio_at)) {   // apply pending (temporary) radio params
+      set_radio_at = 0;  // clear timer
+      radio_set_params(pending_freq, pending_bw, pending_sf, pending_cr);
+      MESH_DEBUG_PRINTLN("Temp radio params");
+    }
+
+    if (revert_radio_at && millisHasNowPassed(revert_radio_at)) {   // revert radio params to orig
+      revert_radio_at = 0;  // clear timer
+      radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+      MESH_DEBUG_PRINTLN("Radio params restored");
+    }
+
   #ifdef DISPLAY_CLASS
     ui_task.loop();
   #endif
@@ -930,7 +972,7 @@ void loop() {
   if (len > 0 && command[len - 1] == '\r') {  // received complete line
     command[len - 1] = 0;  // replace newline with C string null terminator
     char reply[160];
-    the_mesh.getCLI()->handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
+    the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
     if (reply[0]) {
       Serial.print("  -> "); Serial.println(reply);
     }

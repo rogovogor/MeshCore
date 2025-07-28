@@ -2,9 +2,9 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <helpers/RadioLibWrappers.h>
+#include <helpers/radiolib/RadioLibWrappers.h>
 #include "T1000eBoard.h"
-#include <helpers/CustomLR1110Wrapper.h>
+#include <helpers/radiolib/CustomLR1110Wrapper.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/SensorManager.h>
 #include <helpers/sensors/LocationProvider.h>

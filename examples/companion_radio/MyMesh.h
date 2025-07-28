@@ -7,14 +7,14 @@
 #endif
 
 /*------------ Frame Protocol --------------*/
-#define FIRMWARE_VER_CODE 6
+#define FIRMWARE_VER_CODE 7
 
 #ifndef FIRMWARE_BUILD_DATE
-#define FIRMWARE_BUILD_DATE "2 Jul 2025"
+#define FIRMWARE_BUILD_DATE "24 Jul 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "v1.7.2"
+#define FIRMWARE_VERSION "v1.7.4"
 #endif
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -97,6 +97,7 @@ protected:
   float getAirtimeBudgetFactor() const override;
   int getInterferenceThreshold() const override;
   int calcRxDelay(float score, uint32_t air_time) const override;
+  uint8_t getExtraAckTransmitCount() const override;
 
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
   bool isAutoAddEnabled() const override;
@@ -137,7 +138,7 @@ private:
   void writeErrFrame(uint8_t err_code);
   void writeDisabledFrame();
   void writeContactRespFrame(uint8_t code, const ContactInfo &contact);
-  void updateContactFromFrame(ContactInfo &contact, const uint8_t *frame, int len);
+  void updateContactFromFrame(ContactInfo &contact, uint32_t& last_mod, const uint8_t *frame, int len);
   void addToOfflineQueue(const uint8_t frame[], int len);
   int getFromOfflineQueue(uint8_t frame[]);
   int getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) override { 
@@ -160,7 +161,8 @@ private:
   NodePrefs _prefs;
   uint32_t pending_login;
   uint32_t pending_status;
-  uint32_t pending_telemetry;
+  uint32_t pending_telemetry;   // pending _TELEMETRY_REQ
+  uint32_t pending_req;   // pending _BINARY_REQ
   BaseSerialInterface *_serial;
 
   ContactsIterator _iter;
