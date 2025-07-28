@@ -219,7 +219,7 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
     if (BMP280_initialized) {
       telemetry.addTemperature(TELEM_CHANNEL_SELF, BMP280.readTemperature());
       telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BMP280.readPressure()/100);
-      telemetry.addAltitude(TELEM_CHANNEL_SELF, BME280.readAltitude(TELEM_BME280_SEALEVELPRESSURE_HPA));
+      telemetry.addAltitude(TELEM_CHANNEL_SELF, BMP280.readAltitude(TELEM_BMP280_SEALEVELPRESSURE_HPA));
     }
     #endif
 
