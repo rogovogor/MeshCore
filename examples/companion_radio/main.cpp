@@ -14,7 +14,20 @@ static uint32_t _atoi(const char* sp) {
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #include <InternalFileSystem.h>
-  DataStore store(InternalFS, rtc_clock);
+  #if defined(SPIFLASH)
+    #include <CustomLFS_SPIFlash.h>
+    const int chipSelect = PIN_QSPI_CS;
+    SPIClass SPI_2(NRF_SPIM2, PIN_QSPI_IO1, PIN_QSPI_SCK, PIN_QSPI_IO0);
+    DataStore store(FlashFS, rtc_clock);
+  #else
+  #if defined(EXTRAFS)
+    #include <CustomLFS.h>
+    CustomLFS ExtraFS(0xD4000, 0x19000, 128);
+    DataStore store(ExtraFS, rtc_clock);
+  #else
+    DataStore store(InternalFS, rtc_clock);
+  #endif
+  #endif
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
   DataStore store(LittleFS, rtc_clock);
@@ -22,6 +35,7 @@ static uint32_t _atoi(const char* sp) {
   #include <SPIFFS.h>
   DataStore store(SPIFFS, rtc_clock);
 #endif
+
 
 #ifdef ESP32
   #ifdef WIFI_SSID
@@ -117,7 +131,19 @@ void setup() {
   fast_rng.begin(radio_get_rng_seed());
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  InternalFS.begin();
+  #if defined(SPIFLASH)
+    if (!FlashFS.begin(chipSelect, SPI_2)) {
+      // debug output might not be available at this point, might be too early. maybe should fall back to InternalFS here?
+      MESH_DEBUG_PRINTLN("CustomLFS_SPIFlash: failed to initialize");
+    } else {
+      MESH_DEBUG_PRINTLN("CustomLFS_SPIFlash: initialized successfully");
+    }
+  #else
+    InternalFS.begin();
+    #if defined(EXTRAFS)
+      ExtraFS.begin();
+    #endif
+  #endif
   store.begin();
   the_mesh.begin(
     #ifdef DISPLAY_CLASS

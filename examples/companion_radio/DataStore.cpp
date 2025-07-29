@@ -1,6 +1,12 @@
 #include <Arduino.h>
 #include "DataStore.h"
 
+#if defined(EXTRAFS) || defined(SPIFLASH)
+  #define MAX_BLOBRECS 100
+#else
+  #define MAX_BLOBRECS 20
+#endif
+
 DataStore::DataStore(FILESYSTEM& fs, mesh::RTCClock& clock) : _fs(&fs), _clock(&clock),
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     identity_store(fs, "")
@@ -41,7 +47,9 @@ void DataStore::begin() {
 #elif defined(RP2040_PLATFORM)
   #include <LittleFS.h>
 #elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  #include <InternalFileSystem.h>
+  // #include <InternalFileSystem.h> // disabled for now, leaving here for dual fs branch
+  #include <CustomLFS.h>
+  #include <CustomLFS_SPIFlash.h>
 #endif
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -51,9 +59,9 @@ int _countLfsBlock(void *p, lfs_block_t block){
   return 0;
 }
 
-lfs_ssize_t _getLfsUsedBlockCount() {
+lfs_ssize_t _getLfsUsedBlockCount(FILESYSTEM* fs) {
   lfs_size_t size = 0;
-  lfs_traverse(InternalFS._getFS(), _countLfsBlock, &size);
+  lfs_traverse(fs->_getFS(), _countLfsBlock, &size);
   return size;
 }
 #endif
@@ -67,8 +75,8 @@ uint32_t DataStore::getStorageUsedKb() const {
   _fs->info(info);
   return info.usedBytes / 1024;
 #elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  const lfs_config* config = InternalFS._getFS()->cfg;
-  int usedBlockCount = _getLfsUsedBlockCount();
+  const lfs_config* config = _fs->_getFS()->cfg;
+  int usedBlockCount = _getLfsUsedBlockCount(_fs);
   int usedBytes = config->block_size * usedBlockCount;
   return usedBytes / 1024;
 #else
@@ -85,7 +93,7 @@ uint32_t DataStore::getStorageTotalKb() const {
   _fs->info(info);
   return info.totalBytes / 1024;
 #elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  const lfs_config* config = InternalFS._getFS()->cfg;
+  const lfs_config* config = _fs->_getFS()->cfg;
   int totalBytes = config->block_size * config->block_count;
   return totalBytes / 1024;
 #else
@@ -109,6 +117,7 @@ bool DataStore::removeFile(const char* filename) {
 
 bool DataStore::formatFileSystem() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  // InternalFS.format(); // leaving as placeholder to remind for dual fs branch
   return _fs->format();
 #elif defined(RP2040_PLATFORM)
   return LittleFS.format();
@@ -336,7 +345,7 @@ void DataStore::checkAdvBlobFile() {
     if (file) {
       BlobRec zeroes;
       memset(&zeroes, 0, sizeof(zeroes));
-      for (int i = 0; i < 20; i++) {     // pre-allocate to fixed size
+      for (int i = 0; i < MAX_BLOBRECS; i++) {     // pre-allocate to fixed size
         file.write((uint8_t *) &zeroes, sizeof(zeroes));
       }
       file.close();
