@@ -661,6 +661,7 @@ void MyMesh::begin(bool has_display) {
   _active_ble_pin = 0;
 #endif
 
+  resetContacts();
   _store->loadContacts(this);
   addChannel("Public", PUBLIC_GROUP_PSK); // pre-configure Andy's public channel
   _store->loadChannels(this);
@@ -1097,6 +1098,9 @@ void MyMesh::handleCmdFrame(size_t len) {
     if (_store->saveMainIdentity(identity)) {
       self_id = identity;
       writeOKFrame();
+      // re-load contacts, to recalc shared secrets
+      resetContacts();
+      _store->loadContacts(this);
     } else {
       writeErrFrame(ERR_CODE_FILE_IO_ERROR);
     }
