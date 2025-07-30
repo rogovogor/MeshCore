@@ -166,12 +166,12 @@ void MyMesh::updateContactFromFrame(ContactInfo &contact, uint32_t& last_mod, co
   i += 32;
   memcpy(&contact.last_advert_timestamp, &frame[i], 4);
   i += 4;
-  if (i + 8 >= len) { // optional fields
+  if (len >= i + 8) { // optional fields
     memcpy(&contact.gps_lat, &frame[i], 4);
     i += 4;
     memcpy(&contact.gps_lon, &frame[i], 4);
     i += 4;
-    if (i + 4 >= len) {
+    if (len >= i + 4) {
       memcpy(&last_mod, &frame[i], 4);
     }
   }
