@@ -439,6 +439,9 @@ uint8_t MyMesh::onContactRequest(const ContactInfo &contact, uint32_t sender_tim
       permissions |= cp & TELEM_PERM_ENVIRONMENT;
     }
 
+    uint8_t perm_mask = ~(data[1]);    // NEW: first reserved byte (of 4), is now inverse mask to apply to permissions
+    permissions &= perm_mask;
+
     if (permissions & TELEM_PERM_BASE) { // only respond if base permission bit is set
       telemetry.reset();
       telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
@@ -551,6 +554,7 @@ bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t i
         out_frame[i++] = in_path_len;
         memcpy(&out_frame[i], in_path, in_path_len);
         i += in_path_len;
+        // NOTE: telemetry data in 'extra' is discarded at present
 
         _serial->writeFrame(out_frame, i);
       }
@@ -623,7 +627,7 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   _cli_rescue = false;
   offline_queue_len = 0;
   app_target_ver = 0;
-  pending_discovery = pending_login = pending_status = pending_telemetry = pending_req = 0;
+  clearPendingReqs();
   next_ack_idx = 0;
   sign_data = NULL;
   dirty_contacts_expiry = 0;
@@ -1168,7 +1172,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_discovery = pending_req = pending_telemetry = pending_status = 0;
+        clearPendingReqs();
         memcpy(&pending_login, recipient->id.pub_key, 4); // match this to onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
@@ -1188,7 +1192,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_discovery = pending_req = pending_telemetry = pending_login = 0;
+        clearPendingReqs();
         // FUTURE:  pending_status = tag;  // match this in onContactResponse()
         memcpy(&pending_status, recipient->id.pub_key, 4); // legacy matching scheme
         out_frame[0] = RESP_CODE_SENT;
@@ -1206,11 +1210,16 @@ void MyMesh::handleCmdFrame(size_t len) {
     if (recipient) {
       uint32_t tag, est_timeout;
       // 'Path Discovery' is just a special case of flood + Telemetry req
-      int result = sendRequest(*recipient, REQ_TYPE_GET_TELEMETRY_DATA, tag, est_timeout);
+      uint8_t req_data[9];
+      req_data[0] = REQ_TYPE_GET_TELEMETRY_DATA;
+      req_data[1] = ~(TELEM_PERM_BASE);  // NEW: inverse permissions mask (ie. we only want BASE telemetry)
+      memset(&req_data[2], 0, 3);  // reserved
+      getRNG()->random(&req_data[5], 4);   // random blob to help make packet-hash unique
+      int result = sendRequest(*recipient, req_data, sizeof(req_data), tag, est_timeout);
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_telemetry = pending_status = pending_login = pending_req = 0;
+        clearPendingReqs();
         pending_discovery = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
@@ -1230,7 +1239,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_discovery = pending_status = pending_login = pending_req = 0;
+        clearPendingReqs();
         pending_telemetry = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
@@ -1266,7 +1275,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_discovery = pending_status = pending_login = pending_telemetry = 0;
+        clearPendingReqs();
         pending_req = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;

@@ -214,10 +214,12 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         return 4 + sizeof(stats);  //  reply_len
       }
       case REQ_TYPE_GET_TELEMETRY_DATA: {
+        uint8_t perm_mask = ~(payload[1]);    // NEW: first reserved byte (of 4), is now inverse mask to apply to permissions
+
         telemetry.reset();
         telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
         // query other sensors -- target specific
-        sensors.querySensors(sender->is_admin ? 0xFF : 0x00, telemetry);
+        sensors.querySensors((sender->is_admin ? 0xFF : 0x00) & perm_mask, telemetry);
 
         uint8_t tlen = telemetry.getSize();
         memcpy(&reply_data[4], telemetry.getBuffer(), tlen);

@@ -244,10 +244,12 @@ uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
   if (req_type == REQ_TYPE_GET_TELEMETRY_DATA) {  // allow all
+    uint8_t perm_mask = ~(payload[0]);    // NEW: first reserved byte (of 4), is now inverse mask to apply to permissions
+
     telemetry.reset();
     telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
     // query other sensors -- target specific
-    sensors.querySensors(0xFF, telemetry);  // allow all telemetry permissions for admin or guest
+    sensors.querySensors(0xFF & perm_mask, telemetry);  // allow all telemetry permissions for admin or guest
     // TODO: let requester know permissions they have:  telemetry.addPresence(TELEM_CHANNEL_SELF, perms);
 
     uint8_t tlen = telemetry.getSize();
