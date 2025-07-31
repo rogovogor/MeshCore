@@ -49,7 +49,7 @@
 // NOTE: CMD range 44..49 parked, potentially for WiFi operations
 #define CMD_SEND_BINARY_REQ           50
 #define CMD_FACTORY_RESET             51
-#define CMD_SEND_DISCOVERY_REQ        52
+#define CMD_SEND_PATH_DISCOVERY_REQ   52
 
 #define RESP_CODE_OK                  0
 #define RESP_CODE_ERR                 1
@@ -98,7 +98,7 @@
 #define PUSH_CODE_NEW_ADVERT            0x8A
 #define PUSH_CODE_TELEMETRY_RESPONSE    0x8B
 #define PUSH_CODE_BINARY_RESPONSE       0x8C
-#define PUSH_CODE_DISCOVERY_RESPONSE    0x8D
+#define PUSH_CODE_PATH_DISCOVERY_RESPONSE 0x8D
 
 #define ERR_CODE_UNSUPPORTED_CMD        1
 #define ERR_CODE_NOT_FOUND              2
@@ -544,7 +544,7 @@ bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t i
         MESH_DEBUG_PRINTLN("onContactPathRecv, invalid path sizes: %d, %d", in_path_len, out_path_len);
       } else {
         int i = 0;
-        out_frame[i++] = PUSH_CODE_DISCOVERY_RESPONSE;
+        out_frame[i++] = PUSH_CODE_PATH_DISCOVERY_RESPONSE;
         out_frame[i++] = 0; // reserved
         memcpy(&out_frame[i], contact.id.pub_key, 6);
         i += 6; // pub_key_prefix
@@ -1204,7 +1204,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     } else {
       writeErrFrame(ERR_CODE_NOT_FOUND); // contact not found
     }
-  } else if (cmd_frame[0] == CMD_SEND_DISCOVERY_REQ && cmd_frame[1] == 0 && len >= 2 + PUB_KEY_SIZE) {
+  } else if (cmd_frame[0] == CMD_SEND_PATH_DISCOVERY_REQ && cmd_frame[1] == 0 && len >= 2 + PUB_KEY_SIZE) {
     uint8_t *pub_key = &cmd_frame[2];
     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
     if (recipient) {
@@ -1215,7 +1215,10 @@ void MyMesh::handleCmdFrame(size_t len) {
       req_data[1] = ~(TELEM_PERM_BASE);  // NEW: inverse permissions mask (ie. we only want BASE telemetry)
       memset(&req_data[2], 0, 3);  // reserved
       getRNG()->random(&req_data[5], 4);   // random blob to help make packet-hash unique
+      auto save = recipient->out_path_len;    // temporarily force sendRequest() to flood
+      recipient->out_path_len = -1;
       int result = sendRequest(*recipient, req_data, sizeof(req_data), tag, est_timeout);
+      recipient->out_path_len = save;
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
