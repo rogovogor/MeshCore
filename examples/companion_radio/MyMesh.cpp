@@ -41,7 +41,7 @@
 #define CMD_SEND_TRACE_PATH           36
 #define CMD_SET_DEVICE_PIN            37
 #define CMD_SET_OTHER_PARAMS          38
-#define CMD_SEND_TELEMETRY_REQ        39
+#define CMD_SEND_TELEMETRY_REQ        39  // can deprecate this
 #define CMD_GET_CUSTOM_VARS           40
 #define CMD_SET_CUSTOM_VAR            41
 #define CMD_GET_ADVERT_PATH           42
@@ -49,6 +49,7 @@
 // NOTE: CMD range 44..49 parked, potentially for WiFi operations
 #define CMD_SEND_BINARY_REQ           50
 #define CMD_FACTORY_RESET             51
+#define CMD_SEND_DISCOVERY_REQ        52
 
 #define RESP_CODE_OK                  0
 #define RESP_CODE_ERR                 1
@@ -97,6 +98,7 @@
 #define PUSH_CODE_NEW_ADVERT            0x8A
 #define PUSH_CODE_TELEMETRY_RESPONSE    0x8B
 #define PUSH_CODE_BINARY_RESPONSE       0x8C
+#define PUSH_CODE_DISCOVERY_RESPONSE    0x8D
 
 #define ERR_CODE_UNSUPPORTED_CMD        1
 #define ERR_CODE_NOT_FOUND              2
@@ -527,6 +529,38 @@ void MyMesh::onContactResponse(const ContactInfo &contact, const uint8_t *data, 
   }
 }
 
+bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t in_path_len, uint8_t* out_path, uint8_t out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
+  if (extra_type == PAYLOAD_TYPE_RESPONSE && extra_len > 4) {
+    uint32_t tag;
+    memcpy(&tag, extra, 4);
+
+    if (tag == pending_discovery) {  // check for matching response tag)
+      pending_discovery = 0;
+
+      if (in_path_len > MAX_PATH_SIZE || out_path_len > MAX_PATH_SIZE) {
+        MESH_DEBUG_PRINTLN("onContactPathRecv, invalid path sizes: %d, %d", in_path_len, out_path_len);
+      } else {
+        int i = 0;
+        out_frame[i++] = PUSH_CODE_DISCOVERY_RESPONSE;
+        out_frame[i++] = 0; // reserved
+        memcpy(&out_frame[i], contact.id.pub_key, 6);
+        i += 6; // pub_key_prefix
+        out_frame[i++] = out_path_len;
+        memcpy(&out_frame[i], out_path, out_path_len);
+        i += out_path_len;
+        out_frame[i++] = in_path_len;
+        memcpy(&out_frame[i], in_path, in_path_len);
+        i += in_path_len;
+
+        _serial->writeFrame(out_frame, i);
+      }
+      return false;  // DON'T send reciprocal path!
+    }
+  }
+  // let base class handle received path and data
+  return BaseChatMesh::onContactPathRecv(contact, in_path, in_path_len, out_path, out_path_len, extra_type, extra, extra_len);
+}
+
 void MyMesh::onRawDataRecv(mesh::Packet *packet) {
   if (packet->payload_len + 4 > sizeof(out_frame)) {
     MESH_DEBUG_PRINTLN("onRawDataRecv(), payload_len too long: %d", packet->payload_len);
@@ -589,7 +623,7 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   _cli_rescue = false;
   offline_queue_len = 0;
   app_target_ver = 0;
-  pending_login = pending_status = pending_telemetry = pending_req = 0;
+  pending_discovery = pending_login = pending_status = pending_telemetry = pending_req = 0;
   next_ack_idx = 0;
   sign_data = NULL;
   dirty_contacts_expiry = 0;
@@ -1134,7 +1168,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_req = pending_telemetry = pending_status = 0;
+        pending_discovery = pending_req = pending_telemetry = pending_status = 0;
         memcpy(&pending_login, recipient->id.pub_key, 4); // match this to onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
@@ -1154,9 +1188,30 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_req = pending_telemetry = pending_login = 0;
+        pending_discovery = pending_req = pending_telemetry = pending_login = 0;
         // FUTURE:  pending_status = tag;  // match this in onContactResponse()
         memcpy(&pending_status, recipient->id.pub_key, 4); // legacy matching scheme
+        out_frame[0] = RESP_CODE_SENT;
+        out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
+        memcpy(&out_frame[2], &tag, 4);
+        memcpy(&out_frame[6], &est_timeout, 4);
+        _serial->writeFrame(out_frame, 10);
+      }
+    } else {
+      writeErrFrame(ERR_CODE_NOT_FOUND); // contact not found
+    }
+  } else if (cmd_frame[0] == CMD_SEND_DISCOVERY_REQ && cmd_frame[1] == 0 && len >= 2 + PUB_KEY_SIZE) {
+    uint8_t *pub_key = &cmd_frame[2];
+    ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+    if (recipient) {
+      uint32_t tag, est_timeout;
+      // 'Path Discovery' is just a special case of flood + Telemetry req
+      int result = sendRequest(*recipient, REQ_TYPE_GET_TELEMETRY_DATA, tag, est_timeout);
+      if (result == MSG_SEND_FAILED) {
+        writeErrFrame(ERR_CODE_TABLE_FULL);
+      } else {
+        pending_telemetry = pending_status = pending_login = pending_req = 0;
+        pending_discovery = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
         memcpy(&out_frame[2], &tag, 4);
@@ -1175,7 +1230,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_status = pending_login = pending_req = 0;
+        pending_discovery = pending_status = pending_login = pending_req = 0;
         pending_telemetry = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
@@ -1211,7 +1266,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (result == MSG_SEND_FAILED) {
         writeErrFrame(ERR_CODE_TABLE_FULL);
       } else {
-        pending_status = pending_login = pending_telemetry = 0;
+        pending_discovery = pending_status = pending_login = pending_telemetry = 0;
         pending_req = tag; // match this in onContactResponse()
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;

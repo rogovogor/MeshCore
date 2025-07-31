@@ -101,6 +101,7 @@ protected:
 
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
   bool isAutoAddEnabled() const override;
+  bool onContactPathRecv(ContactInfo& from, uint8_t* in_path, uint8_t in_path_len, uint8_t* out_path, uint8_t out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
   void onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path_len, const uint8_t* path) override;
   void onContactPathUpdated(const ContactInfo &contact) override;
   bool processAck(const uint8_t *data) override;
@@ -161,7 +162,7 @@ private:
   NodePrefs _prefs;
   uint32_t pending_login;
   uint32_t pending_status;
-  uint32_t pending_telemetry;   // pending _TELEMETRY_REQ
+  uint32_t pending_telemetry, pending_discovery;   // pending _TELEMETRY_REQ
   uint32_t pending_req;   // pending _BINARY_REQ
   BaseSerialInterface *_serial;
 
