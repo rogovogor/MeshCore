@@ -863,7 +863,7 @@ public:
     strcpy(reply, "not supported");
   }
 
-  const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
+  mesh::LocalIdentity& getSelfId() override { return self_id; }
 
   void clearStats() override {
     radio_driver.resetStats();

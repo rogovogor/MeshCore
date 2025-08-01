@@ -717,7 +717,7 @@ public:
     *dp = 0;  // null terminator
   }
 
-  const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
+  mesh::LocalIdentity& getSelfId() override { return self_id; }
 
   void clearStats() override {
     radio_driver.resetStats();
@@ -780,7 +780,7 @@ void halt() {
   while (1) ;
 }
 
-static char command[80];
+static char command[160];
 
 void setup() {
   Serial.begin(115200);
