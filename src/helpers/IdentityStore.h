@@ -4,9 +4,9 @@
   #include <FS.h>
   #define FILESYSTEM  fs::FS
 #elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-  #if defined(SPIFLASH)
-    #include <CustomLFS_SPIFlash.h>
-    #define FILESYSTEM CustomLFS_SPIFlash
+  #if defined(QSPIFLASH)
+    #include <CustomLFS_QSPIFlash.h>
+    #define FILESYSTEM CustomLFS_QSPIFlash
   #elif defined(EXTRAFS)
     #include <CustomLFS.h>
     #define FILESYSTEM CustomLFS
