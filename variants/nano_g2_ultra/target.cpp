@@ -42,45 +42,44 @@ void radio_set_tx_power(uint8_t dbm)
   radio.setOutputPower(dbm);
 }
 
-void NanoG2UltraSensorManager::start_gps()
-{
-  if (!gps_active)
-  {
-    MESH_DEBUG_PRINTLN("starting GPS");
-    digitalWrite(PIN_GPS_STANDBY, HIGH);
+void NanoG2UltraSensorManager::start_gps() {
+  MESH_DEBUG_PRINTLN("Starting GPS");
+  if (!gps_active) {
+    digitalWrite(PIN_GPS_STANDBY, HIGH); // Wake GPS from standby
+    Serial1.setPins(PIN_GPS_TX, PIN_GPS_RX);
+    Serial1.begin(9600);
+    MESH_DEBUG_PRINTLN("Waiting for gps to power up");
+    delay(1000);
     gps_active = true;
   }
+  _location->begin();
 }
 
-void NanoG2UltraSensorManager::stop_gps()
-{
-  if (gps_active)
-  {
-    MESH_DEBUG_PRINTLN("stopping GPS");
-    digitalWrite(PIN_GPS_STANDBY, LOW);
+void NanoG2UltraSensorManager::stop_gps() {
+  MESH_DEBUG_PRINTLN("Stopping GPS");
+  if (gps_active) {
+    digitalWrite(PIN_GPS_STANDBY, LOW); // sleep GPS
     gps_active = false;
   }
+  _location->stop();
 }
 
 bool NanoG2UltraSensorManager::begin()
 {
-  Serial1.setPins(PIN_GPS_TX, PIN_GPS_RX); // be sure to tx into rx and rx into tx
-  Serial1.begin(115200);
-
-  pinMode(PIN_GPS_STANDBY, OUTPUT);
   digitalWrite(PIN_GPS_STANDBY, HIGH); // Wake GPS from standby
-  delay(500);
+  Serial1.setPins(PIN_GPS_TX, PIN_GPS_RX);
+  Serial1.begin(9600);
+  MESH_DEBUG_PRINTLN("Checking GPS switch state");
+  delay(1000);
 
-  // We'll consider GPS detected if we see any data on Serial1
-  if (Serial1.available() > 0)
-  {
-    MESH_DEBUG_PRINTLN("GPS detected");
+  // Check initial switch state to determine if GPS should be active
+  if (Serial1.available() > 0) {
+    MESH_DEBUG_PRINTLN("GPS was on at boot, GPS enabled");
+    start_gps();
+  } else {
+    MESH_DEBUG_PRINTLN("GPS was not on at boot, GPS disabled");
   }
-  else
-  {
-    MESH_DEBUG_PRINTLN("No GPS detected");
-  }
-  digitalWrite(GPS_EN, LOW); // Put GPS back into standby mode
+
   return true;
 }
 
@@ -96,17 +95,24 @@ bool NanoG2UltraSensorManager::querySensors(uint8_t requester_permissions, Cayen
 void NanoG2UltraSensorManager::loop()
 {
   static long next_gps_update = 0;
+
+  if (!gps_active) {
+    return;  // GPS is not active, skip further processing
+  }
+
   _location->loop();
-  if (millis() > next_gps_update && gps_active) // don't bother if gps position is not enabled
-  {
-    if (_location->isValid())
-    {
-      node_lat = ((double)_location->getLatitude()) / 1000000.;
-      node_lon = ((double)_location->getLongitude()) / 1000000.;
+
+  if (millis() > next_gps_update) {
+    if (_location->isValid()) {
+      node_lat = ((double)_location->getLatitude())/1000000.;
+      node_lon = ((double)_location->getLongitude())/1000000.;
       node_altitude = ((double)_location->getAltitude()) / 1000.0;
-      MESH_DEBUG_PRINTLN("lat %f lon %f", node_lat, node_lon);
+      MESH_DEBUG_PRINTLN("VALID location: lat %f lon %f", node_lat, node_lon);
+    } else {
+      MESH_DEBUG_PRINTLN("INVALID location, waiting for fix");
     }
-    next_gps_update = millis() + (1000 * 60); // after initial update, only check every minute TODO: should be configurable
+    MESH_DEBUG_PRINTLN("GPS satellites: %d", _location->satellitesCount());
+    next_gps_update = millis() + 1000;
   }
 }
 
@@ -128,14 +134,10 @@ const char *NanoG2UltraSensorManager::getSettingValue(int i) const
 
 bool NanoG2UltraSensorManager::setSettingValue(const char *name, const char *value)
 {
-  if (strcmp(name, "gps") == 0)
-  {
-    if (strcmp(value, "0") == 0)
-    {
+  if (strcmp(name, "gps") == 0) {
+    if (strcmp(value, "0") == 0) {
       stop_gps();
-    }
-    else
-    {
+    } else {
       start_gps();
     }
     return true;
