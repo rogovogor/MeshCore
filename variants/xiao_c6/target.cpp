@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "target.h"
 
-ESP32Board board;
+XiaoC6Board board;
 
 #if defined(P_LORA_SCLK)
   static SPIClass spi(0);
