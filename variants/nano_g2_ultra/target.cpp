@@ -73,7 +73,7 @@ bool NanoG2UltraSensorManager::begin()
   delay(1000);
 
   // Check initial switch state to determine if GPS should be active
-  if (gps_active = Serial1.available() > 0) {
+  if (Serial1.available() > 0) {
     MESH_DEBUG_PRINTLN("GPS was on at boot, GPS enabled");
     start_gps();
   } else {
