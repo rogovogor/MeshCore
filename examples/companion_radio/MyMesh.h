@@ -77,6 +77,14 @@
 #define REQ_TYPE_KEEP_ALIVE             0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA     0x03
 
+struct AdvertPath {
+  uint8_t pubkey_prefix[7];
+  uint8_t path_len;
+  char    name[32];
+  uint32_t recv_timestamp;
+  uint8_t path[MAX_PATH_SIZE];
+};
+
 class MyMesh : public BaseChatMesh, public DataStoreHost {
 public:
   MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store);
@@ -92,6 +100,8 @@ public:
   void handleCmdFrame(size_t len);
   bool advert();
   void enterCLIRescue();
+
+  int  getRecentlyHeard(AdvertPath dest[], int max_num);
 
 protected:
   float getAirtimeBudgetFactor() const override;
@@ -201,12 +211,6 @@ private:
   AckTableEntry expected_ack_table[EXPECTED_ACK_TABLE_SIZE]; // circular table
   int next_ack_idx;
 
-  struct AdvertPath {
-    uint8_t pubkey_prefix[7];
-    uint8_t path_len;
-    uint32_t recv_timestamp;
-    uint8_t path[MAX_PATH_SIZE];
-  };
   #define ADVERT_PATH_TABLE_SIZE   16
   AdvertPath advert_paths[ADVERT_PATH_TABLE_SIZE]; // circular table
 };

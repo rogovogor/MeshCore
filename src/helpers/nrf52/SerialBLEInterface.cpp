@@ -115,6 +115,16 @@ void SerialBLEInterface::enable() {
 void SerialBLEInterface::disable() {
   _isEnabled = false;
   BLE_DEBUG_PRINTLN("SerialBLEInterface::disable");
+
+  uint16_t conn_id;
+  if (Bluefruit.getConnectedHandles(&conn_id, 1) > 0) {
+    Bluefruit.disconnect(conn_id);
+  }
+
+  Bluefruit.Advertising.restartOnDisconnect(false);
+  Bluefruit.Advertising.stop();
+  Bluefruit.Advertising.clearData();
+
   stopAdv();
 }
 

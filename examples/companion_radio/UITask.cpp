@@ -1,8 +1,8 @@
 #include "UITask.h"
-#include <Arduino.h>
 #include <helpers/TxtDataHelpers.h>
 #include "NodePrefs.h"
 #include "MyMesh.h"
+#include "target.h"
 
 #define AUTO_OFF_MILLIS     15000   // 15 seconds
 #define BOOT_SCREEN_MILLIS   3000   // 3 seconds
@@ -13,80 +13,366 @@
 #define LED_CYCLE_MILLIS  4000
 #endif
 
-#ifndef USER_BTN_PRESSED
-#define USER_BTN_PRESSED LOW
-#endif
+#define LONG_PRESS_MILLIS   1200
 
-// 'meshcore', 128x13px
-static const uint8_t meshcore_logo [] PROGMEM = {
-    0x3c, 0x01, 0xe3, 0xff, 0xc7, 0xff, 0x8f, 0x03, 0x87, 0xfe, 0x1f, 0xfe, 0x1f, 0xfe, 0x1f, 0xfe, 
-    0x3c, 0x03, 0xe3, 0xff, 0xc7, 0xff, 0x8e, 0x03, 0x8f, 0xfe, 0x3f, 0xfe, 0x1f, 0xff, 0x1f, 0xfe, 
-    0x3e, 0x03, 0xc3, 0xff, 0x8f, 0xff, 0x0e, 0x07, 0x8f, 0xfe, 0x7f, 0xfe, 0x1f, 0xff, 0x1f, 0xfc, 
-    0x3e, 0x07, 0xc7, 0x80, 0x0e, 0x00, 0x0e, 0x07, 0x9e, 0x00, 0x78, 0x0e, 0x3c, 0x0f, 0x1c, 0x00, 
-    0x3e, 0x0f, 0xc7, 0x80, 0x1e, 0x00, 0x0e, 0x07, 0x1e, 0x00, 0x70, 0x0e, 0x38, 0x0f, 0x3c, 0x00, 
-    0x7f, 0x0f, 0xc7, 0xfe, 0x1f, 0xfc, 0x1f, 0xff, 0x1c, 0x00, 0x70, 0x0e, 0x38, 0x0e, 0x3f, 0xf8, 
-    0x7f, 0x1f, 0xc7, 0xfe, 0x0f, 0xff, 0x1f, 0xff, 0x1c, 0x00, 0xf0, 0x0e, 0x38, 0x0e, 0x3f, 0xf8, 
-    0x7f, 0x3f, 0xc7, 0xfe, 0x0f, 0xff, 0x1f, 0xff, 0x1c, 0x00, 0xf0, 0x1e, 0x3f, 0xfe, 0x3f, 0xf0, 
-    0x77, 0x3b, 0x87, 0x00, 0x00, 0x07, 0x1c, 0x0f, 0x3c, 0x00, 0xe0, 0x1c, 0x7f, 0xfc, 0x38, 0x00, 
-    0x77, 0xfb, 0x8f, 0x00, 0x00, 0x07, 0x1c, 0x0f, 0x3c, 0x00, 0xe0, 0x1c, 0x7f, 0xf8, 0x38, 0x00, 
-    0x73, 0xf3, 0x8f, 0xff, 0x0f, 0xff, 0x1c, 0x0e, 0x3f, 0xf8, 0xff, 0xfc, 0x70, 0x78, 0x7f, 0xf8, 
-    0xe3, 0xe3, 0x8f, 0xff, 0x1f, 0xfe, 0x3c, 0x0e, 0x3f, 0xf8, 0xff, 0xfc, 0x70, 0x3c, 0x7f, 0xf8, 
-    0xe3, 0xe3, 0x8f, 0xff, 0x1f, 0xfc, 0x3c, 0x0e, 0x1f, 0xf8, 0xff, 0xf8, 0x70, 0x3c, 0x7f, 0xf8, 
+#define PRESS_LABEL "long press"
+
+#include "icons.h"
+
+class SplashScreen : public UIScreen {
+  UITask* _task;
+  unsigned long dismiss_after;
+  char _version_info[12];
+
+public:
+  SplashScreen(UITask* task) : _task(task) {
+    // strip off dash and commit hash by changing dash to null terminator
+    // e.g: v1.2.3-abcdef -> v1.2.3
+    const char *ver = FIRMWARE_VERSION;
+    const char *dash = strchr(ver, '-');
+
+    int len = dash ? dash - ver : strlen(ver);
+    if (len >= sizeof(_version_info)) len = sizeof(_version_info) - 1;
+    memcpy(_version_info, ver, len);
+    _version_info[len] = 0;
+
+    dismiss_after = millis() + BOOT_SCREEN_MILLIS;
+  }
+
+  int render(DisplayDriver& display) override {
+    // meshcore logo
+    display.setColor(DisplayDriver::BLUE);
+    int logoWidth = 128;
+    display.drawXbm((display.width() - logoWidth) / 2, 3, meshcore_logo, logoWidth, 13);
+
+    // version info
+    display.setColor(DisplayDriver::LIGHT);
+    display.setTextSize(2);
+    display.drawTextCentered(display.width()/2, 22, _version_info);
+
+    display.setTextSize(1);
+    display.drawTextCentered(display.width()/2, 42, FIRMWARE_BUILD_DATE);
+
+    return 1000;
+  }
+
+  void poll() override {
+    if (millis() >= dismiss_after) {
+      _task->gotoHomeScreen();
+    }
+  }
+};
+
+class HomeScreen : public UIScreen {
+  enum HomePage {
+    FIRST,
+    RECENT,
+    RADIO,
+    BLUETOOTH,
+    ADVERT,
+    SHUTDOWN,
+    Count    // keep as last
+  };
+
+  UITask* _task;
+  mesh::RTCClock* _rtc;
+  SensorManager* _sensors;
+  NodePrefs* _node_prefs;
+  uint8_t _page;
+  bool _shutdown_init;
+  AdvertPath recent[4];
+
+  void renderBatteryIndicator(DisplayDriver& display, uint16_t batteryMilliVolts) {
+    // Convert millivolts to percentage
+    const int minMilliVolts = 3000; // Minimum voltage (e.g., 3.0V)
+    const int maxMilliVolts = 4200; // Maximum voltage (e.g., 4.2V)
+    int batteryPercentage = ((batteryMilliVolts - minMilliVolts) * 100) / (maxMilliVolts - minMilliVolts);
+    if (batteryPercentage < 0) batteryPercentage = 0; // Clamp to 0%
+    if (batteryPercentage > 100) batteryPercentage = 100; // Clamp to 100%
+
+    // battery icon
+    int iconWidth = 24;
+    int iconHeight = 10;
+    int iconX = display.width() - iconWidth - 5; // Position the icon near the top-right corner
+    int iconY = 0;
+    display.setColor(DisplayDriver::GREEN);
+
+    // battery outline
+    display.drawRect(iconX, iconY, iconWidth, iconHeight);
+
+    // battery "cap"
+    display.fillRect(iconX + iconWidth, iconY + (iconHeight / 4), 3, iconHeight / 2);
+
+    // fill the battery based on the percentage
+    int fillWidth = (batteryPercentage * (iconWidth - 4)) / 100;
+    display.fillRect(iconX + 2, iconY + 2, fillWidth, iconHeight - 4);
+  }
+
+public:
+  HomeScreen(UITask* task, mesh::RTCClock* rtc, SensorManager* sensors, NodePrefs* node_prefs)
+     : _task(task), _rtc(rtc), _sensors(sensors), _node_prefs(node_prefs), _page(0), _shutdown_init(false) { }
+
+  void poll() override {
+    if (_shutdown_init && !_task->isButtonPressed()) {  // must wait for USR button to be released
+      _task->shutdown();
+    }
+  }
+
+  int render(DisplayDriver& display) override {
+    char tmp[80];
+    // node name
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.setColor(DisplayDriver::GREEN);
+    display.print(_node_prefs->node_name);
+
+    // battery voltage
+    renderBatteryIndicator(display, _task->getBattMilliVolts());
+
+    // curr page indicator
+    int y = 14;
+    int x = display.width() / 2 - 25;
+    for (uint8_t i = 0; i < HomePage::Count; i++, x += 10) {
+      if (i == _page) {
+        display.fillRect(x-1, y-1, 3, 3);
+      } else {
+        display.fillRect(x, y, 1, 1);
+      }
+    }
+
+    if (_page == HomePage::FIRST) {
+      display.setColor(DisplayDriver::YELLOW);
+      display.setTextSize(2);
+      sprintf(tmp, "MSG: %d", _task->getMsgCount());
+      display.drawTextCentered(display.width() / 2, 20, tmp);
+
+      if (_task->hasConnection()) {
+        display.setColor(DisplayDriver::GREEN);
+        display.setTextSize(1);
+        display.drawTextCentered(display.width() / 2, 43, "< Connected >");
+      } else if (the_mesh.getBLEPin() != 0) { // BT pin
+        display.setColor(DisplayDriver::RED);
+        display.setTextSize(2);
+        sprintf(tmp, "Pin:%d", the_mesh.getBLEPin());
+        display.drawTextCentered(display.width() / 2, 43, tmp);
+      }
+    } else if (_page == HomePage::RECENT) {
+      the_mesh.getRecentlyHeard(recent, 4);
+      display.setColor(DisplayDriver::GREEN);
+      int y = 20;
+      for (int i = 0; i < 4; i++, y += 11) {
+        auto a = &recent[i];
+        if (a->name[0] == 0) continue;  // empty slot
+        display.setCursor(0, y);
+        display.print(a->name);
+        int secs = _rtc->getCurrentTime() - a->recv_timestamp;
+        if (secs < 60) {
+          sprintf(tmp, "%ds", secs);
+        } else if (secs < 60*60) {
+          sprintf(tmp, "%dm", secs / 60);
+        } else {
+          sprintf(tmp, "%dh", secs / (60*60));
+        }
+        display.setCursor(display.width() - display.getTextWidth(tmp) - 1, y);
+        display.print(tmp);
+      }
+    } else if (_page == HomePage::RADIO) {
+      display.setColor(DisplayDriver::YELLOW);
+      display.setTextSize(1);
+      // freq / sf
+      display.setCursor(0, 20);
+      sprintf(tmp, "FQ: %06.3f   SF: %d", _node_prefs->freq, _node_prefs->sf);
+      display.print(tmp);
+
+      display.setCursor(0, 31);
+      sprintf(tmp, "BW: %03.2f     CR: %d", _node_prefs->bw, _node_prefs->cr);
+      display.print(tmp);
+
+      // tx power,  noise floor
+      display.setCursor(0, 42);
+      sprintf(tmp, "TX: %ddBm", _node_prefs->tx_power_dbm);
+      display.print(tmp);
+      display.setCursor(0, 53);
+      sprintf(tmp, "Noise floor: %d", radio_driver.getNoiseFloor());
+      display.print(tmp);
+    } else if (_page == HomePage::BLUETOOTH) {
+      display.setColor(DisplayDriver::GREEN);
+      display.drawXbm((display.width() - 32) / 2, 18, 
+          _task->isSerialEnabled() ? bluetooth_on : bluetooth_off, 
+          32, 32);
+      display.setTextSize(1);
+      display.drawTextCentered(display.width() / 2, 64 - 11, "toggle: " PRESS_LABEL);
+    } else if (_page == HomePage::ADVERT) {
+      display.setColor(DisplayDriver::GREEN);
+      display.drawXbm((display.width() - 32) / 2, 18, advert_icon, 32, 32);
+      display.drawTextCentered(display.width() / 2, 64 - 11, "advert: " PRESS_LABEL);
+    } else if (_page == HomePage::SHUTDOWN) {
+      display.setColor(DisplayDriver::GREEN);
+      display.setTextSize(1);
+      if (_shutdown_init) {
+        display.drawTextCentered(display.width() / 2, 34, "shutting down...");
+      } else {
+        display.drawXbm((display.width() - 32) / 2, 18, power_icon, 32, 32);
+        display.drawTextCentered(display.width() / 2, 64 - 11, "off: " PRESS_LABEL);
+      }
+    }
+    return 5000;   // next render after 5000 ms
+  }
+
+  bool handleInput(char c) override {
+    if (c == KEY_LEFT) {
+      _page = (_page + HomePage::Count - 1) % HomePage::Count;
+      return true;
+    }
+    if (c == KEY_RIGHT || c == KEY_SELECT) {
+      _page = (_page + 1) % HomePage::Count;
+      if (_page == HomePage::RECENT) {
+        _task->showAlert("Recent adverts", 800);
+      }
+      return true;
+    }
+    if (c == KEY_ENTER && _page == HomePage::BLUETOOTH) {
+      if (_task->isSerialEnabled()) {  // toggle Bluetooth on/off
+        _task->disableSerial();
+      } else {
+        _task->enableSerial();
+      }
+      return true;
+    }
+    if (c == KEY_ENTER && _page == HomePage::ADVERT) {
+  #ifdef PIN_BUZZER
+      _task->soundBuzzer(UIEventType::ack);
+  #endif
+      if (the_mesh.advert()) {
+        _task->showAlert("Advert sent!", 1000);
+      } else {
+        _task->showAlert("Advert failed..", 1000);
+      }
+      return true;
+    }
+    if (c == KEY_ENTER && _page == HomePage::SHUTDOWN) {
+      _shutdown_init = true;  // need to wait for button to be released
+      return true;
+    }
+    return false;
+  }
+};
+
+class MsgPreviewScreen : public UIScreen {
+  UITask* _task;
+  mesh::RTCClock* _rtc;
+
+  struct MsgEntry {
+    uint32_t timestamp;
+    char origin[62];
+    char msg[78];
+  };
+  #define MAX_UNREAD_MSGS   32
+  int num_unread;
+  MsgEntry unread[MAX_UNREAD_MSGS];
+
+public:
+  MsgPreviewScreen(UITask* task, mesh::RTCClock* rtc) : _task(task), _rtc(rtc) { num_unread = 0; }
+
+  void addPreview(uint8_t path_len, const char* from_name, const char* msg) {
+    if (num_unread >= MAX_UNREAD_MSGS) return;  // full
+
+    auto p = &unread[num_unread++];
+    p->timestamp = _rtc->getCurrentTime();
+    if (path_len == 0xFF) {
+      sprintf(p->origin, "(D) %s:", from_name);
+    } else {
+      sprintf(p->origin, "(%d) %s:", (uint32_t) path_len, from_name);
+    }
+    StrHelper::strncpy(p->msg, msg, sizeof(p->msg));
+  }
+
+  int render(DisplayDriver& display) override {
+    char tmp[16];
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.setColor(DisplayDriver::GREEN);
+    sprintf(tmp, "Unread: %d", num_unread);
+    display.print(tmp);
+
+    auto p = &unread[0];
+
+    int secs = _rtc->getCurrentTime() - p->timestamp;
+    if (secs < 60) {
+      sprintf(tmp, "%ds", secs);
+    } else if (secs < 60*60) {
+      sprintf(tmp, "%dm", secs / 60);
+    } else {
+      sprintf(tmp, "%dh", secs / (60*60));
+    }
+    display.setCursor(display.width() - display.getTextWidth(tmp), 0);
+    display.print(tmp);
+
+    display.drawRect(0, 11, display.width(), 1);  // horiz line
+
+    display.setCursor(0, 14);
+    display.setColor(DisplayDriver::YELLOW);
+    display.print(p->origin);
+
+    display.setCursor(0, 25);
+    display.setColor(DisplayDriver::LIGHT);
+    display.printWordWrap(p->msg, display.width());
+
+    return 1000;  // next render after 1000 ms
+  }
+
+  bool handleInput(char c) override {
+    if (c == KEY_SELECT || c == KEY_RIGHT) {
+      num_unread--;
+      if (num_unread == 0) {
+        _task->gotoHomeScreen();
+      } else {
+        // delete first/curr item from unread queue
+        for (int i = 0; i < num_unread; i++) {
+          unread[i] = unread[i + 1];
+        }
+      }
+      return true;
+    }
+    if (c == KEY_ENTER) {
+      num_unread = 0;  // clear unread queue
+      _task->gotoHomeScreen();
+      return true;
+    }
+    return false;
+  }
 };
 
 void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* node_prefs) {
   _display = display;
   _sensors = sensors;
   _auto_off = millis() + AUTO_OFF_MILLIS;
-  clearMsgPreview();
+
+#if defined(PIN_USER_BTN)
+  user_btn.begin();
+#endif
+
   _node_prefs = node_prefs;
   if (_display != NULL) {
     _display->turnOn();
   }
 
-  // strip off dash and commit hash by changing dash to null terminator
-  // e.g: v1.2.3-abcdef -> v1.2.3
-  char *version = strdup(FIRMWARE_VERSION);
-  char *dash = strchr(version, '-');
-  if (dash) {
-    *dash = 0;
-  }
-
-  // v1.2.3 (1 Jan 2025)
-  sprintf(_version_info, "%s (%s)", version, FIRMWARE_BUILD_DATE);
-
 #ifdef PIN_BUZZER
   buzzer.begin();
 #endif
 
-  // Initialize digital button if available
-#ifdef PIN_USER_BTN
-  _userButton = new Button(PIN_USER_BTN, USER_BTN_PRESSED);
-  _userButton->begin();
-  
-  // Set up digital button callbacks
-  _userButton->onShortPress([this]() { handleButtonShortPress(); });
-  _userButton->onDoublePress([this]() { handleButtonDoublePress(); });
-  _userButton->onTriplePress([this]() { handleButtonTriplePress(); });
-  _userButton->onQuadruplePress([this]() { handleButtonQuadruplePress(); });
-  _userButton->onLongPress([this]() { handleButtonLongPress(); });
-  _userButton->onAnyPress([this]() { handleButtonAnyPress(); });
-#endif
-
-  // Initialize analog button if available
-#ifdef PIN_USER_BTN_ANA
-  _userButtonAnalog = new Button(PIN_USER_BTN_ANA, USER_BTN_PRESSED, true, 20);
-  _userButtonAnalog->begin();
-  
-  // Set up analog button callbacks
-  _userButtonAnalog->onShortPress([this]() { handleButtonShortPress(); });
-  _userButtonAnalog->onDoublePress([this]() { handleButtonDoublePress(); });
-  _userButtonAnalog->onTriplePress([this]() { handleButtonTriplePress(); });
-  _userButtonAnalog->onQuadruplePress([this]() { handleButtonQuadruplePress(); });
-  _userButtonAnalog->onLongPress([this]() { handleButtonLongPress(); });
-  _userButtonAnalog->onAnyPress([this]() { handleButtonAnyPress(); });
-#endif
   ui_started_at = millis();
+  _alert_expiry = 0;
+
+  splash = new SplashScreen(this);
+  home = new HomeScreen(this, &rtc_clock, sensors, node_prefs);
+  msg_preview = new MsgPreviewScreen(this, &rtc_clock);
+  setCurrScreen(splash);
+}
+
+void UITask::showAlert(const char* text, int duration_millis) {
+  strcpy(_alert, text);
+  _alert_expiry = millis() + duration_millis;
 }
 
 void UITask::soundBuzzer(UIEventType bet) {
@@ -109,145 +395,26 @@ switch(bet){
     break;
 }
 #endif
-//  Serial.print("DBG:  Buzzzzzz -> ");
-//  Serial.println((int) bet);
 }
 
 void UITask::msgRead(int msgcount) {
   _msgcount = msgcount;
   if (msgcount == 0) {
-    clearMsgPreview();
+    gotoHomeScreen();
   }
-}
-
-void UITask::clearMsgPreview() {
-  _origin[0] = 0;
-  _msg[0] = 0;
-  _need_refresh = true;
 }
 
 void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) {
   _msgcount = msgcount;
 
-  if (path_len == 0xFF) {
-    sprintf(_origin, "(F) %s", from_name);
-  } else {
-    sprintf(_origin, "(%d) %s", (uint32_t) path_len, from_name);
-  }
-  StrHelper::strncpy(_msg, text, sizeof(_msg));
+  ((MsgPreviewScreen *) msg_preview)->addPreview(path_len, from_name, text);
+  setCurrScreen(msg_preview);
 
   if (_display != NULL) {
     if (!_display->isOn()) _display->turnOn();
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
-    _need_refresh = true;
+    _next_refresh = 0;  // trigger refresh
   }
-}
-
-void UITask::renderBatteryIndicator(uint16_t batteryMilliVolts) {
-  // Convert millivolts to percentage
-  const int minMilliVolts = 3000; // Minimum voltage (e.g., 3.0V)
-  const int maxMilliVolts = 4200; // Maximum voltage (e.g., 4.2V)
-  int batteryPercentage = ((batteryMilliVolts - minMilliVolts) * 100) / (maxMilliVolts - minMilliVolts);
-  if (batteryPercentage < 0) batteryPercentage = 0; // Clamp to 0%
-  if (batteryPercentage > 100) batteryPercentage = 100; // Clamp to 100%
-
-  // battery icon
-  int iconWidth = 24;
-  int iconHeight = 12;
-  int iconX = _display->width() - iconWidth - 5; // Position the icon near the top-right corner
-  int iconY = 0;
-  _display->setColor(DisplayDriver::GREEN);
-
-  // battery outline
-  _display->drawRect(iconX, iconY, iconWidth, iconHeight);
-
-  // battery "cap"
-  _display->fillRect(iconX + iconWidth, iconY + (iconHeight / 4), 3, iconHeight / 2);
-
-  // fill the battery based on the percentage
-  int fillWidth = (batteryPercentage * (iconWidth - 4)) / 100;
-  _display->fillRect(iconX + 2, iconY + 2, fillWidth, iconHeight - 4);
-}
-
-void UITask::renderCurrScreen() {
-  if (_display == NULL) return;  // assert() ??
-
-  char tmp[80];
-  if (_alert[0]) {
-    _display->setTextSize(1.4);
-    uint16_t textWidth = _display->getTextWidth(_alert);
-    _display->setCursor((_display->width() - textWidth) / 2, 22);
-    _display->setColor(DisplayDriver::GREEN);
-    _display->print(_alert);
-    _alert[0] = 0;
-    _need_refresh = true;
-    return;
-  } else if (_origin[0] && _msg[0]) { // message preview
-    // render message preview
-    _display->setCursor(0, 0);
-    _display->setTextSize(1);
-    _display->setColor(DisplayDriver::GREEN);
-    _display->print(_node_prefs->node_name);
-
-    _display->setCursor(0, 12);
-    _display->setColor(DisplayDriver::YELLOW);
-    _display->print(_origin);
-    _display->setCursor(0, 24);
-    _display->setColor(DisplayDriver::LIGHT);
-    _display->print(_msg);
-
-    _display->setCursor(_display->width() - 28, 9);
-    _display->setTextSize(2);
-    _display->setColor(DisplayDriver::ORANGE);
-    sprintf(tmp, "%d", _msgcount);
-    _display->print(tmp);
-    _display->setColor(DisplayDriver::YELLOW); // last color will be kept on T114
-  } else if ((millis() - ui_started_at) < BOOT_SCREEN_MILLIS) { // boot screen
-    // meshcore logo
-    _display->setColor(DisplayDriver::BLUE);
-    int logoWidth = 128;
-    _display->drawXbm((_display->width() - logoWidth) / 2, 3, meshcore_logo, logoWidth, 13);
-
-    // version info
-    _display->setColor(DisplayDriver::LIGHT);
-    _display->setTextSize(1);
-    uint16_t textWidth = _display->getTextWidth(_version_info);
-    _display->setCursor((_display->width() - textWidth) / 2, 22);
-    _display->print(_version_info);
-  } else {  // home screen
-    // node name
-    _display->setCursor(0, 0);
-    _display->setTextSize(1);
-    _display->setColor(DisplayDriver::GREEN);
-    _display->print(_node_prefs->node_name);
-
-    // battery voltage
-    renderBatteryIndicator(_board->getBattMilliVolts());
-
-    // freq / sf
-    _display->setCursor(0, 20);
-    _display->setColor(DisplayDriver::YELLOW);
-    sprintf(tmp, "FREQ: %06.3f SF%d", _node_prefs->freq, _node_prefs->sf);
-    _display->print(tmp);
-
-    // bw / cr
-    _display->setCursor(0, 30);
-    sprintf(tmp, "BW: %03.2f CR: %d", _node_prefs->bw, _node_prefs->cr);
-    _display->print(tmp);
-
-    // BT pin
-    if (!_connected && the_mesh.getBLEPin() != 0) {
-      _display->setColor(DisplayDriver::RED);
-      _display->setTextSize(2);
-      _display->setCursor(0, 43);
-      sprintf(tmp, "Pin:%d", the_mesh.getBLEPin());
-      _display->print(tmp);
-      _display->setColor(DisplayDriver::GREEN);
-    } else {
-      _display->setColor(DisplayDriver::LIGHT); 
-    }
-  }
-  _need_refresh = false;
 }
 
 void UITask::userLedHandler() {
@@ -275,6 +442,11 @@ void UITask::userLedHandler() {
 #endif
 }
 
+void UITask::setCurrScreen(UIScreen* c) {
+  curr = c;
+  _next_refresh = 0;
+}
+
 /* 
   hardware-agnostic pre-shutdown activity should be done here 
 */
@@ -293,96 +465,103 @@ void UITask::shutdown(bool restart){
 
   #endif // PIN_BUZZER
 
-  if (restart)
+  if (restart) {
     _board->reboot();
-  else
+  } else {
+    _display->turnOff();
     _board->powerOff();
+  }
+}
+
+bool UITask::isButtonPressed() const {
+#ifdef PIN_USER_BTN
+  return user_btn.isPressed();
+#else
+  return false;
+#endif
 }
 
 void UITask::loop() {
-  #ifdef PIN_USER_BTN
-    if (_userButton) {
-      _userButton->update();
-    }
-  #endif
-  #ifdef PIN_USER_BTN_ANA
-    if (_userButtonAnalog) {
-      _userButtonAnalog->update();
-    }
-  #endif
+  char c = 0;
+#if defined(PIN_USER_BTN)
+  int ev = user_btn.check();
+  if (ev == BUTTON_EVENT_CLICK) {
+    c = checkDisplayOn(KEY_SELECT);
+  } else if (ev == BUTTON_EVENT_LONG_PRESS) {
+    c = handleLongPress(KEY_ENTER);
+  }
+#endif
+
+  if (c != 0 && curr) {
+    curr->handleInput(c);
+    _auto_off = millis() + AUTO_OFF_MILLIS;   // extend auto-off timer
+    _next_refresh = 0;  // trigger refresh
+  }
+
   userLedHandler();
 
 #ifdef PIN_BUZZER
   if (buzzer.isPlaying())  buzzer.loop();
 #endif
 
-  if (_display != NULL && _display->isOn()) {
-    static bool _firstBoot = true;
-    if(_firstBoot && (millis() - ui_started_at) >= BOOT_SCREEN_MILLIS) {
-      _need_refresh = true;
-      _firstBoot = false;
-    }
-    if (millis() >= _next_refresh && _need_refresh) {
-      _display->startFrame();
-      renderCurrScreen();
-      _display->endFrame();
+  if (curr) curr->poll();
 
-      _next_refresh = millis() + 1000;   // refresh every second
+  if (_display != NULL && _display->isOn()) {
+    if (millis() >= _next_refresh && curr) {
+      _display->startFrame();
+      int delay_millis = curr->render(*_display);
+      if (millis() < _alert_expiry) {  // render alert popup
+        _display->setTextSize(1);
+        int y = _display->height() / 3;
+        int p = _display->height() / 32;
+        _display->setColor(DisplayDriver::DARK);
+        _display->fillRect(p, y, _display->width() - p*2, y);
+        _display->setColor(DisplayDriver::LIGHT);  // draw box border
+        _display->drawRect(p, y, _display->width() - p*2, y);
+        _display->drawTextCentered(_display->width() / 2, y + p*3, _alert);
+        _next_refresh = _alert_expiry;   // will need refresh when alert is dismissed
+      } else {
+        _next_refresh = millis() + delay_millis;
+      }
+      _display->endFrame();
     }
     if (millis() > _auto_off) {
       _display->turnOff();
     }
   }
+
+#ifdef AUTO_SHUTDOWN_MILLIVOLTS
+  if (millis() > next_batt_chck) {
+    uint16_t milliVolts = getBattMilliVolts();
+    if (milliVolts > 0 && milliVolts < AUTO_SHUTDOWN_MILLIVOLTS) {
+      shutdown();
+    }
+    next_batt_chck = millis() + 8000;
+  }
+#endif
 }
 
-void UITask::handleButtonAnyPress() {
-  MESH_DEBUG_PRINTLN("UITask: any press triggered");
-  // called on any button press before other events, to wake up the display quickly
-  // do not refresh the display here, as it may block the button handler
+char UITask::checkDisplayOn(char c) {
   if (_display != NULL) {
-    _displayWasOn = _display->isOn();  // Track display state before any action
-    if (!_displayWasOn) {
-      _display->turnOn();
+    if (!_display->isOn()) {
+      _display->turnOn();   // turn display on and consume event
+      c = 0;
     }
     _auto_off = millis() + AUTO_OFF_MILLIS;   // extend auto-off timer
+    _next_refresh = 0;  // trigger refresh
   }
+  return c;
 }
 
-void UITask::handleButtonShortPress() {
-  MESH_DEBUG_PRINTLN("UITask: short press triggered");
-  if (_display != NULL) {
-    // Only clear message preview if display was already on before button press
-    if (_displayWasOn) {
-      // If display was on and showing message preview, clear it
-      if (_origin[0] && _msg[0]) {
-        clearMsgPreview();
-      } else {
-        // Otherwise, refresh the display
-        _need_refresh = true;
-      }
-    } else {
-      _need_refresh = true; // display just turned on, so we need to refresh
-    }
-    // Note: Display turn-on and auto-off timer extension are handled by handleButtonAnyPress
+char UITask::handleLongPress(char c) {
+  if (millis() - ui_started_at < 8000) {   // long press in first 8 seconds since startup -> CLI/rescue
+    the_mesh.enterCLIRescue();
+    c = 0;   // consume event
   }
+  return c;
 }
 
-void UITask::handleButtonDoublePress() {
-  MESH_DEBUG_PRINTLN("UITask: double press triggered, sending advert");
-  // ADVERT
-  #ifdef PIN_BUZZER
-      soundBuzzer(UIEventType::ack);
-  #endif
-  if (the_mesh.advert()) {
-    MESH_DEBUG_PRINTLN("Advert sent!");
-    sprintf(_alert, "Advert sent!");
-  } else {
-    MESH_DEBUG_PRINTLN("Advert failed!");
-    sprintf(_alert, "Advert failed..");
-  }
-  _need_refresh = true;
-}
-
+/*
 void UITask::handleButtonTriplePress() {
   MESH_DEBUG_PRINTLN("UITask: triple press triggered");
   // Toggle buzzer quiet mode
@@ -390,43 +569,12 @@ void UITask::handleButtonTriplePress() {
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
       soundBuzzer(UIEventType::ack);
-      sprintf(_alert, "Buzzer: ON");
+      showAlert("Buzzer: ON", 600);
     } else {
       buzzer.quiet(true);
-      sprintf(_alert, "Buzzer: OFF");
+      showAlert("Buzzer: OFF", 600);
     }
-    _need_refresh = true;
+    _next_refresh = 0;  // trigger refresh
   #endif
 }
-
-void UITask::handleButtonQuadruplePress() {
-  MESH_DEBUG_PRINTLN("UITask: quad press triggered");
-  if (_sensors != NULL) {
-    // toggle GPS onn/off
-    int num = _sensors->getNumSettings();
-    for (int i = 0; i < num; i++) {
-      if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
-        if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
-          _sensors->setSettingValue("gps", "0");
-          soundBuzzer(UIEventType::ack);
-          sprintf(_alert, "GPS: Disabled");
-        } else {
-          _sensors->setSettingValue("gps", "1");
-          soundBuzzer(UIEventType::ack);
-          sprintf(_alert, "GPS: Enabled");
-        }
-        break;
-      }
-    }
-  }
-  _need_refresh = true;
-}
-
-void UITask::handleButtonLongPress() {
-  MESH_DEBUG_PRINTLN("UITask: long press triggered");
-  if (millis() - ui_started_at < 8000) {   // long press in first 8 seconds since startup -> CLI/rescue
-    the_mesh.enterCLIRescue();
-  } else {
-    shutdown();
-  }
-}
+*/

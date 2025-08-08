@@ -267,12 +267,27 @@ void MyMesh::onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path
     }
 
     memcpy(p->pubkey_prefix, contact.id.pub_key, sizeof(p->pubkey_prefix));
+    strcpy(p->name, contact.name);
     p->recv_timestamp = getRTCClock()->getCurrentTime();
     p->path_len = path_len;
     memcpy(p->path, path, p->path_len);
   }
 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
+}
+
+static int sort_by_recent(const void *a, const void *b) {
+  return ((AdvertPath *) b)->recv_timestamp - ((AdvertPath *) a)->recv_timestamp;
+}
+
+int MyMesh::getRecentlyHeard(AdvertPath dest[], int max_num) {
+  if (max_num > ADVERT_PATH_TABLE_SIZE) max_num = ADVERT_PATH_TABLE_SIZE;
+  qsort(advert_paths, ADVERT_PATH_TABLE_SIZE, sizeof(advert_paths[0]), sort_by_recent);
+
+  for (int i = 0; i < max_num; i++) {
+    dest[i] = advert_paths[i];
+  }
+  return max_num;
 }
 
 void MyMesh::onContactPathUpdated(const ContactInfo &contact) {
