@@ -68,10 +68,10 @@ void GxEPDDisplay::setTextSize(int sz) {
 }
 
 void GxEPDDisplay::setColor(Color c) {
-  if (c == DARK) {
-    display.setTextColor(_curr_color = GxEPD_BLACK);
-  } else {
+  if (c == DARK) { // invert colors for epds
     display.setTextColor(_curr_color = GxEPD_WHITE);
+  } else {
+    display.setTextColor(_curr_color = GxEPD_BLACK);
   }
 }
 
