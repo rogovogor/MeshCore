@@ -305,7 +305,7 @@ public:
     } else {
       sprintf(tmp, "%dh", secs / (60*60));
     }
-    display.setCursor(display.width() - display.getTextWidth(tmp), 0);
+    display.setCursor(display.width() - display.getTextWidth(tmp) - 2, 0);
     display.print(tmp);
 
     display.drawRect(0, 11, display.width(), 1);  // horiz line
