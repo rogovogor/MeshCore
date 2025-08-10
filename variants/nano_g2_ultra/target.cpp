@@ -1,5 +1,6 @@
-#include <Arduino.h>
 #include "target.h"
+
+#include <Arduino.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/sensors/MicroNMEALocationProvider.h>
 
@@ -16,29 +17,26 @@ NanoG2UltraSensorManager sensors = NanoG2UltraSensorManager(nmea);
 
 #ifdef DISPLAY_CLASS
 DISPLAY_CLASS display;
+MomentaryButton user_btn(PIN_USER_BTN, 1000, true);
 #endif
 
-bool radio_init()
-{
+bool radio_init() {
   rtc_clock.begin(Wire);
   return radio.std_init(&SPI);
 }
 
-uint32_t radio_get_rng_seed()
-{
+uint32_t radio_get_rng_seed() {
   return radio.random(0x7FFFFFFF);
 }
 
-void radio_set_params(float freq, float bw, uint8_t sf, uint8_t cr)
-{
+void radio_set_params(float freq, float bw, uint8_t sf, uint8_t cr) {
   radio.setFrequency(freq);
   radio.setSpreadingFactor(sf);
   radio.setBandwidth(bw);
   radio.setCodingRate(cr);
 }
 
-void radio_set_tx_power(uint8_t dbm)
-{
+void radio_set_tx_power(uint8_t dbm) {
   radio.setOutputPower(dbm);
 }
 
@@ -64,8 +62,7 @@ void NanoG2UltraSensorManager::stop_gps() {
   _location->stop();
 }
 
-bool NanoG2UltraSensorManager::begin()
-{
+bool NanoG2UltraSensorManager::begin() {
   digitalWrite(PIN_GPS_STANDBY, HIGH); // Wake GPS from standby
   Serial1.setPins(PIN_GPS_TX, PIN_GPS_RX);
   Serial1.begin(9600);
@@ -83,29 +80,26 @@ bool NanoG2UltraSensorManager::begin()
   return true;
 }
 
-bool NanoG2UltraSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP &telemetry)
-{
-  if (requester_permissions & TELEM_PERM_LOCATION)
-  { // does requester have permission?
+bool NanoG2UltraSensorManager::querySensors(uint8_t requester_permissions, CayenneLPP &telemetry) {
+  if (requester_permissions & TELEM_PERM_LOCATION) { // does requester have permission?
     telemetry.addGPS(TELEM_CHANNEL_SELF, node_lat, node_lon, node_altitude);
   }
   return true;
 }
 
-void NanoG2UltraSensorManager::loop()
-{
+void NanoG2UltraSensorManager::loop() {
   static long next_gps_update = 0;
 
   if (!gps_active) {
-    return;  // GPS is not active, skip further processing
+    return; // GPS is not active, skip further processing
   }
 
   _location->loop();
 
   if (millis() > next_gps_update) {
     if (_location->isValid()) {
-      node_lat = ((double)_location->getLatitude())/1000000.;
-      node_lon = ((double)_location->getLongitude())/1000000.;
+      node_lat = ((double)_location->getLatitude()) / 1000000.;
+      node_lon = ((double)_location->getLongitude()) / 1000000.;
       node_altitude = ((double)_location->getAltitude()) / 1000.0;
       MESH_DEBUG_PRINTLN("VALID location: lat %f lon %f", node_lat, node_lon);
     } else {
@@ -116,24 +110,22 @@ void NanoG2UltraSensorManager::loop()
   }
 }
 
-int NanoG2UltraSensorManager::getNumSettings() const { return 1; } // just one supported: "gps" (power switch)
+int NanoG2UltraSensorManager::getNumSettings() const {
+  return 1;
+} // just one supported: "gps" (power switch)
 
-const char *NanoG2UltraSensorManager::getSettingName(int i) const
-{
+const char *NanoG2UltraSensorManager::getSettingName(int i) const {
   return i == 0 ? "gps" : NULL;
 }
 
-const char *NanoG2UltraSensorManager::getSettingValue(int i) const
-{
-  if (i == 0)
-  {
+const char *NanoG2UltraSensorManager::getSettingValue(int i) const {
+  if (i == 0) {
     return gps_active ? "1" : "0";
   }
   return NULL;
 }
 
-bool NanoG2UltraSensorManager::setSettingValue(const char *name, const char *value)
-{
+bool NanoG2UltraSensorManager::setSettingValue(const char *name, const char *value) {
   if (strcmp(name, "gps") == 0) {
     if (strcmp(value, "0") == 0) {
       stop_gps();
@@ -145,8 +137,7 @@ bool NanoG2UltraSensorManager::setSettingValue(const char *name, const char *val
   return false; // not supported
 }
 
-mesh::LocalIdentity radio_new_identity()
-{
+mesh::LocalIdentity radio_new_identity() {
   RadioNoiseListener rng(radio);
   return mesh::LocalIdentity(&rng); // create new random identity
 }
