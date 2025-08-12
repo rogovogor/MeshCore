@@ -1,17 +1,18 @@
 #include "MomentaryButton.h"
 
-MomentaryButton::MomentaryButton(int8_t pin, int long_press_millis, bool reverse) { 
+MomentaryButton::MomentaryButton(int8_t pin, int long_press_millis, bool reverse, bool pulldownup) { 
   _pin = pin;
   _reverse = reverse;
+  _pull = pulldownup;
   down_at = 0; 
   prev = _reverse ? HIGH : LOW;
   cancel = 0;
   _long_millis = long_press_millis;
 }
 
-void MomentaryButton::begin(bool pulldownup) {
+void MomentaryButton::begin() {
   if (_pin >= 0) {
-    pinMode(_pin, pulldownup ? (_reverse ? INPUT_PULLUP : INPUT_PULLDOWN) : INPUT);
+    pinMode(_pin, _pull ? (_reverse ? INPUT_PULLUP : INPUT_PULLDOWN) : INPUT);
   }
 }
 

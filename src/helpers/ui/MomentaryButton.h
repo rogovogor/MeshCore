@@ -9,15 +9,15 @@
 class MomentaryButton {
   int8_t _pin;
   int8_t prev, cancel;
-  bool _reverse;
+  bool _reverse, _pull;
   int _long_millis;
   unsigned long down_at;
 
   bool isPressed(int level) const;
 
 public:
-  MomentaryButton(int8_t pin, int long_press_mills=0, bool reverse=false);
-  void begin(bool pulldownup=false);
+  MomentaryButton(int8_t pin, int long_press_mills=0, bool reverse=false, bool pulldownup=false);
+  void begin();
   int check(bool repeat_click=false);  // returns one of BUTTON_EVENT_*
   void cancelClick();  // suppress next BUTTON_EVENT_CLICK (if already in DOWN state)
   uint8_t getPin() { return _pin; }
