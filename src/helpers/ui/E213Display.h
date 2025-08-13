@@ -6,9 +6,21 @@
 #include <Wire.h>
 #include <heltec-eink-modules.h>
 
+enum EInkDetectionResult {
+    V_LCMEN213EFC1 = 0, // Initial version
+    V_E0213A367 = 1,    // E213 PCB marked V1.1 (Mid 2025)
+};
+
 // Display driver for E213 e-ink display
 class E213Display : public DisplayDriver {
+#ifdef VISION_MASTER_E213
   EInkDisplay_VisionMasterE213 display;
+  EInkDisplay_VisionMasterE213V1_1 display1;
+#else
+  EInkDisplay_WirelessPaperV1_1 display;
+  EInkDisplay_WirelessPaperV1_1_1 display1;
+#endif
+  EInkDetectionResult _version =V_LCMEN213EFC1;
   bool _init = false;
   bool _isOn = false;
 
@@ -32,6 +44,7 @@ public:
   void endFrame() override;
 
 private:
+  EInkDetectionResult detectEInk();
   void powerOn();
   void powerOff();
 };
