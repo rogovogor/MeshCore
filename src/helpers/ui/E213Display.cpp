@@ -2,7 +2,7 @@
 
 #include "../../MeshCore.h"
 
-EInkDetectionResult E213Display::detectEInk()
+BaseDisplay* E213Display::detectEInk()
 {
     // Test 1: Logic of BUSY pin
 
@@ -23,38 +23,37 @@ EInkDetectionResult E213Display::detectEInk()
     // Test complete. Release pin
     pinMode(DISP_RST, INPUT);
 
-    if (busyLogic == LOW)
-        return V_LCMEN213EFC1;
-    else // busy HIGH
-        return V_E0213A367;
+    if (busyLogic == LOW) {
+#ifdef VISION_MASTER_E213
+      return new EInkDisplay_VisionMasterE213 ;
+#else
+      return new EInkDisplay_WirelessPaperV1_1 ;
+#endif
+    } else {// busy HIGH
+#ifdef VISION_MASTER_E213
+      return new EInkDisplay_VisionMasterE213V1_1 ;
+#else
+      return new EInkDisplay_WirelessPaperV1_1_1 ;
+#endif
+    }
 }
-
 
 bool E213Display::begin() {
   if (_init) return true;
 
   powerOn();
-  _version = detectEInk();
-  if(_version==V_LCMEN213EFC1) {
-    display.begin();
-    // Set to landscape mode rotated 180 degrees
-    display.setRotation(3);
-  } else{
-    display1.begin();
-    // Set to landscape mode rotated 180 degrees
-    display1.setRotation(3);
+  if(display==NULL) {
+    display = detectEInk();
   }
-
+  display->begin();
+  // Set to landscape mode rotated 180 degrees
+  display->setRotation(3);
 
   _init = true;
   _isOn = true;
 
   clear();
-  if(_version==V_LCMEN213EFC1) {
-    display.fastmodeOn(); // Enable fast mode for quicker (partial) updates
-  } else{
-    display1.fastmodeOn(); // Enable fast mode for quicker (partial) updates
-  }
+  display->fastmodeOn(); // Enable fast mode for quicker (partial) updates
 
   return true;
 }
@@ -93,37 +92,23 @@ void E213Display::turnOff() {
 }
 
 void E213Display::clear() {
-  if(_version==V_LCMEN213EFC1) {
-    display.clear();
-  } else{
-    display1.clear();
-  }
+  display->clear();
+
 }
 
 void E213Display::startFrame(Color bkg) {
   // Fill screen with white first to ensure clean background
-  if(_version==V_LCMEN213EFC1) {
-    display.fillRect(0, 0, width(), height(), WHITE);
-  } else{
-    display1.fillRect(0, 0, width(), height(), WHITE);
-  }
+  display->fillRect(0, 0, width(), height(), WHITE);
+
   if (bkg == LIGHT) {
     // Fill with black if light background requested (inverted for e-ink)
-    if(_version==V_LCMEN213EFC1) {
-      display.fillRect(0, 0, width(), height(), BLACK);
-    } else{
-      display1.fillRect(0, 0, width(), height(), BLACK);
-    }
+    display->fillRect(0, 0, width(), height(), BLACK);
   }
 }
 
 void E213Display::setTextSize(int sz) {
   // The library handles text size internally
-  if(_version==V_LCMEN213EFC1) {
-    display.setTextSize(sz);
-  } else{
-    display1.setTextSize(sz);
-  }
+    display->setTextSize(sz);
 }
 
 void E213Display::setColor(Color c) {
@@ -131,35 +116,19 @@ void E213Display::setColor(Color c) {
 }
 
 void E213Display::setCursor(int x, int y) {
-  if(_version==V_LCMEN213EFC1) {
-    display.setCursor(x, y);
-  } else{
-    display1.setCursor(x, y);
-  }
+    display->setCursor(x, y);
 }
 
 void E213Display::print(const char *str) {
-  if(_version==V_LCMEN213EFC1) {
-    display.print(str);
-  } else {
-    display1.print(str);
-  }
+    display->print(str);
 }
 
 void E213Display::fillRect(int x, int y, int w, int h) {
-  if(_version==V_LCMEN213EFC1) {
-    display.fillRect(x, y, w, h, BLACK);
-  } else {
-    display1.fillRect(x, y, w, h, BLACK);
-  }
+    display->fillRect(x, y, w, h, BLACK);
 }
 
 void E213Display::drawRect(int x, int y, int w, int h) {
-  if(_version==V_LCMEN213EFC1) {
-    display.drawRect(x, y, w, h, BLACK);
-  } else {
-    display1.drawRect(x, y, w, h, BLACK);
-  }
+    display->drawRect(x, y, w, h, BLACK);
 }
 
 void E213Display::drawXbm(int x, int y, const uint8_t *bits, int w, int h) {
@@ -177,11 +146,7 @@ void E213Display::drawXbm(int x, int y, const uint8_t *bits, int w, int h) {
 
       // If the bit is set, draw the pixel
       if (bitSet) {
-        if(_version==V_LCMEN213EFC1) {
-          display.drawPixel(x + bx, y + by, BLACK);
-        } else {
-          display1.drawPixel(x + bx, y + by, BLACK);
-        }
+          display->drawPixel(x + bx, y + by, BLACK);
       }
     }
   }
@@ -190,18 +155,10 @@ void E213Display::drawXbm(int x, int y, const uint8_t *bits, int w, int h) {
 uint16_t E213Display::getTextWidth(const char *str) {
   int16_t x1, y1;
   uint16_t w, h;
-  if(_version==V_LCMEN213EFC1) {
-    display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
-  } else {
-    display1.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
-  }
+  display->getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
   return w;
 }
 
 void E213Display::endFrame() {
-  if(_version==V_LCMEN213EFC1) {
-    display.update();
-  } else {
-    display1.update();
-  }
+    display->update();
 }
