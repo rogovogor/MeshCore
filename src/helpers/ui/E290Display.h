@@ -6,19 +6,15 @@
 #include <Wire.h>
 #include <heltec-eink-modules.h>
 
-// Display driver for E213 e-ink display
-class E213Display : public DisplayDriver {
-  BaseDisplay* display=NULL;
+// Display driver for E290 e-ink display
+class E290Display : public DisplayDriver {
+  EInkDisplay_VisionMasterE290 display;
   bool _init = false;
   bool _isOn = false;
 
 public:
-  E213Display() : DisplayDriver(250, 122) {}
-  ~E213Display(){
-    if(display!=NULL) {
-      delete display;
-    }
-  }
+  E290Display() : DisplayDriver(296, 128) {}
+
   bool begin();
   bool isOn() override { return _isOn; }
   void turnOn() override;
@@ -36,7 +32,6 @@ public:
   void endFrame() override;
 
 private:
-  BaseDisplay* detectEInk();
   void powerOn();
   void powerOff();
 };

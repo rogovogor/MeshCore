@@ -2,17 +2,22 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <XiaoC6Board.h>
 #include <helpers/radiolib/RadioLibWrappers.h>
-#include <helpers/ESP32Board.h>
+#include <ikoka_stick_nrf_board.h>
 #include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
-#include <helpers/SensorManager.h>
+#include <helpers/ArduinoHelpers.h>
+#include <helpers/sensors/EnvironmentSensorManager.h>
 
-extern XiaoC6Board board;
+#ifdef DISPLAY_CLASS
+  #include <helpers/ui/SSD1306Display.h>
+  extern DISPLAY_CLASS display;
+#endif
+
+extern ikoka_stick_nrf_board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
-extern SensorManager sensors;
+extern EnvironmentSensorManager sensors;
 
 bool radio_init();
 uint32_t radio_get_rng_seed();

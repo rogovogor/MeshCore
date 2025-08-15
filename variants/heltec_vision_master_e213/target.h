@@ -2,17 +2,23 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <XiaoC6Board.h>
 #include <helpers/radiolib/RadioLibWrappers.h>
-#include <helpers/ESP32Board.h>
+#include <HeltecE213Board.h>
 #include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
+#ifdef DISPLAY_CLASS
+#include <helpers/ui/E213Display.h>
+#endif
 
-extern XiaoC6Board board;
+extern HeltecE213Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 extern SensorManager sensors;
+
+#ifdef DISPLAY_CLASS
+extern DISPLAY_CLASS display;
+#endif
 
 bool radio_init();
 uint32_t radio_get_rng_seed();
