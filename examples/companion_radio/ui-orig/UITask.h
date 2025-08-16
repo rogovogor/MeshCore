@@ -2,10 +2,8 @@
 
 #include <MeshCore.h>
 #include <helpers/ui/DisplayDriver.h>
-#include <helpers/ui/UIScreen.h>
 #include <helpers/SensorManager.h>
-#include <helpers/BaseSerialInterface.h>
-#include <Arduino.h>
+#include <stddef.h>
 
 #ifdef PIN_BUZZER
   #include <helpers/ui/buzzer.h>
@@ -13,6 +11,8 @@
 
 #include "../AbstractUITask.h"
 #include "../NodePrefs.h"
+
+#include "Button.h"
 
 class UITask : public AbstractUITask {
   DisplayDriver* _display;
@@ -22,38 +22,46 @@ class UITask : public AbstractUITask {
 #endif
   unsigned long _next_refresh, _auto_off;
   NodePrefs* _node_prefs;
+  char _version_info[32];
+  char _origin[62];
+  char _msg[80];
   char _alert[80];
-  unsigned long _alert_expiry;
   int _msgcount;
-  unsigned long ui_started_at, next_batt_chck;
+  bool _need_refresh = true;
+  bool _displayWasOn = false;  // Track display state before button press
+  unsigned long ui_started_at;
 
-  UIScreen* splash;
-  UIScreen* home;
-  UIScreen* msg_preview;
-  UIScreen* curr;
+  // Button handlers
+#ifdef PIN_USER_BTN
+  Button* _userButton = nullptr;
+#endif
+#ifdef PIN_USER_BTN_ANA
+  Button* _userButtonAnalog = nullptr;
+#endif
 
+  void renderCurrScreen();
   void userLedHandler();
+  void renderBatteryIndicator(uint16_t batteryMilliVolts);
   
   // Button action handlers
-  char checkDisplayOn(char c);
-  char handleLongPress(char c);
+  void handleButtonAnyPress();
+  void handleButtonShortPress();
+  void handleButtonDoublePress();
+  void handleButtonTriplePress();
+  void handleButtonQuadruplePress();
+  void handleButtonLongPress();
 
-  void setCurrScreen(UIScreen* c);
-
+ 
 public:
 
   UITask(mesh::MainBoard* board, BaseSerialInterface* serial) : AbstractUITask(board, serial), _display(NULL), _sensors(NULL) {
-    next_batt_chck = _next_refresh = 0;
-    ui_started_at = 0;
-    curr = NULL;
+      _next_refresh = 0;
+      ui_started_at = 0;
   }
   void begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* node_prefs);
 
-  void gotoHomeScreen() { setCurrScreen(home); }
-  void showAlert(const char* text, int duration_millis);
-  int  getMsgCount() const { return _msgcount; }
   bool hasDisplay() const { return _display != NULL; }
-  bool isButtonPressed() const;
+  void clearMsgPreview();
 
   // from AbstractUITask
   void msgRead(int msgcount) override;
