@@ -2,9 +2,7 @@
 
 #include <Arduino.h>
 #include <Mesh.h>
-#ifdef DISPLAY_CLASS
-#include "UITask.h"
-#endif
+#include "AbstractUITask.h"
 
 /*------------ Frame Protocol --------------*/
 #define FIRMWARE_VER_CODE 7
@@ -87,7 +85,7 @@ struct AdvertPath {
 
 class MyMesh : public BaseChatMesh, public DataStoreHost {
 public:
-  MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store);
+  MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store, AbstractUITask* ui=NULL);
 
   void begin(bool has_display);
   void startInterface(BaseSerialInterface &serial);
@@ -179,6 +177,7 @@ private:
   uint32_t pending_telemetry, pending_discovery;   // pending _TELEMETRY_REQ
   uint32_t pending_req;   // pending _BINARY_REQ
   BaseSerialInterface *_serial;
+  AbstractUITask* _ui;
 
   ContactsIterator _iter;
   uint32_t _iter_filter_since;
@@ -216,6 +215,3 @@ private:
 };
 
 extern MyMesh the_mesh;
-#ifdef DISPLAY_CLASS
-extern UITask ui_task;
-#endif

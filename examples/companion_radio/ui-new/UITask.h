@@ -11,29 +11,16 @@
   #include <helpers/ui/buzzer.h>
 #endif
 
-#include "NodePrefs.h"
+#include "../AbstractUITask.h"
+#include "../NodePrefs.h"
 
-enum class UIEventType {
-    none,
-    contactMessage,
-    channelMessage,
-    roomMessage,
-    newContactMessage,
-    ack
-};
-
-#define MAX_TOP_LEVEL    8
-
-class UITask {
+class UITask : public AbstractUITask {
   DisplayDriver* _display;
-  mesh::MainBoard* _board;
-  BaseSerialInterface* _serial;
   SensorManager* _sensors;
 #ifdef PIN_BUZZER
   genericBuzzer buzzer;
 #endif
   unsigned long _next_refresh, _auto_off;
-  bool _connected;
   NodePrefs* _node_prefs;
   char _alert[80];
   unsigned long _alert_expiry;
@@ -55,28 +42,24 @@ class UITask {
 
 public:
 
-  UITask(mesh::MainBoard* board, BaseSerialInterface* serial) : _board(board), _serial(serial), _display(NULL), _sensors(NULL) {
+  UITask(mesh::MainBoard* board, BaseSerialInterface* serial) : AbstractUITask(board, serial), _display(NULL), _sensors(NULL) {
     next_batt_chck = _next_refresh = 0;
     ui_started_at = 0;
-    _connected = false;
     curr = NULL;
   }
   void begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* node_prefs);
 
   void gotoHomeScreen() { setCurrScreen(home); }
   void showAlert(const char* text, int duration_millis);
-  void setHasConnection(bool connected) { _connected = connected; }
-  bool hasConnection() const { return _connected; }
-  uint16_t getBattMilliVolts() const { return _board->getBattMilliVolts(); }
-  bool isSerialEnabled() const { return _serial->isEnabled(); }
-  void enableSerial() { _serial->enable(); }
-  void disableSerial() { _serial->disable(); }
   int  getMsgCount() const { return _msgcount; }
   bool hasDisplay() const { return _display != NULL; }
   bool isButtonPressed() const;
-  void msgRead(int msgcount);
-  void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount);
-  void soundBuzzer(UIEventType bet = UIEventType::none);
+
+  // from AbsractUITask
+  void msgRead(int msgcount) override;
+  void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) override;
+  void soundBuzzer(UIEventType bet = UIEventType::none) override;
+  void loop() override;
+
   void shutdown(bool restart = false);
-  void loop();
 };

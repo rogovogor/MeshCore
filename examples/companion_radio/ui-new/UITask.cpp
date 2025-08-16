@@ -1,7 +1,6 @@
 #include "UITask.h"
 #include <helpers/TxtDataHelpers.h>
-#include "NodePrefs.h"
-#include "MyMesh.h"
+#include "../MyMesh.h"
 #include "target.h"
 
 #define AUTO_OFF_MILLIS     15000   // 15 seconds
