@@ -42,5 +42,5 @@ public:
   virtual void msgRead(int msgcount) = 0;
   virtual void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) = 0;
   virtual void soundBuzzer(UIEventType bet = UIEventType::none) = 0;
-  virtual void loop();
+  virtual void loop() = 0;
 };
