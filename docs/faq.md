@@ -1,7 +1,7 @@
 **MeshCore-FAQ**<!-- omit from toc -->
 A list of frequently-asked questions and answers for MeshCore
 
-The current version of this MeshCore FAQ is at https://github.com/ripplebiz/MeshCore/blob/main/docs/faq.md.  
+The current version of this MeshCore FAQ is at https://github.com/meshcore-dev/MeshCore/blob/main/docs/faq.md.  
 This MeshCore FAQ is also mirrored at https://github.com/LitBomb/MeshCore-FAQ and might have newer updates if pull requests on Scott's MeshCore repo are not approved yet.
 
 author: https://github.com/LitBomb<!-- omit from toc -->
@@ -27,18 +27,20 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [3.3. Q: What is the password to administer a repeater or a room server?](#33-q-what-is-the-password-to-administer-a-repeater-or-a-room-server)
   - [3.4. Q: What is the password to join a room server?](#34-q-what-is-the-password-to-join-a-room-server)
 - [4. T-Deck Related](#4-t-deck-related)
-  - [4.1. Q: What are the steps to get a T-Deck into DFU (Device Firmware Update) mode?](#41-q-what-are-the-steps-to-get-a-t-deck-into-dfu-device-firmware-update-mode)
-  - [4.2. Q: Why is my T-Deck Plus not getting any satellite lock?](#42-q-why-is-my-t-deck-plus-not-getting-any-satellite-lock)
-  - [4.3. Q: Why is my OG (non-Plus) T-Deck not getting any satellite lock?](#43-q-why-is-my-og-non-plus-t-deck-not-getting-any-satellite-lock)
-  - [4.4. Q: What size of SD card does the T-Deck support?](#44-q-what-size-of-sd-card-does-the-t-deck-support)
-  - [4.5. Q: What is the public key for the default public channel?](#45-q-what-is-the-public-key-for-the-default-public-channel)
-  - [4.6. Q: How do I get maps on T-Deck?](#46-q-how-do-i-get-maps-on-t-deck)
-  - [4.7. Q: Where do the map tiles go?](#47-q-where-do-the-map-tiles-go)
-  - [4.8. Q: How to unlock deeper map zoom and server management features on T-Deck?](#48-q-how-to-unlock-deeper-map-zoom-and-server-management-features-on-t-deck)
-  - [4.9. Q: How to decipher the diagnostics screen on T-Deck?](#49-q-how-to-decipher-the-diagnostics-screen-on-t-deck)
-  - [4.10. Q: The T-Deck sound is too loud?](#410-q-the-t-deck-sound-is-too-loud)
-  - [4.11. Q: Can you customize the sound?](#411-q-can-you-customize-the-sound)
-  - [4.12. Q: What is the 'Import from Clipboard' feature on the t-deck and is there a way to manually add nodes without having to receive adverts?](#412-q-what-is-the-import-from-clipboard-feature-on-the-t-deck-and-is-there-a-way-to-manually-add-nodes-without-having-to-receive-adverts)
+  - [4.1. Q: Is there a user guide for T-Deck, T-Pager, T-Watch, or T-Display Pro?](#41-q-is-there-a-user-guide-for-t-deck-t-pager-t-watch-or-t-display-pro)
+  - [4.2. Q: What are the steps to get a T-Deck into DFU (Device Firmware Update) mode?](#42-q-what-are-the-steps-to-get-a-t-deck-into-dfu-device-firmware-update-mode)
+  - [4.3. Q: Why is my T-Deck Plus not getting any satellite lock?](#43-q-why-is-my-t-deck-plus-not-getting-any-satellite-lock)
+  - [4.4. Q: Why is my OG (non-Plus) T-Deck not getting any satellite lock?](#44-q-why-is-my-og-non-plus-t-deck-not-getting-any-satellite-lock)
+  - [4.5. Q: What size of SD card does the T-Deck support?](#45-q-what-size-of-sd-card-does-the-t-deck-support)
+  - [4.6. Q: what is the public key for the default public channel?](#46-q-what-is-the-public-key-for-the-default-public-channel)
+  - [4.7. Q: How do I get maps on T-Deck?](#47-q-how-do-i-get-maps-on-t-deck)
+  - [4.8. Q: Where do the map tiles go?](#48-q-where-do-the-map-tiles-go)
+  - [4.9. Q: How to unlock deeper map zoom and server management features on T-Deck?](#49-q-how-to-unlock-deeper-map-zoom-and-server-management-features-on-t-deck)
+  - [4.10. Q: How to decipher the diagnostics screen on T-Deck?](#410-q-how-to-decipher-the-diagnostics-screen-on-t-deck)
+  - [4.11. Q: The T-Deck sound is too loud?](#411-q-the-t-deck-sound-is-too-loud)
+  - [4.12. Q: Can you customize the sound?](#412-q-can-you-customize-the-sound)
+  - [4.13. Q: What is the 'Import from Clipboard' feature on the t-deck and is there a way to manually add nodes without having to receive adverts?](#413-q-what-is-the-import-from-clipboard-feature-on-the-t-deck-and-is-there-a-way-to-manually-add-nodes-without-having-to-receive-adverts)
+  - [4.14. Q: How to capture a screenshot on T-Deck?](#414-q-how-to-capture-a-screenshot-on-t-deck)
 - [5. General](#5-general)
   - [5.1. Q: What are BW, SF, and CR?](#51-q-what-are-bw-sf-and-cr)
   - [5.2. Q: Do MeshCore clients repeat?](#52-q-do-meshcore-clients-repeat)
@@ -68,10 +70,10 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [6.6. Q: My RAK/T1000-E/xiao\_nRF52 device seems to be corrupted, how do I wipe it clean to start fresh?](#66-q-my-rakt1000-exiao_nrf52-device-seems-to-be-corrupted-how-do-i-wipe-it-clean-to-start-fresh)
   - [6.7. Q: WebFlasher fails on Linux with failed to open](#67-q-webflasher-fails-on-linux-with-failed-to-open)
 - [7. Other Questions:](#7-other-questions)
-  - [7.1 Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?](#71-q-how-to-update-nrf-rak-t114-seed-xiao-repeater-and-room-server-firmware-over-the-air-using-the-new-simpler-dfu-app)
-  - [7.2 Q: How to update ESP32-based devices over the air?](#72-q-how-to-update-esp32-based-devices-over-the-air)
-  - [7.3 Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?](#73-q-is-there-a-way-to-lower-the-chance-of-a-failed-ota-device-firmware-update-dfu)
-  - [7.4 Q are the MeshCore logo and font available?](#74-q-are-the-meshcore-logo-and-font-available)
+  - [7.1. Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?](#71-q-how-to-update-nrf-rak-t114-seed-xiao-repeater-and-room-server-firmware-over-the-air-using-the-new-simpler-dfu-app)
+  - [7.2. Q: How to update ESP32-based devices over the air?](#72-q-how-to-update-esp32-based-devices-over-the-air)
+  - [7.3. Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?](#73-q-is-there-a-way-to-lower-the-chance-of-a-failed-ota-device-firmware-update-dfu)
+  - [7.4. Q are the MeshCore logo and font available?](#74-q-are-the-meshcore-logo-and-font-available)
 
 ## 1. Introduction
 
@@ -105,9 +107,11 @@ Anyone is able to build anything they like on top of MeshCore without paying any
  You need LoRa hardware devices to run MeshCore firmware as clients or server (repeater and room server).
 
 #### 1.2.1. Hardware
-To use MeshCore without using a phone as the client interface, you can run MeshCore on a T-Deck or T-Deck Plus. It is a complete off-grid secure communication solution.  
+MeshCore is available on a variety of 433MHz, 868MHz and 915MHz LoRa devices. For example, Lilygo T-Deck, T-Pager, RAK Wireless WisBlock RAK4631 devices (e.g. 19003, 19007, 19026), Heltec V3, Xiao S3 WIO, Xiao C3, Heltec T114, Station G2, Nano G2 Ultra, Seeed Studio T1000-E. More devices are being added regularly.
 
-MeshCore is also available on a variety of 868MHz and 915MHz LoRa devices. For example, RAK4631 devices (19003, 19007, 19026), Heltec V3, Xiao S3 WIO, Xiao C3, Heltec T114, Station G2, Seeed Studio T1000-E. More devices will be supported later.
+For an up-to-date list of supported devices, please go to https://flasher.meshcore.co.uk/
+
+To use MeshCore without using a phone as the client interface, you can run MeshCore on a LiLygo's T-Deck, T-Deck Plus, T-Pager, T-Watch, or T-Display Pro. MeshCore Ultra firmware running on these devices are a complete off-grid secure communication solution.  
 
 #### 1.2.2. Firmware
 MeshCore has four firmware types that are not available on other LoRa systems. MeshCore has the following:
@@ -116,7 +120,7 @@ MeshCore has four firmware types that are not available on other LoRa systems. M
 Companion radios are for connecting to the Android app or web app as a messenger client. There are two different companion radio firmware versions:
 
 1. **BLE Companion**  
-   BLE Companion firmware runs on a supported LoRa device and connects to a smart device running the Android MeshCore client over BLE (iOS MeshCore client will be available soon)  
+   BLE Companion firmware runs on a supported LoRa device and connects to a smart device running the Android or iOS MeshCore client over BLE 
    <https://meshcore.co.uk/apps.html>
 
 2. **USB Serial Companion**  
@@ -147,7 +151,7 @@ A room server can also take on the repeater role.  To enable repeater role on a 
 ## 2. Initial Setup
 
 ### 2.1. Q: How many devices do I need to start using MeshCore?
-**A:** If you have one supported device, flash the BLE Companion firmware and use your device as a client.  You can connect to the device using the Android client via Bluetooth (iOS client will be available later).  You can start communicating with other MeshCore users near you.
+**A:** If you have one supported device, flash the BLE Companion firmware and use your device as a client.  You can connect to the device using the Android or iOS client via Bluetooth.  You can start communicating with other MeshCore users near you.
 
 If you have two supported devices, and there are not many MeshCore users near you, flash both to BLE Companion firmware so you can use your devices to communicate with your near-by friends and family.
 
@@ -157,7 +161,7 @@ After you flashed the latest firmware onto your repeater device, keep the device
 
 `set freq {frequency}`
 
-The repeater and room server CLI reference is here: https://github.com/ripplebiz/MeshCore/wiki/Repeater-&-Room-Server-CLI-Reference
+The repeater and room server CLI reference is here: https://github.com/meshcore-dev/MeshCore/wiki/Repeater-&-Room-Server-CLI-Reference
 
 If you have more supported devices, you can use your additional devices with the room server firmware.  
 
@@ -255,7 +259,11 @@ You can get the latitude and longitude from Google Maps by right-clicking the lo
 
 ## 4. T-Deck Related
 
-### 4.1. Q: What are the steps to get a T-Deck into DFU (Device Firmware Update) mode?
+### 4.1. Q: Is there a user guide for T-Deck, T-Pager, T-Watch, or T-Display Pro?
+
+**A:** Yes, it is available on https://buymeacoffee.com/ripplebiz/ultra-v7-7-guide-meshcore-users
+
+### 4.2. Q: What are the steps to get a T-Deck into DFU (Device Firmware Update) mode?
 **A:**  
 1. Device off  
 2. Connect USB cable to device  
@@ -266,20 +274,20 @@ You can get the latitude and longitude from Google Maps by right-clicking the lo
 7. T-Deck in DFU mode now  
 8. At this point you can begin flashing using <https://flasher.meshcore.co.uk/>
 
-### 4.2. Q: Why is my T-Deck Plus not getting any satellite lock?
+### 4.3. Q: Why is my T-Deck Plus not getting any satellite lock?
 **A:** For T-Deck Plus, the GPS baud rate should be set to **38400**. Also, some T-Deck Plus devices were found to have the GPS module installed upside down, with the GPS antenna facing down instead of up. If your T-Deck Plus still doesn't get any satellite lock after setting the baud rate to 38400, you might need to open the device to check the GPS orientation.
 
 GPS on T-Deck is always enabled.  You can skip the "GPS clock sync" and the T-Deck will continue to try to get a GPS lock.  You can go to the `GPS Info` screen; you should see the `Sentences:` counter increasing if the baud rate is correct.
 
 [Source](https://discord.com/channels/826570251612323860/1330643963501351004/1356609240302616689)
 
-### 4.3. Q: Why is my OG (non-Plus) T-Deck not getting any satellite lock?
+### 4.4. Q: Why is my OG (non-Plus) T-Deck not getting any satellite lock?
 **A:** The OG (non-Plus) T-Deck doesn't come with a GPS. If you added a GPS to your OG T-Deck, please refer to the manual of your GPS to see what baud rate it requires. Alternatively, you can try to set the baud rate from 9600, 19200, etc., and up to 115200 to see which one works.
 
-### 4.4. Q: What size of SD card does the T-Deck support?
+### 4.5. Q: What size of SD card does the T-Deck support?
 **A:** Users have had no issues using 16GB or 32GB SD cards. Format the SD card to **FAT32**.
 
-### 4.5. Q: what is the public key for the default public channel?
+### 4.6. Q: what is the public key for the default public channel?
 **A:** 
 T-Deck uses the same key the smartphone apps use but in base64 
 `izOH6cXN6mrJ5e26oRXNcg==`
@@ -290,7 +298,7 @@ The smartphone app key is in hex:
 
 [Source](https://discord.com/channels/826570251612323860/1330643963501351004/1354194409213792388)
 
-### 4.6. Q: How do I get maps on T-Deck?
+### 4.7. Q: How do I get maps on T-Deck?
 **A:** You need map tiles. You can get pre-downloaded map tiles here (a good way to support development):  
 - <https://buymeacoffee.com/ripplebiz/e/342543> (Europe)  
 - <https://buymeacoffee.com/ripplebiz/e/342542> (US)
@@ -304,19 +312,20 @@ There is also a modified script that adds additional error handling and parallel
 UK map tiles are available separately from Andy Kirby on his discord server:  
 <https://discord.com/channels/826570251612323860/1330643963501351004/1331346597367386224>
 
-### 4.7. Q: Where do the map tiles go?
+### 4.8. Q: Where do the map tiles go?
 Once you have the tiles downloaded, copy the `\tiles` folder to the root of your T-Deck's SD card.
 
-### 4.8. Q: How to unlock deeper map zoom and server management features on T-Deck?
+### 4.9. Q: How to unlock deeper map zoom and server management features on T-Deck?
 **A:** You can download, install, and use the T-Deck firmware for free, but it has some features (map zoom, server administration) that are enabled if you purchase an unlock code for \$10 per T-Deck device.  
 Unlock page: <https://buymeacoffee.com/ripplebiz/e/249834>
 
-### 4.9. Q: How to decipher the diagnostics screen on T-Deck?
+### 4.10. Q: How to decipher the diagnostics screen on T-Deck?
 
 **A: ** Space is tight on T-Deck's screen, so the information is a bit cryptic.  The format is :
 `{hops} l:{packet-length}({payload-len}) t:{packet-type} snr:{n} rssi:{n}`
 
-See here for packet-type: [https://github.com/ripplebiz/MeshCore/blob/main/src/Packet.h#L19](https://github.com/ripplebiz/MeshCore/blob/main/src/Packet.h#L19 "https://github.com/ripplebiz/MeshCore/blob/main/src/Packet.h#L19")
+See here for packet-type: 
+https://github.com/meshcore-dev/MeshCore/blob/main/src/Packet.h#L19
  
 
     #define PAYLOAD_TYPE_REQ 0x00 // request (prefixed with dest/src hashes, MAC) (enc data: timestamp, blob) 
@@ -330,14 +339,24 @@ See here for packet-type: [https://github.com/ripplebiz/MeshCore/blob/main/src/P
 
 [Source](https://discord.com/channels/1343693475589263471/1343693475589263474/1350611321040932966)
 
-### 4.10. Q: The T-Deck sound is too loud?
-### 4.11. Q: Can you customize the sound?
+### 4.11. Q: The T-Deck sound is too loud?
+### 4.12. Q: Can you customize the sound?
 
-**A:** You can customise the sounds on the T-Deck, just by placing `.mp3` files onto the `root` dir of the SD card. `startup.mp3`, `alert.mp3` and `new-advert.mp3`
+**A:** You can customise the sounds on the T-Deck, by placing `.mp3` files onto the `root` dir of the SD card. The files are:
 
-### 4.12. Q: What is the 'Import from Clipboard' feature on the t-deck and is there a way to manually add nodes without having to receive adverts?
+* `startup.mp3`
+* `error.mp3`
+* `alert.mp3`
+* `new-advert.mp3`
+* `existing-advert.mp3`
+
+### 4.13. Q: What is the 'Import from Clipboard' feature on the t-deck and is there a way to manually add nodes without having to receive adverts?
 
 **A:** 'Import from Clipboard' is for importing a contact via a file named 'clipboard.txt' on the SD card. The opposite, is in the Identity screen, the 'Card to Clipboard' menu, which writes to 'clipboard.txt' so you can share yourself (call these 'biz cards', that start with "meshcore://...")
+
+### 4.14. Q: How to capture a screenshot on T-Deck?
+
+**A:** To capture a screenshot on a T-Deck, long press the top-left corner of the screen.  The screenshot is saved to the microSD card, if one is inserted into the device.
 
 ---
 
@@ -393,7 +412,7 @@ The third character is the capital letter 'O', not zero `0`
 
 ### 5.7. Q: Is MeshCore open source?
 **A:** Most of the firmware is freely available. Everything is open source except the T-Deck firmware and Liam's native mobile apps.  
-- Firmware repo: <https://github.com/ripplebiz/MeshCore>  
+- Firmware repo: https://github.com/meshcore-dev/MeshCore  
 
 ### 5.8. Q: How can I support MeshCore?
 **A:** Provide your honest feedback on GitHub and on [MeshCore Discord server](https://discord.gg/BMwCtwHj5V). Spread the word of MeshCore to your friends and communities; help them get started with MeshCore. Support Scott's MeshCore development at <https://buymeacoffee.com/ripplebiz>.
@@ -521,7 +540,7 @@ To start managing your USB serial-connected device using picocom, use the follow
     - `picocom -b 115200 /dev/ttyUSB0 --imap lfcrlf`
 
 From here, reference repeater and room server command line commands on MeshCore github wiki here: 
-    - https://github.com/ripplebiz/MeshCore/wiki/Repeater-&-Room-Server-CLI-Reference
+    - https://github.com/meshcore-dev/MeshCore/wiki/Repeater-&-Room-Server-CLI-Reference
 
   
 ### 5.14. Q: Are there are projects built around MeshCore?
@@ -603,7 +622,7 @@ Allow the browser user on it:
 ---
 ## 7. Other Questions:
 
-### 7.1 Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?
+### 7.1. Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?
 
 **A:** The steps below work on both Android and iOS as nRF has made both apps' user interface the same on both platforms:
 
@@ -622,7 +641,7 @@ Allow the browser user on it:
 14. Wait for the update to complete.  It can take a few minutes.
 
 
-### 7.2 Q: How to update ESP32-based devices over the air?
+### 7.2. Q: How to update ESP32-based devices over the air?
 
 **A:** For ESP32-based devices (e.g. Heltec V3):
 1. On flasher.meshcore.co.uk, download the **non-merged** version of the firmware for your ESP32 device (e.g. `Heltec_v3_repeater-v1.6.2-4449fd3.bin`, no `"merged"` in the file name)
@@ -634,7 +653,7 @@ Allow the browser user on it:
 8. From a browser, go to http://192.168.4.1/update and upload the non-merged bin from the flasher
 
 
-### 7.3 Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?
+### 7.3. Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?
 
 **A:** Yes, developer `che aporeps` has an enhanced OTA DFU bootloader for nRF52 based devices.  With this bootloader, if it detects that the application firmware is invalid, it falls back to OTA DFU mode so you can attempt to flash again to recover.  This bootloader has other changes to make the OTA DFU process more fault tolerant. 
 
@@ -646,9 +665,10 @@ Currently, the following boards are supported:
 - Seeed Studio XIAO nRF52840 BLE SENSE
 - RAK 4631
 
-### 7.4 Q are the MeshCore logo and font available?
+### 7.4. Q are the MeshCore logo and font available?
 
-**A:** Yes, it is on the MeshCore github repo here: https://github.com/ripplebiz/MeshCore/tree/main/logo
+**A:** Yes, it is on the MeshCore github repo here: 
+https://github.com/meshcore-dev/MeshCore/tree/main/logo
 
 
 ---
