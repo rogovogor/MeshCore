@@ -142,9 +142,11 @@ A room server can be remotely administered using a T-Deck running the MeshCore f
 
 When a client logs into a room server, the client will receive the previously 32 unseen messages.
 
-A room server can also take on the repeater role.  To enable repeater role on a room server, use this command:
+Although room server can also repeat with the command line command `set repeat on`, it is not recommended nor encouraged.  A room server with repeat set to `on` lacks the full set of repeater and remote administration features that are only available in the repeater firmware.  
 
-`set repeat {on|off}`
+The recommendation is to run repeater and room server on separate devices for the best experience.
+
+
 
 ---
 
@@ -201,9 +203,11 @@ MeshCore allows you to manually broadcast your name, position and public encrypt
 * Zero hop means your advert is broadcasted out to anyone that can hear it, and that's it.
 * Flooded means it's broadcasted out and then repeated by all the repeaters that hear it.
 
-MeshCore clients only advertise themselves when the user initiates it. A repeater (and room server?) advertises its presence once every 240 minutes. This interval can be configured using the following command:
+MeshCore clients only advertise themselves when the user initiates it. A repeater sends a flood advert once every 3 hours by default. This interval can be configured using the following command:
 
 `set advert.interval {minutes}`
+
+As of Aug 20 2025, a pending PR on github will change the flood advert to 12 hours to minimize airtime utilization caused by repeaters' flood adverts.
 
 ### 2.5. Q: Is there a hop limit?
 
