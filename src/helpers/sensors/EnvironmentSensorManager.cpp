@@ -67,6 +67,8 @@ static Adafruit_INA260 INA260;
 
 #if ENV_INCLUDE_INA226
 #define TELEM_INA226_ADDRESS    0x44 
+#define TELEM_INA226_SHUNT_VALUE 0.100 
+#define TELEM_INA226_MAX_AMP 0.8
 #include <INA226.h>
 static INA226 INA226(TELEM_INA226_ADDRESS);
 #endif
@@ -211,7 +213,7 @@ bool EnvironmentSensorManager::begin() {
   #if ENV_INCLUDE_INA226
   if (INA226.begin()) {
     MESH_DEBUG_PRINTLN("Found INA226 at address: %02X", TELEM_INA226_ADDRESS);
-    INA226.setMaxCurrentShunt(1.0, 0.002);  // 1A max, 2 milliohm shunt
+    INA226.setMaxCurrentShunt(TELEM_INA226_MAX_AMP, TELEM_INA226_SHUNT_VALUE);
     INA226_initialized = true;
   } else {
     INA226_initialized = false;
