@@ -52,6 +52,11 @@ for item in menv.get("CPPDEFINES", []):
         variant_name = item[1]
         menv.Append(BUILD_FLAGS=[f"-I variants/{variant_name}"])
         src_filter.append(f"+<../variants/{variant_name}>")
+    
+    # INCLUDE EXAMPLE CODE IN BUILD (to provide your own support files without touching the tree)
+    elif isinstance(item, tuple) and item[0] == "BUILD_EXAMPLE":
+        example_name = item[1]
+        src_filter.append(f"+<../examples/{example_name}>")
 
 menv.Replace(SRC_FILTER=src_filter)
 
