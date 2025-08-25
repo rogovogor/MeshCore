@@ -9,9 +9,8 @@ src_filter = [
   '+<helpers/sensors>',
   '+<helpers/radiolib/*.cpp>',
   '+<helpers/ui/MomentaryButton.cpp>',
+  '+<helpers/ui/buzzer.cpp>',
 ]
-
-use_display = False
 
 # add build and include dirs according to CPPDEFINES
 for item in menv.get("CPPDEFINES", []):
@@ -43,7 +42,6 @@ for item in menv.get("CPPDEFINES", []):
     # DISPLAY HANDLING
     elif isinstance(item, tuple) and item[0] == "DISPLAY_CLASS":
         display_class = item[1]
-        use_display = True
         src_filter.append(f"+<helpers/ui/{display_class}.cpp>")
         if (display_class == "ST7789Display") :
             src_filter.append(f"+<helpers/ui/OLEDDisplay.cpp>")
@@ -54,10 +52,6 @@ for item in menv.get("CPPDEFINES", []):
         variant_name = item[1]
         menv.Append(BUILD_FLAGS=[f"-I variants/{variant_name}"])
         src_filter.append(f"+<../variants/{variant_name}>")
-
-if use_display :
-    menv.Append(CPPPATH=[realpath("src/helpers/ui")])
-    menv.Append(BUILD_FLAGS=["-I src/helpers/ui"])
 
 menv.Replace(SRC_FILTER=src_filter)
 
