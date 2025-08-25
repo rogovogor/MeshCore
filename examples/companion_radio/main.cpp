@@ -34,7 +34,6 @@ static uint32_t _atoi(const char* sp) {
   DataStore store(SPIFFS, rtc_clock);
 #endif
 
-
 #ifdef ESP32
   #ifdef WIFI_SSID
     #include <helpers/esp32/SerialWifiInterface.h>
