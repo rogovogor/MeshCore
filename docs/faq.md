@@ -73,7 +73,8 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [7.1. Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?](#71-q-how-to-update-nrf-rak-t114-seed-xiao-repeater-and-room-server-firmware-over-the-air-using-the-new-simpler-dfu-app)
   - [7.2. Q: How to update ESP32-based devices over the air?](#72-q-how-to-update-esp32-based-devices-over-the-air)
   - [7.3. Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?](#73-q-is-there-a-way-to-lower-the-chance-of-a-failed-ota-device-firmware-update-dfu)
-  - [7.4. Q are the MeshCore logo and font available?](#74-q-are-the-meshcore-logo-and-font-available)
+  - [7.4. Q: are the MeshCore logo and font available?](#74-q-are-the-meshcore-logo-and-font-available)
+  - [7.5. Q: What is the format of a contact or channel QR code?](#75-q-what-is-the-format-of-a-contact-or-channel-qr-code)
 
 ## 1. Introduction
 
@@ -480,10 +481,14 @@ This could change in the future if MeshCore develops a client firmware that repe
 [Source](https://discord.com/channels/826570251612323860/1330643963501351004/1354780032140054659)
 
 ### 5.12. Q: How do I add a node to the [MeshCore Map]([url](https://meshcore.co.uk/map.html))
-**A:** From the smartphone app, connect to a BLE Companion radio
-- To add the BLE Companion radio your smartphone is connected to to the map, tap the `advert` icon, then tap `Advert (To Clipboard)`.  
-- To add a Repeater or Room Server to the map, tap the 3 dots next to the Repeater or Room Server you want to add to the map, then tap `Share (To Clipboard)`.  
-- Go to the [MeshCore Map web site]([url](https://meshcore.co.uk/map.html)), tap the plus sign on the lower right corner and paste in the meshcore://... blob, then tap `Add Node`
+**A:** 
+
+To add a BLE Companion radio, connect to the BLE Companion radio from the MeshCore smartphone app.  In the app, tap the `3 dot` menu icon at the top right corner, then tap `Internet Map`.  Tap the `3 dot` menu icon again and choose `Add me to the Map`
+
+To add a Repeater or Room Server to the map, go to the Contact List, tap the `3 dot` next to the Repeater or Room Server you want to add to the Internet Map, tap `Share`, then tap `Upload to Internet Map`.
+
+You can use the same companion (same public key) that you used to add your repeaters or room servers to remove them from the Internet Map.
+
 
 ### 5.13. Q: Can I use a Raspberry Pi to update a MeshCore radio?
 ** A:** Yes.
@@ -669,10 +674,25 @@ Currently, the following boards are supported:
 - Seeed Studio XIAO nRF52840 BLE SENSE
 - RAK 4631
 
-### 7.4. Q are the MeshCore logo and font available?
+### 7.4. Q: are the MeshCore logo and font available?
 
 **A:** Yes, it is on the MeshCore github repo here: 
 https://github.com/meshcore-dev/MeshCore/tree/main/logo
+
+### 7.5. Q: What is the format of a contact or channel QR code?
+
+**A:**
+Channel:
+`meshcore://channel/add?name=<name>&secret=<secret>`
+
+Contact:
+`meshcore://contact/add?name=<name>&public_key=<secret>&type=<type>`
+
+where `&type` is:
+`chat = 1`
+`repeater = 2`
+`room = 3`
+`sensor = 4`
 
 
 ---
