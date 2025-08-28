@@ -109,10 +109,6 @@
 
 #define MAX_SIGN_DATA_LEN               (8 * 1024) // 8K
 
-#ifdef DISPLAY_CLASS
-#include "UITask.h"
-#endif
-
 void MyMesh::writeOKFrame() {
   uint8_t buf[1];
   buf[0] = RESP_CODE_OK;
@@ -247,7 +243,7 @@ void MyMesh::onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path
     }
   } else {
 #ifdef DISPLAY_CLASS
-    ui_task.soundBuzzer(UIEventType::newContactMessage);
+    if (_ui) _ui->soundBuzzer(UIEventType::newContactMessage);
 #endif
   }
 
@@ -267,12 +263,27 @@ void MyMesh::onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path
     }
 
     memcpy(p->pubkey_prefix, contact.id.pub_key, sizeof(p->pubkey_prefix));
+    strcpy(p->name, contact.name);
     p->recv_timestamp = getRTCClock()->getCurrentTime();
     p->path_len = path_len;
     memcpy(p->path, path, p->path_len);
   }
 
   dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
+}
+
+static int sort_by_recent(const void *a, const void *b) {
+  return ((AdvertPath *) b)->recv_timestamp - ((AdvertPath *) a)->recv_timestamp;
+}
+
+int MyMesh::getRecentlyHeard(AdvertPath dest[], int max_num) {
+  if (max_num > ADVERT_PATH_TABLE_SIZE) max_num = ADVERT_PATH_TABLE_SIZE;
+  qsort(advert_paths, ADVERT_PATH_TABLE_SIZE, sizeof(advert_paths[0]), sort_by_recent);
+
+  for (int i = 0; i < max_num; i++) {
+    dest[i] = advert_paths[i];
+  }
+  return max_num;
 }
 
 void MyMesh::onContactPathUpdated(const ContactInfo &contact) {
@@ -339,10 +350,10 @@ void MyMesh::queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packe
 #ifdef DISPLAY_CLASS
   // we only want to show text messages on display, not cli data
   bool should_display = txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_SIGNED_PLAIN;
-  if (should_display) {
-    ui_task.newMsg(path_len, from.name, text, offline_queue_len);
+  if (should_display && _ui) {
+    _ui->newMsg(path_len, from.name, text, offline_queue_len);
     if (!_serial->isConnected()) {
-      ui_task.soundBuzzer(UIEventType::contactMessage);
+      _ui->soundBuzzer(UIEventType::contactMessage);
     }
   }
 #endif
@@ -401,7 +412,7 @@ void MyMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packe
     _serial->writeFrame(frame, 1);
   } else {
 #ifdef DISPLAY_CLASS
-    ui_task.soundBuzzer(UIEventType::channelMessage);
+    if (_ui) _ui->soundBuzzer(UIEventType::channelMessage);
 #endif
   }
 #ifdef DISPLAY_CLASS
@@ -411,7 +422,7 @@ void MyMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packe
   if (getChannel(channel_idx, channel_details)) {
     channel_name = channel_details.name;
   }
-  ui_task.newMsg(path_len, channel_name, text, offline_queue_len);
+  if (_ui) _ui->newMsg(path_len, channel_name, text, offline_queue_len);
 #endif
 }
 
@@ -620,9 +631,9 @@ uint32_t MyMesh::calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t
 
 void MyMesh::onSendTimeout() {}
 
-MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store)
+MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store, AbstractUITask* ui)
     : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables),
-      _serial(NULL), telemetry(MAX_PACKET_PAYLOAD - 4), _store(&store) {
+      _serial(NULL), telemetry(MAX_PACKET_PAYLOAD - 4), _store(&store), _ui(ui) {
   _iter_started = false;
   _cli_rescue = false;
   offline_queue_len = 0;
@@ -1026,7 +1037,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     if ((out_len = getFromOfflineQueue(out_frame)) > 0) {
       _serial->writeFrame(out_frame, out_len);
 #ifdef DISPLAY_CLASS
-      ui_task.msgRead(offline_queue_len);
+      if (_ui) _ui->msgRead(offline_queue_len);
 #endif
     } else {
       out_frame[0] = RESP_CODE_NO_MORE_MESSAGES;
@@ -1628,7 +1639,7 @@ void MyMesh::loop() {
   }
 
 #ifdef DISPLAY_CLASS
-  ui_task.setHasConnection(_serial->isConnected());
+  if (_ui) _ui->setHasConnection(_serial->isConnected());
 #endif
 }
 

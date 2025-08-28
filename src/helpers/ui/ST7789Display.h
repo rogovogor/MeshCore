@@ -4,7 +4,7 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
-#include <ST7789Spi.h>
+#include "ST7789Spi.h"
 
 class ST7789Display : public DisplayDriver {
   ST7789Spi display;
@@ -30,6 +30,7 @@ public:
   void setColor(Color c) override;
   void setCursor(int x, int y) override;
   void print(const char* str) override;
+  void printWordWrap(const char* str, int max_width) override;
   void fillRect(int x, int y, int w, int h) override;
   void drawRect(int x, int y, int w, int h) override;
   void drawXbm(int x, int y, const uint8_t* bits, int w, int h) override;

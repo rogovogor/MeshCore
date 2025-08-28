@@ -11,7 +11,9 @@
 
 #ifdef DISPLAY_CLASS
   #include <helpers/ui/SSD1306Display.h>
+  #include <helpers/ui/MomentaryButton.h>
   extern DISPLAY_CLASS display;
+  extern MomentaryButton user_btn;
 #endif
 
 extern ikoka_stick_nrf_board board;
