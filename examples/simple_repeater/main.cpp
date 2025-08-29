@@ -724,7 +724,7 @@ public:
     for (int i = 0; i < MAX_NEIGHBOURS; i++) {
       NeighbourInfo* neighbour = &neighbours[i];
       if(memcmp(neighbour->id.pub_key, pubkey, key_len) == 0){
-        neighbours[i] = {}; // clear neighbour entry
+        neighbours[i] = NeighbourInfo(); // clear neighbour entry
       }
     }
 #endif
