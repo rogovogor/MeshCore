@@ -75,6 +75,7 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [7.3. Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?](#73-q-is-there-a-way-to-lower-the-chance-of-a-failed-ota-device-firmware-update-dfu)
   - [7.4. Q: are the MeshCore logo and font available?](#74-q-are-the-meshcore-logo-and-font-available)
   - [7.5. Q: What is the format of a contact or channel QR code?](#75-q-what-is-the-format-of-a-contact-or-channel-qr-code)
+  - [7.6. Q: How do I connect to the comnpanion via WIFI, e.g. using a heltec v3?](#76-q-how-do-i-connect-to-the-comnpanion-via-wifi-eg-using-a-heltec-v3)
 
 ## 1. Introduction
 
@@ -694,5 +695,9 @@ where `&type` is:
 `room = 3`
 `sensor = 4`
 
+### 7.6. Q: How do I connect to the comnpanion via WIFI, e.g. using a heltec v3?
+ **A:** 
+WiFi firmware requires you to compile it yourself, as you need to set the wifi ssid and password.
+Edit WIFI_SSID and WIFI_PWD in `./variants/heltec_v3/platformio.ini` and then flash it to your device.
 
 ---
