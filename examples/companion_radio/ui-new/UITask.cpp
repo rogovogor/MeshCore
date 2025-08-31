@@ -551,7 +551,22 @@ void UITask::loop() {
   if (millis() > next_batt_chck) {
     uint16_t milliVolts = getBattMilliVolts();
     if (milliVolts > 0 && milliVolts < AUTO_SHUTDOWN_MILLIVOLTS) {
+
+      // show low battery shutdown alert
+      // we should only do this for eink displays, which will persist after power loss
+      #ifdef THINKNODE_M1
+      if (_display != NULL) {
+        _display->startFrame();
+        _display->setTextSize(2);
+        _display->setColor(DisplayDriver::RED);
+        _display->drawTextCentered(_display->width() / 2, 20, "Low Battery.");
+        _display->drawTextCentered(_display->width() / 2, 40, "Shutting Down!");
+        _display->endFrame();
+      }
+      #endif
+
       shutdown();
+
     }
     next_batt_chck = millis() + 8000;
   }
