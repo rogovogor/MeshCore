@@ -268,7 +268,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       } else if (memcmp(config, "agc.reset.interval ", 19) == 0) {
         _prefs->agc_reset_interval = atoi(&config[19]) / 4;
         savePrefs();
-        strcpy(reply, "OK");
+        sprintf(reply, "OK - interval rounded to %d", ((uint32_t) _prefs->agc_reset_interval) * 4);
       } else if (memcmp(config, "multi.acks ", 11) == 0) {
         _prefs->multi_acks = atoi(&config[11]);
         savePrefs();
