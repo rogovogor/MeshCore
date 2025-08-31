@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "24 Jul 2025"
+  #define FIRMWARE_BUILD_DATE   "31 Aug 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.7.4"
+  #define FIRMWARE_VERSION   "v1.8.0"
 #endif
 
 #ifndef LORA_FREQ
@@ -98,6 +98,7 @@ struct RepeaterStats {
   uint16_t err_events;                // was 'n_full_events'
   int16_t  last_snr;   // x 4
   uint16_t n_direct_dups, n_flood_dups;
+  uint32_t total_rx_air_time_secs;
 };
 
 struct ClientInfo {
@@ -158,7 +159,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   }
 
   void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr) {
-  #if MAX_NEIGHBOURS    // check if neighbours enabled    
+  #if MAX_NEIGHBOURS    // check if neighbours enabled
     // find existing neighbour, else use least recently updated
     uint32_t oldest_timestamp = 0xFFFFFFFF;
     NeighbourInfo* neighbour = &neighbours[0];
@@ -208,16 +209,19 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
         stats.last_snr = (int16_t)(radio_driver.getLastSNR() * 4);
         stats.n_direct_dups = ((SimpleMeshTables *)getTables())->getNumDirectDups();
         stats.n_flood_dups = ((SimpleMeshTables *)getTables())->getNumFloodDups();
+        stats.total_rx_air_time_secs = getReceiveAirTime() / 1000;
 
         memcpy(&reply_data[4], &stats, sizeof(stats));
 
         return 4 + sizeof(stats);  //  reply_len
       }
       case REQ_TYPE_GET_TELEMETRY_DATA: {
+        uint8_t perm_mask = ~(payload[1]);    // NEW: first reserved byte (of 4), is now inverse mask to apply to permissions
+
         telemetry.reset();
         telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
         // query other sensors -- target specific
-        sensors.querySensors(sender->is_admin ? 0xFF : 0x00, telemetry);
+        sensors.querySensors((sender->is_admin ? 0xFF : 0x00) & perm_mask, telemetry);
 
         uint8_t tlen = telemetry.getSize();
         memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
@@ -585,7 +589,7 @@ public:
     _prefs.cr = LORA_CR;
     _prefs.tx_power_dbm = LORA_TX_POWER;
     _prefs.advert_interval = 1;  // default to 2 minutes for NEW installs
-    _prefs.flood_advert_interval = 3;   // 3 hours
+    _prefs.flood_advert_interval = 12;   // 12 hours
     _prefs.flood_max = 64;
     _prefs.interference_threshold = 0;  // disabled
   }
@@ -607,8 +611,8 @@ public:
   const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
   const char* getRole() override { return FIRMWARE_ROLE; }
   const char* getNodeName() { return _prefs.node_name; }
-  NodePrefs* getNodePrefs() { 
-    return &_prefs; 
+  NodePrefs* getNodePrefs() {
+    return &_prefs;
   }
 
   void savePrefs() override {
@@ -715,7 +719,18 @@ public:
     *dp = 0;  // null terminator
   }
 
-  const uint8_t* getSelfIdPubKey() override { return self_id.pub_key; }
+  void removeNeighbor(const uint8_t* pubkey, int key_len) override {
+#if MAX_NEIGHBOURS
+    for (int i = 0; i < MAX_NEIGHBOURS; i++) {
+      NeighbourInfo* neighbour = &neighbours[i];
+      if(memcmp(neighbour->id.pub_key, pubkey, key_len) == 0){
+        neighbours[i] = NeighbourInfo(); // clear neighbour entry
+      }
+    }
+#endif
+  }
+
+  mesh::LocalIdentity& getSelfId() override { return self_id; }
 
   void clearStats() override {
     radio_driver.resetStats();
@@ -778,7 +793,7 @@ void halt() {
   while (1) ;
 }
 
-static char command[80];
+static char command[160];
 
 void setup() {
   Serial.begin(115200);

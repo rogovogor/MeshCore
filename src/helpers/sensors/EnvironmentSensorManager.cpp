@@ -35,6 +35,12 @@ static Adafruit_BMP280 BMP280;
 static Adafruit_SHTC3 SHTC3;
 #endif
 
+#if ENV_INCLUDE_SHT4X
+#define TELEM_SHT4X_ADDRESS 0x44  //0x44 - 0x46
+#include <SensirionI2cSht4x.h>
+static SensirionI2cSht4x SHT4X;
+#endif
+
 #if ENV_INCLUDE_LPS22HB
 #include <Arduino_LPS22HB.h>
 #endif
@@ -51,6 +57,20 @@ static Adafruit_INA3221 INA3221;
 #define TELEM_INA219_ADDRESS    0x40      // INA219 single channel current sensor I2C address
 #include <Adafruit_INA219.h>
 static Adafruit_INA219 INA219(TELEM_INA219_ADDRESS);
+#endif
+
+#if ENV_INCLUDE_INA260
+#define TELEM_INA260_ADDRESS    0x41      // INA260 single channel current sensor I2C address
+#include <Adafruit_INA260.h>
+static Adafruit_INA260 INA260;
+#endif
+
+#if ENV_INCLUDE_INA226
+#define TELEM_INA226_ADDRESS    0x44 
+#define TELEM_INA226_SHUNT_VALUE 0.100 
+#define TELEM_INA226_MAX_AMP 0.8
+#include <INA226.h>
+static INA226 INA226(TELEM_INA226_ADDRESS);
 #endif
 
 #if ENV_INCLUDE_MLX90614
@@ -130,6 +150,21 @@ bool EnvironmentSensorManager::begin() {
   }
   #endif
 
+
+  #if ENV_INCLUDE_SHT4X
+  SHT4X.begin(*TELEM_WIRE, TELEM_SHT4X_ADDRESS);
+  uint32_t serialNumber = 0;
+  int16_t sht4x_error;
+  sht4x_error = SHT4X.serialNumber(serialNumber);
+  if (sht4x_error == 0) {
+    MESH_DEBUG_PRINTLN("Found SHT4X at address: %02X", TELEM_SHT4X_ADDRESS);
+    SHT4X_initialized = true;
+  } else {
+    SHT4X_initialized = false;
+    MESH_DEBUG_PRINTLN("SHT4X was not found at I2C address %02X", TELEM_SHT4X_ADDRESS);
+  }
+  #endif
+
   #if ENV_INCLUDE_LPS22HB
   if (BARO.begin()) {
     MESH_DEBUG_PRINTLN("Found sensor: LPS22HB");
@@ -162,6 +197,27 @@ bool EnvironmentSensorManager::begin() {
   } else {
     INA219_initialized = false;
     MESH_DEBUG_PRINTLN("INA219 was not found at I2C address %02X", TELEM_INA219_ADDRESS);
+  }
+  #endif
+
+  #if ENV_INCLUDE_INA260
+  if (INA260.begin(TELEM_INA260_ADDRESS, TELEM_WIRE)) {
+    MESH_DEBUG_PRINTLN("Found INA260 at address: %02X", TELEM_INA260_ADDRESS);
+    INA260_initialized = true;
+  } else {
+    INA260_initialized = false;
+    MESH_DEBUG_PRINTLN("INA260 was not found at I2C address %02X", TELEM_INA219_ADDRESS);
+  }
+  #endif
+
+  #if ENV_INCLUDE_INA226
+  if (INA226.begin()) {
+    MESH_DEBUG_PRINTLN("Found INA226 at address: %02X", TELEM_INA226_ADDRESS);
+    INA226.setMaxCurrentShunt(TELEM_INA226_MAX_AMP, TELEM_INA226_SHUNT_VALUE);
+    INA226_initialized = true;
+  } else {
+    INA226_initialized = false;
+    MESH_DEBUG_PRINTLN("INA226 was not found at I2C address %02X", TELEM_INA226_ADDRESS);
   }
   #endif
 
@@ -219,7 +275,7 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
     if (BMP280_initialized) {
       telemetry.addTemperature(TELEM_CHANNEL_SELF, BMP280.readTemperature());
       telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BMP280.readPressure()/100);
-      telemetry.addAltitude(TELEM_CHANNEL_SELF, BME280.readAltitude(TELEM_BME280_SEALEVELPRESSURE_HPA));
+      telemetry.addAltitude(TELEM_CHANNEL_SELF, BMP280.readAltitude(TELEM_BMP280_SEALEVELPRESSURE_HPA));
     }
     #endif
 
@@ -230,6 +286,18 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
 
       telemetry.addTemperature(TELEM_CHANNEL_SELF, temp.temperature);
       telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, humidity.relative_humidity);
+    }
+    #endif
+
+    #if ENV_INCLUDE_SHT4X
+    if (SHT4X_initialized) {
+      float sht4x_humidity, sht4x_temperature;
+      int16_t sht4x_error;
+      sht4x_error = SHT4X.measureLowestPrecision(sht4x_temperature, sht4x_humidity);
+      if (sht4x_error == 0) {
+        telemetry.addTemperature(TELEM_CHANNEL_SELF, sht4x_temperature);
+        telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, sht4x_humidity);
+      }
     }
     #endif
 
@@ -261,6 +329,24 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
       telemetry.addVoltage(next_available_channel, INA219.getBusVoltage_V());
       telemetry.addCurrent(next_available_channel, INA219.getCurrent_mA() / 1000);
       telemetry.addPower(next_available_channel, INA219.getPower_mW() / 1000);
+      next_available_channel++;
+    }
+    #endif
+
+    #if ENV_INCLUDE_INA260
+    if (INA260_initialized) {
+      telemetry.addVoltage(next_available_channel, INA260.readBusVoltage() / 1000);
+      telemetry.addCurrent(next_available_channel, INA260.readCurrent() / 1000);
+      telemetry.addPower(next_available_channel, INA260.readPower() / 1000);
+      next_available_channel++;
+    }
+    #endif
+
+    #if ENV_INCLUDE_INA226
+    if (INA226_initialized) {
+      telemetry.addVoltage(next_available_channel, INA226.getBusVoltage());
+      telemetry.addCurrent(next_available_channel, INA226.getCurrent_mA() / 1000.0);
+      telemetry.addPower(next_available_channel, INA226.getPower_mW() / 1000.0);
       next_available_channel++;
     }
     #endif
