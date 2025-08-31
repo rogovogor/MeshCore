@@ -613,6 +613,23 @@ void SensorMesh::getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) {
   }
 }
 
+void SensorMesh::sendAckTo(const ContactInfo& dest, uint32_t ack_hash) {
+  if (dest.out_path_len < 0) {
+    mesh::Packet* ack = createAck(ack_hash);
+    if (ack) sendFlood(ack, TXT_ACK_DELAY);
+  } else {
+    uint32_t d = TXT_ACK_DELAY;
+    if (getExtraAckTransmitCount() > 0) {
+      mesh::Packet* a1 = createMultiAck(ack_hash, 1);
+      if (a1) sendDirect(a1, dest.out_path, dest.out_path_len, d);
+      d += 300;
+    }
+
+    mesh::Packet* a2 = createAck(ack_hash);
+    if (a2) sendDirect(a2, dest.out_path, dest.out_path_len, d);
+  }
+}
+
 void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) {
   int i = matching_peer_indexes[sender_idx];
   if (i < 0 || i >= num_contacts) {
@@ -656,43 +673,69 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
     memcpy(&sender_timestamp, data, 4);  // timestamp (by sender's RTC clock - which could be wrong)
     uint flags = (data[4] >> 2);   // message attempt number, and other flags
 
-    if (!(flags == TXT_TYPE_CLI_DATA)) {
-      MESH_DEBUG_PRINTLN("onPeerDataRecv: unsupported text type received: flags=%02x", (uint32_t)flags);
-    } else if (sender_timestamp > from.last_timestamp) {  // prevent replay attacks
-      from.last_timestamp = sender_timestamp;
-      from.last_activity = getRTCClock()->getCurrentTime();
+    if (sender_timestamp > from.last_timestamp) {  // prevent replay attacks
+      if (flags == TXT_TYPE_PLAIN) {
+        bool handled = handleIncomingMsg(from, sender_timestamp, &data[5], flags, len - 5);
+        if (handled) { // if msg was handled then send an ack
+          uint32_t ack_hash;    // calc truncated hash of the message timestamp + text + sender pub_key, to prove to sender that we got it
+          mesh::Utils::sha256((uint8_t *) &ack_hash, 4, data, 5 + strlen((char *)&data[5]), from.id.pub_key, PUB_KEY_SIZE);
 
-      // len can be > original length, but 'text' will be padded with zeroes
-      data[len] = 0; // need to make a C string again, with null terminator
-
-      uint8_t temp[166];
-      char *command = (char *) &data[5];
-      char *reply = (char *) &temp[5];
-      handleCommand(sender_timestamp, command, reply);
-
-      int text_len = strlen(reply);
-      if (text_len > 0) {
-        uint32_t timestamp = getRTCClock()->getCurrentTimeUnique();
-        if (timestamp == sender_timestamp) {
-          // WORKAROUND: the two timestamps need to be different, in the CLI view
-          timestamp++;
-        }
-        memcpy(temp, &timestamp, 4);   // mostly an extra blob to help make packet_hash unique
-        temp[4] = (TXT_TYPE_CLI_DATA << 2);
-
-        auto reply = createDatagram(PAYLOAD_TYPE_TXT_MSG, from.id, secret, temp, 5 + text_len);
-        if (reply) {
-          if (from.out_path_len < 0) {
-            sendFlood(reply, CLI_REPLY_DELAY_MILLIS);
+          if (packet->isRouteFlood()) {
+            // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
+            mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
+                                                    PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
+            if (path) sendFlood(path, TXT_ACK_DELAY);
           } else {
-            sendDirect(reply, from.out_path, from.out_path_len, CLI_REPLY_DELAY_MILLIS);
+            sendAckTo(from, ack_hash);
+          }          
+        }
+      } else if (flags == TXT_TYPE_CLI_DATA) {  
+        from.last_timestamp = sender_timestamp;
+        from.last_activity = getRTCClock()->getCurrentTime();
+
+        // len can be > original length, but 'text' will be padded with zeroes
+        data[len] = 0; // need to make a C string again, with null terminator
+
+        uint8_t temp[166];
+        char *command = (char *) &data[5];
+        char *reply = (char *) &temp[5];
+        handleCommand(sender_timestamp, command, reply);
+
+        int text_len = strlen(reply);
+        if (text_len > 0) {
+          uint32_t timestamp = getRTCClock()->getCurrentTimeUnique();
+          if (timestamp == sender_timestamp) {
+            // WORKAROUND: the two timestamps need to be different, in the CLI view
+            timestamp++;
+          }
+          memcpy(temp, &timestamp, 4);   // mostly an extra blob to help make packet_hash unique
+          temp[4] = (TXT_TYPE_CLI_DATA << 2);
+
+          auto reply = createDatagram(PAYLOAD_TYPE_TXT_MSG, from.id, secret, temp, 5 + text_len);
+          if (reply) {
+            if (from.out_path_len < 0) {
+              sendFlood(reply, CLI_REPLY_DELAY_MILLIS);
+            } else {
+              sendDirect(reply, from.out_path, from.out_path_len, CLI_REPLY_DELAY_MILLIS);
+            }
           }
         }
+      } else {
+        MESH_DEBUG_PRINTLN("onPeerDataRecv: unsupported text type received: flags=%02x", (uint32_t)flags);
       }
     } else {
       MESH_DEBUG_PRINTLN("onPeerDataRecv: possible replay attack detected");
     }
   }
+}
+
+bool SensorMesh::handleIncomingMsg(ContactInfo& from, uint32_t timestamp, uint8_t* data, uint flags, size_t len) {
+  MESH_DEBUG_PRINT("handleIncomingMsg: unhandled msg from ");
+  #ifdef MESH_DEBUG
+  mesh::Utils::printHex(Serial, from.id.pub_key, PUB_KEY_SIZE);
+  Serial.printf(": %s\n", data);
+  #endif
+  return false;
 }
 
 bool SensorMesh::onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
