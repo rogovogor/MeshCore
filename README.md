@@ -94,6 +94,7 @@ Here are some general principals you should try to adhere to:
 
 There are a number of fairly major feature features in the pipeline, with no particular time-frames attached yet. In very rough chronological order:
 - [X] Companion radio: UI redesign
+- [ ] Core + Repeater: enhanced zero-hop neighbour discovery
 - [ ] Core: round-trip manual path support
 - [ ] Companion + Apps: support for multiple sub-meshes (and 'off-grid' client repeat mode)
 - [ ] Core: new framework for hosting multiple virtual nodes on one physical device
