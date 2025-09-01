@@ -305,7 +305,9 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         uint8_t prv_key[PRV_KEY_SIZE];
         bool success = mesh::Utils::fromHex(prv_key, PRV_KEY_SIZE, &config[8]);
         if (success) {
-          _callbacks->getSelfId().readFrom(prv_key, PRV_KEY_SIZE);
+          mesh::LocalIdentity new_id;
+          new_id.readFrom(prv_key, PRV_KEY_SIZE);
+          _callbacks->saveIdentity(new_id);
           strcpy(reply, "OK");
         } else {
           strcpy(reply, "Error, invalid key");

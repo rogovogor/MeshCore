@@ -89,6 +89,7 @@ public:
     strcpy(reply, "not supported");
   }
   mesh::LocalIdentity& getSelfId() override { return self_id; }
+  void saveIdentity(const mesh::LocalIdentity& new_id) override;
   void clearStats() override { }
   void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override;
 
