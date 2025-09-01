@@ -90,6 +90,15 @@ Here are some general principals you should try to adhere to:
 * No dynamic memory allocation, except during setup/begin functions.
 * Use the same brace and indenting style that's in the core source modules. (A .clang-format is prob going to be added soon, but please do NOT retroactively re-format existing code. This just creates unnecessary diffs that make finding problems harder)
 
+## Road-Map / To-Do
+
+There are a number of fairly major feature features in the pipeline, with no particular time-frames attached yet. In very rough chronological order:
+- [X] Companion radio: UI redesign
+- [ ] Core: round-trip manual path support
+- [ ] Companion + Apps: support for multiple sub-meshes (and 'off-grid' client repeat mode)
+- [ ] Core: new framework for hosting multiple virtual nodes on one physical device
+- [ ] V2 protocol spec: discussion and concensus around V2 packet protocol, including path hashes, new encryption specs, etc
+
 ## 📞 Get Support
 
 - Report bugs and request features on the [GitHub Issues](https://github.com/ripplebiz/MeshCore/issues) page.
