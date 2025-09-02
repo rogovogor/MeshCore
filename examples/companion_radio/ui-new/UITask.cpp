@@ -495,6 +495,10 @@ void UITask::loop() {
     c = checkDisplayOn(KEY_SELECT);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_ENTER);
+  } else if (ev == BUTTON_EVENT_DOUBLE_CLICK) {
+    c = handleDoubleClick(KEY_ENTER);
+  } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
+    c = handleTripleClick(KEY_ENTER);
   }
 #endif
 #if defined(WIO_TRACKER_L1)
@@ -604,10 +608,43 @@ char UITask::handleLongPress(char c) {
   return c;
 }
 
-/*
-void UITask::handleButtonTriplePress() {
-  MESH_DEBUG_PRINTLN("UITask: triple press triggered");
-  // Toggle buzzer quiet mode
+char UITask::handleDoubleClick(char c) {
+  MESH_DEBUG_PRINTLN("UITask: double click triggered");
+  c = 0;
+  return c;
+}
+
+char UITask::handleTripleClick(char c) {
+  MESH_DEBUG_PRINTLN("UITask: triple click triggered");
+  toggleBuzzer();
+  c = 0;
+  return c;
+}
+
+void UITask::toggleGPS() {
+    if (_sensors != NULL) {
+    // toggle GPS on/off
+    int num = _sensors->getNumSettings();
+    for (int i = 0; i < num; i++) {
+      if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
+        if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
+          _sensors->setSettingValue("gps", "0");
+          soundBuzzer(UIEventType::ack);
+          showAlert("GPS: Disabled", 600);
+        } else {
+          _sensors->setSettingValue("gps", "1");
+          soundBuzzer(UIEventType::ack);
+          showAlert("GPS: Enabled", 600);
+        }
+        _next_refresh = 0;
+        break;
+      }
+    }
+  }
+}
+
+void UITask::toggleBuzzer() {
+    // Toggle buzzer quiet mode
   #ifdef PIN_BUZZER
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
@@ -620,4 +657,3 @@ void UITask::handleButtonTriplePress() {
     _next_refresh = 0;  // trigger refresh
   #endif
 }
-*/
