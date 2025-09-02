@@ -818,6 +818,7 @@ void setup() {
 #ifdef DISPLAY_CLASS
   if (display.begin()) {
     display.startFrame();
+    display.setCursor(0, 0);
     display.print("Please wait...");
     display.endFrame();
   }
