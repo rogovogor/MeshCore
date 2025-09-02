@@ -19,6 +19,7 @@ bool GxEPDDisplay::begin() {
   display.fillScreen(GxEPD_WHITE);
   display.display(true);
   #if DISP_BACKLIGHT
+  digitalWrite(DISP_BACKLIGHT, LOW);
   pinMode(DISP_BACKLIGHT, OUTPUT);
   #endif
   _init = true;
@@ -27,14 +28,14 @@ bool GxEPDDisplay::begin() {
 
 void GxEPDDisplay::turnOn() {
   if (!_init) begin();
-#if DISP_BACKLIGHT
+#if defined(DISP_BACKLIGHT) && !defined(BACLIGHT_BTN)
   digitalWrite(DISP_BACKLIGHT, HIGH);
 #endif
   _isOn = true;
 }
 
 void GxEPDDisplay::turnOff() {
-#if DISP_BACKLIGHT
+#if defined(DISP_BACKLIGHT) && !defined(BACKLIGHT_BTN)
   digitalWrite(DISP_BACKLIGHT, LOW);
 #endif
   _isOn = false;

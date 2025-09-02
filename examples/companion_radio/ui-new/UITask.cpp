@@ -519,6 +519,14 @@ void UITask::loop() {
     c = handleLongPress(KEY_ENTER);
   }
 #endif
+#if defined(DISP_BACKLIGHT) && defined(BACKLIGHT_BTN)
+  static int next_btn_check = 0;
+  if (millis() > next_btn_check) {
+    bool touch_state = digitalRead(PIN_BUTTON2);
+    digitalWrite(DISP_BACKLIGHT, !touch_state);
+    next_btn_check = millis() + 300;
+  }
+#endif
 
   if (c != 0 && curr) {
     curr->handleInput(c);
