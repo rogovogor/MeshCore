@@ -610,12 +610,14 @@ char UITask::handleLongPress(char c) {
 
 char UITask::handleDoubleClick(char c) {
   MESH_DEBUG_PRINTLN("UITask: double click triggered");
+  checkDisplayOn(c);
   c = 0;
   return c;
 }
 
 char UITask::handleTripleClick(char c) {
   MESH_DEBUG_PRINTLN("UITask: triple click triggered");
+  checkDisplayOn(c);
   toggleBuzzer();
   c = 0;
   return c;
