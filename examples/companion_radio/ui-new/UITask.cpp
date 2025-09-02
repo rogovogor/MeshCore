@@ -354,6 +354,9 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
 #if defined(PIN_USER_BTN)
   user_btn.begin();
 #endif
+#if defined(PIN_USER_BTN_ANA)
+  analog_btn.begin();
+#endif
 
   _node_prefs = node_prefs;
   if (_display != NULL) {
@@ -506,6 +509,14 @@ void UITask::loop() {
     c = checkDisplayOn(KEY_RIGHT);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_RIGHT);
+  }
+#endif
+#if defined(PIN_USER_BTN_ANA)
+  ev = analog_btn.check();
+  if (ev == BUTTON_EVENT_CLICK) {
+    c = checkDisplayOn(KEY_SELECT);
+  } else if (ev == BUTTON_EVENT_LONG_PRESS) {
+    c = handleLongPress(KEY_ENTER);
   }
 #endif
 
