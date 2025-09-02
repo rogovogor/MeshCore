@@ -5,15 +5,6 @@
 #include <helpers/ESP32Board.h>
 #include <driver/rtc_io.h>
 
-// LoRa radio module pins for heltec_vision_master_e290 
-#define  P_LORA_DIO_1   14
-#define  P_LORA_NSS      8
-#define  P_LORA_RESET   12
-#define  P_LORA_BUSY    13
-#define  P_LORA_SCLK     9
-#define  P_LORA_MISO    11
-#define  P_LORA_MOSI    10
-
 class HeltecT190Board : public ESP32Board {
 
 public:
