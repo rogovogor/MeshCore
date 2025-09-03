@@ -3,7 +3,9 @@
 #include "../MyMesh.h"
 #include "target.h"
 
-#define AUTO_OFF_MILLIS     15000   // 15 seconds
+#ifndef AUTO_OFF_MILLIS
+  #define AUTO_OFF_MILLIS     15000   // 15 seconds
+#endif
 #define BOOT_SCREEN_MILLIS   3000   // 3 seconds
 
 #ifdef PIN_STATUS_LED
@@ -321,7 +323,11 @@ public:
     display.setColor(DisplayDriver::LIGHT);
     display.printWordWrap(p->msg, display.width());
 
+#if AUTO_OFF_MILLIS==0 // probably e-ink
+    return 10000; // 10 s
+#else
     return 1000;  // next render after 1000 ms
+#endif
   }
 
   bool handleInput(char c) override {
@@ -556,9 +562,11 @@ void UITask::loop() {
       }
       _display->endFrame();
     }
+#if AUTO_OFF_MILLIS > 0
     if (millis() > _auto_off) {
       _display->turnOff();
     }
+#endif
   }
 
 #ifdef AUTO_SHUTDOWN_MILLIVOLTS
