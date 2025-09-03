@@ -223,11 +223,11 @@ public:
   }
 
   bool handleInput(char c) override {
-    if (c == KEY_LEFT) {
+    if (c == KEY_LEFT || c == KEY_PREV) {
       _page = (_page + HomePage::Count - 1) % HomePage::Count;
       return true;
     }
-    if (c == KEY_RIGHT || c == KEY_SELECT) {
+    if (c == KEY_NEXT || c == KEY_RIGHT) {
       _page = (_page + 1) % HomePage::Count;
       if (_page == HomePage::RECENT) {
         _task->showAlert("Recent adverts", 800);
@@ -325,7 +325,7 @@ public:
   }
 
   bool handleInput(char c) override {
-    if (c == KEY_SELECT || c == KEY_RIGHT) {
+    if (c == KEY_NEXT || c == KEY_RIGHT) {
       num_unread--;
       if (num_unread == 0) {
         _task->gotoHomeScreen();
@@ -492,13 +492,13 @@ void UITask::loop() {
 #if defined(PIN_USER_BTN)
   int ev = user_btn.check();
   if (ev == BUTTON_EVENT_CLICK) {
-    c = checkDisplayOn(KEY_SELECT);
+    c = checkDisplayOn(KEY_NEXT);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_ENTER);
   } else if (ev == BUTTON_EVENT_DOUBLE_CLICK) {
-    c = handleDoubleClick(KEY_ENTER);
+    c = handleDoubleClick(KEY_PREV);
   } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
-    c = handleTripleClick(KEY_ENTER);
+    c = handleTripleClick(KEY_SELECT);
   }
 #endif
 #if defined(WIO_TRACKER_L1)
@@ -518,9 +518,13 @@ void UITask::loop() {
 #if defined(PIN_USER_BTN_ANA)
   ev = analog_btn.check();
   if (ev == BUTTON_EVENT_CLICK) {
-    c = checkDisplayOn(KEY_SELECT);
+    c = checkDisplayOn(KEY_NEXT);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_ENTER);
+  } else if (ev == BUTTON_EVENT_DOUBLE_CLICK) {
+    c = handleDoubleClick(KEY_PREV);
+  } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
+    c = handleTripleClick(KEY_SELECT);
   }
 #endif
 
@@ -611,7 +615,6 @@ char UITask::handleLongPress(char c) {
 char UITask::handleDoubleClick(char c) {
   MESH_DEBUG_PRINTLN("UITask: double click triggered");
   checkDisplayOn(c);
-  c = 0;
   return c;
 }
 
