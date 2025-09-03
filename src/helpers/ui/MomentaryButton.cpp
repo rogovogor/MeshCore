@@ -11,7 +11,7 @@ MomentaryButton::MomentaryButton(int8_t pin, int long_press_millis, bool reverse
   _threshold = 0;
   _click_count = 0;
   _last_click_time = 0;
-  _multi_click_window = 500;
+  _multi_click_window = 260;
   _pending_click = false;
 }
 
@@ -26,7 +26,7 @@ MomentaryButton::MomentaryButton(int8_t pin, int long_press_millis, int analog_t
   _threshold = analog_threshold;
   _click_count = 0;
   _last_click_time = 0;
-  _multi_click_window = 500;
+  _multi_click_window = 260;
   _pending_click = false;
 }
 
@@ -81,6 +81,9 @@ int MomentaryButton::check(bool repeat_click) {
       }
       if (event == BUTTON_EVENT_CLICK && cancel) {
         event = BUTTON_EVENT_NONE;
+        _click_count = 0;
+        _last_click_time = 0;
+        _pending_click = false;
       }
       down_at = 0;
     }
@@ -93,6 +96,9 @@ int MomentaryButton::check(bool repeat_click) {
   if (_long_millis > 0 && down_at > 0 && (unsigned long)(millis() - down_at) >= _long_millis) {
     event = BUTTON_EVENT_LONG_PRESS;
     down_at = 0;
+    _click_count = 0;
+    _last_click_time = 0;
+    _pending_click = false;
   }
   if (down_at > 0 && repeat_click) {
     unsigned long diff = (unsigned long)(millis() - down_at);
@@ -118,6 +124,7 @@ int MomentaryButton::check(bool repeat_click) {
         break;
     }
     _click_count = 0;
+    _last_click_time = 0;
     _pending_click = false;
   }
 
