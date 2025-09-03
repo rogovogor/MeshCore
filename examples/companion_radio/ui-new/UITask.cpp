@@ -632,11 +632,11 @@ void UITask::toggleGPS() {
         if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
           _sensors->setSettingValue("gps", "0");
           soundBuzzer(UIEventType::ack);
-          showAlert("GPS: Disabled", 600);
+          showAlert("GPS: Disabled", 800);
         } else {
           _sensors->setSettingValue("gps", "1");
           soundBuzzer(UIEventType::ack);
-          showAlert("GPS: Enabled", 600);
+          showAlert("GPS: Enabled", 800);
         }
         _next_refresh = 0;
         break;
@@ -651,10 +651,10 @@ void UITask::toggleBuzzer() {
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
       soundBuzzer(UIEventType::ack);
-      showAlert("Buzzer: ON", 600);
+      showAlert("Buzzer: ON", 800);
     } else {
       buzzer.quiet(true);
-      showAlert("Buzzer: OFF", 600);
+      showAlert("Buzzer: OFF", 800);
     }
     _next_refresh = 0;  // trigger refresh
   #endif
