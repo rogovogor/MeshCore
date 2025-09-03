@@ -3,19 +3,6 @@
 #include <MeshCore.h>
 #include <Arduino.h>
 
-// LoRa radio module pins for Elecrow ThinkNode M1
-#define  P_LORA_DIO_1     20
-#define  P_LORA_NSS       24
-#define  P_LORA_RESET     25
-#define  P_LORA_BUSY      17
-#define  P_LORA_SCLK      19
-#define  P_LORA_MISO      23
-#define  P_LORA_MOSI      22
-#define  SX126X_POWER_EN  37
-
-#define SX126X_DIO2_AS_RF_SWITCH  true
-#define SX126X_DIO3_TCXO_VOLTAGE   1.8
-
 // built-ins
 #define VBAT_MV_PER_LSB   (0.73242188F)   // 3.0V ADC range and 12-bit ADC resolution = 3000mV/4096
 

@@ -1,10 +1,10 @@
-#include <Arduino.h>
 #include "ThinkNodeM1Board.h"
+#include <Arduino.h>
 
 #ifdef THINKNODE_M1
 
-#include <bluefruit.h>
 #include <Wire.h>
+#include <bluefruit.h>
 
 static BLEDfu bledfu;
 
@@ -26,14 +26,14 @@ void ThinkNodeM1Board::begin() {
 
   Wire.begin();
 
-  #ifdef P_LORA_TX_LED
-    pinMode(P_LORA_TX_LED, OUTPUT);
-    digitalWrite(P_LORA_TX_LED, LOW);
-  #endif
+#ifdef P_LORA_TX_LED
+  pinMode(P_LORA_TX_LED, OUTPUT);
+  digitalWrite(P_LORA_TX_LED, LOW);
+#endif
 
   pinMode(SX126X_POWER_EN, OUTPUT);
   digitalWrite(SX126X_POWER_EN, HIGH);
-  delay(10);   // give sx1262 some time to power up
+  delay(10); // give sx1262 some time to power up
 }
 
 uint16_t ThinkNodeM1Board::getBattMilliVolts() {
@@ -50,7 +50,7 @@ uint16_t ThinkNodeM1Board::getBattMilliVolts() {
   return (uint16_t)((float)adcvalue * REAL_VBAT_MV_PER_LSB);
 }
 
-bool ThinkNodeM1Board::startOTAUpdate(const char* id, char reply[]) {
+bool ThinkNodeM1Board::startOTAUpdate(const char *id, char reply[]) {
   // Config the peripheral connection with maximum bandwidth
   // more SRAM required by SoftDevice
   // Note: All config***() function must be called before begin()
