@@ -29,17 +29,5 @@ void radio_set_params(float freq, float bw, uint8_t sf, uint8_t cr);
 void radio_set_tx_power(uint8_t dbm);
 mesh::LocalIdentity radio_new_identity();
 
-class MeshPocketSensorManager : public SensorManager {
-public:
-  MeshPocketSensorManager() {};
-  bool begin() override;
-  bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry);
-  void loop();
-  int getNumSettings() const override;
-  const char* getSettingName(int i) const override;
-  const char* getSettingValue(int i) const override;
-  bool setSettingValue(const char* name, const char* value) override;
-};
-
-extern MeshPocketSensorManager sensors;
+extern SensorManager sensors;
 

@@ -94,7 +94,7 @@ void GxEPDDisplay::fillRect(int x, int y, int w, int h) {
   display_crc.update<int>(y);
   display_crc.update<int>(w);
   display_crc.update<int>(h);
-  display.fillRect(x*SCALE_X, y*SCALE_Y, w*SCALE_X, h*SCALE_Y, _curr_color);
+  display.fillRect(x*scale_x, y*scale_y, w*scale_x, h*scale_y, _curr_color);
 }
 
 void GxEPDDisplay::drawRect(int x, int y, int w, int h) {
@@ -102,7 +102,7 @@ void GxEPDDisplay::drawRect(int x, int y, int w, int h) {
   display_crc.update<int>(y);
   display_crc.update<int>(w);
   display_crc.update<int>(h);
-  display.drawRect(x*SCALE_X, y*SCALE_Y, w*SCALE_X, h*SCALE_Y, _curr_color);
+  display.drawRect(x*scale_x, y*scale_y, w*scale_x, h*scale_y, _curr_color);
 }
 
 void GxEPDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
