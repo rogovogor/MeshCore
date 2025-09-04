@@ -1,19 +1,17 @@
-#include <Arduino.h>
 #include "T114Board.h"
 
-#include <bluefruit.h>
+#include <Arduino.h>
 #include <Wire.h>
+#include <bluefruit.h>
 
 static BLEDfu bledfu;
 
-static void connect_callback(uint16_t conn_handle)
-{
+static void connect_callback(uint16_t conn_handle) {
   (void)conn_handle;
   MESH_DEBUG_PRINTLN("BLE client connected");
 }
 
-static void disconnect_callback(uint16_t conn_handle, uint8_t reason)
-{
+static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
   (void)conn_handle;
   (void)reason;
 
@@ -60,7 +58,7 @@ void T114Board::begin() {
 
   // Disable unused analog peripherals
   // SAADC channels - only keep what's needed for battery monitoring
-  NRF_SAADC->ENABLE = 0;  // Re-enable only when needed for measurements
+  NRF_SAADC->ENABLE = 0; // Re-enable only when needed for measurements
 
   // COMP - Comparator not used
   NRF_COMP->ENABLE = 0;
@@ -78,10 +76,10 @@ void T114Board::begin() {
 
   pinMode(SX126X_POWER_EN, OUTPUT);
   digitalWrite(SX126X_POWER_EN, HIGH);
-  delay(10);   // give sx1262 some time to power up
+  delay(10); // give sx1262 some time to power up
 }
 
-bool T114Board::startOTAUpdate(const char* id, char reply[]) {
+bool T114Board::startOTAUpdate(const char *id, char reply[]) {
   // Config the peripheral connection with maximum bandwidth
   // more SRAM required by SoftDevice
   // Note: All config***() function must be called before begin()
