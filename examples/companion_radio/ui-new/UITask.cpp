@@ -3,7 +3,9 @@
 #include "../MyMesh.h"
 #include "target.h"
 
-#define AUTO_OFF_MILLIS     15000   // 15 seconds
+#ifndef AUTO_OFF_MILLIS
+  #define AUTO_OFF_MILLIS     15000   // 15 seconds
+#endif
 #define BOOT_SCREEN_MILLIS   3000   // 3 seconds
 
 #ifdef PIN_STATUS_LED
@@ -223,11 +225,11 @@ public:
   }
 
   bool handleInput(char c) override {
-    if (c == KEY_LEFT) {
+    if (c == KEY_LEFT || c == KEY_PREV) {
       _page = (_page + HomePage::Count - 1) % HomePage::Count;
       return true;
     }
-    if (c == KEY_RIGHT || c == KEY_SELECT) {
+    if (c == KEY_NEXT || c == KEY_RIGHT) {
       _page = (_page + 1) % HomePage::Count;
       if (_page == HomePage::RECENT) {
         _task->showAlert("Recent adverts", 800);
@@ -321,11 +323,15 @@ public:
     display.setColor(DisplayDriver::LIGHT);
     display.printWordWrap(p->msg, display.width());
 
+#if AUTO_OFF_MILLIS==0 // probably e-ink
+    return 10000; // 10 s
+#else
     return 1000;  // next render after 1000 ms
+#endif
   }
 
   bool handleInput(char c) override {
-    if (c == KEY_SELECT || c == KEY_RIGHT) {
+    if (c == KEY_NEXT || c == KEY_RIGHT) {
       num_unread--;
       if (num_unread == 0) {
         _task->gotoHomeScreen();
@@ -419,38 +425,34 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   if (_display != NULL) {
     if (!_display->isOn()) _display->turnOn();
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
-    _next_refresh = 0;  // trigger refresh
+    _next_refresh = 100;  // trigger refresh
   }
 }
 
 void UITask::userLedHandler() {
 #ifdef PIN_STATUS_LED
-  static int state = 0;
-  static int next_change = 0;
-  static int last_increment = 0;
-
   int cur_time = millis();
-  if (cur_time > next_change) {
-    if (state == 0) {
-      state = 1;
+  if (cur_time > next_led_change) {
+    if (led_state == 0) {
+      led_state = 1;
       if (_msgcount > 0) {
-        last_increment = LED_ON_MSG_MILLIS;
+        last_led_increment = LED_ON_MSG_MILLIS;
       } else {
-        last_increment = LED_ON_MILLIS;
+        last_led_increment = LED_ON_MILLIS;
       }
-      next_change = cur_time + last_increment;
+      next_led_change = cur_time + last_led_increment;
     } else {
-      state = 0;
-      next_change = cur_time + LED_CYCLE_MILLIS - last_increment;
+      led_state = 0;
+      next_led_change = cur_time + LED_CYCLE_MILLIS - last_led_increment;
     }
-    digitalWrite(PIN_STATUS_LED, state);
+    digitalWrite(PIN_STATUS_LED, led_state);
   }
 #endif
 }
 
 void UITask::setCurrScreen(UIScreen* c) {
   curr = c;
-  _next_refresh = 0;
+  _next_refresh = 100;
 }
 
 /* 
@@ -492,9 +494,13 @@ void UITask::loop() {
 #if defined(PIN_USER_BTN)
   int ev = user_btn.check();
   if (ev == BUTTON_EVENT_CLICK) {
-    c = checkDisplayOn(KEY_SELECT);
+    c = checkDisplayOn(KEY_NEXT);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_ENTER);
+  } else if (ev == BUTTON_EVENT_DOUBLE_CLICK) {
+    c = handleDoubleClick(KEY_PREV);
+  } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
+    c = handleTripleClick(KEY_SELECT);
   }
 #endif
 #if defined(WIO_TRACKER_L1)
@@ -514,16 +520,27 @@ void UITask::loop() {
 #if defined(PIN_USER_BTN_ANA)
   ev = analog_btn.check();
   if (ev == BUTTON_EVENT_CLICK) {
-    c = checkDisplayOn(KEY_SELECT);
+    c = checkDisplayOn(KEY_NEXT);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_ENTER);
+  } else if (ev == BUTTON_EVENT_DOUBLE_CLICK) {
+    c = handleDoubleClick(KEY_PREV);
+  } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
+    c = handleTripleClick(KEY_SELECT);
+  }
+#endif
+#if defined(DISP_BACKLIGHT) && defined(BACKLIGHT_BTN)
+  if (millis() > next_backlight_btn_check) {
+    bool touch_state = digitalRead(PIN_BUTTON2);
+    digitalWrite(DISP_BACKLIGHT, !touch_state);
+    next_backlight_btn_check = millis() + 300;
   }
 #endif
 
   if (c != 0 && curr) {
     curr->handleInput(c);
     _auto_off = millis() + AUTO_OFF_MILLIS;   // extend auto-off timer
-    _next_refresh = 0;  // trigger refresh
+    _next_refresh = 100;  // trigger refresh
   }
 
   userLedHandler();
@@ -553,9 +570,11 @@ void UITask::loop() {
       }
       _display->endFrame();
     }
+#if AUTO_OFF_MILLIS > 0
     if (millis() > _auto_off) {
       _display->turnOff();
     }
+#endif
   }
 
 #ifdef AUTO_SHUTDOWN_MILLIVOLTS
@@ -604,20 +623,53 @@ char UITask::handleLongPress(char c) {
   return c;
 }
 
-/*
-void UITask::handleButtonTriplePress() {
-  MESH_DEBUG_PRINTLN("UITask: triple press triggered");
-  // Toggle buzzer quiet mode
+char UITask::handleDoubleClick(char c) {
+  MESH_DEBUG_PRINTLN("UITask: double click triggered");
+  checkDisplayOn(c);
+  return c;
+}
+
+char UITask::handleTripleClick(char c) {
+  MESH_DEBUG_PRINTLN("UITask: triple click triggered");
+  checkDisplayOn(c);
+  toggleBuzzer();
+  c = 0;
+  return c;
+}
+
+void UITask::toggleGPS() {
+    if (_sensors != NULL) {
+    // toggle GPS on/off
+    int num = _sensors->getNumSettings();
+    for (int i = 0; i < num; i++) {
+      if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
+        if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
+          _sensors->setSettingValue("gps", "0");
+          soundBuzzer(UIEventType::ack);
+          showAlert("GPS: Disabled", 800);
+        } else {
+          _sensors->setSettingValue("gps", "1");
+          soundBuzzer(UIEventType::ack);
+          showAlert("GPS: Enabled", 800);
+        }
+        _next_refresh = 0;
+        break;
+      }
+    }
+  }
+}
+
+void UITask::toggleBuzzer() {
+    // Toggle buzzer quiet mode
   #ifdef PIN_BUZZER
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
       soundBuzzer(UIEventType::ack);
-      showAlert("Buzzer: ON", 600);
+      showAlert("Buzzer: ON", 800);
     } else {
       buzzer.quiet(true);
-      showAlert("Buzzer: OFF", 600);
+      showAlert("Buzzer: OFF", 800);
     }
     _next_refresh = 0;  // trigger refresh
   #endif
 }
-*/

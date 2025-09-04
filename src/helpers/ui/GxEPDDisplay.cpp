@@ -16,6 +16,7 @@ bool GxEPDDisplay::begin() {
   display.fillScreen(GxEPD_WHITE);
   display.display(true);
   #if DISP_BACKLIGHT
+  digitalWrite(DISP_BACKLIGHT, LOW);
   pinMode(DISP_BACKLIGHT, OUTPUT);
   #endif
   _init = true;
@@ -24,14 +25,14 @@ bool GxEPDDisplay::begin() {
 
 void GxEPDDisplay::turnOn() {
   if (!_init) begin();
-#if DISP_BACKLIGHT
+#if defined(DISP_BACKLIGHT) && !defined(BACKLIGHT_BTN)
   digitalWrite(DISP_BACKLIGHT, HIGH);
 #endif
   _isOn = true;
 }
 
 void GxEPDDisplay::turnOff() {
-#if DISP_BACKLIGHT
+#if defined(DISP_BACKLIGHT) && !defined(BACKLIGHT_BTN)
   digitalWrite(DISP_BACKLIGHT, LOW);
 #endif
   _isOn = false;
@@ -40,14 +41,17 @@ void GxEPDDisplay::turnOff() {
 void GxEPDDisplay::clear() {
   display.fillScreen(GxEPD_WHITE);
   display.setTextColor(GxEPD_BLACK);
+  display_crc.reset();
 }
 
 void GxEPDDisplay::startFrame(Color bkg) {
   display.fillScreen(GxEPD_WHITE);
   display.setTextColor(_curr_color = GxEPD_BLACK);
+  display_crc.reset();
 }
 
 void GxEPDDisplay::setTextSize(int sz) {
+  display_crc.update<int>(sz);
   switch(sz) {
     case 1:  // Small
       display.setFont(&FreeSans9pt7b);
@@ -65,6 +69,7 @@ void GxEPDDisplay::setTextSize(int sz) {
 }
 
 void GxEPDDisplay::setColor(Color c) {
+  display_crc.update<Color> (c);
   // colours need to be inverted for epaper displays
   if (c == DARK) {
     display.setTextColor(_curr_color = GxEPD_WHITE);
@@ -74,22 +79,38 @@ void GxEPDDisplay::setColor(Color c) {
 }
 
 void GxEPDDisplay::setCursor(int x, int y) {
+  display_crc.update<int>(x);
+  display_crc.update<int>(y);
   display.setCursor((x+offset_x)*scale_x, (y+offset_y)*scale_y);
 }
 
 void GxEPDDisplay::print(const char* str) {
+  display_crc.update<char>(str, strlen(str));
   display.print(str);
 }
 
 void GxEPDDisplay::fillRect(int x, int y, int w, int h) {
-  display.fillRect(x*scale_x, y*scale_y, w*scale_x, h*scale_y, _curr_color);
+  display_crc.update<int>(x);
+  display_crc.update<int>(y);
+  display_crc.update<int>(w);
+  display_crc.update<int>(h);
+  display.fillRect(x*SCALE_X, y*SCALE_Y, w*SCALE_X, h*SCALE_Y, _curr_color);
 }
 
 void GxEPDDisplay::drawRect(int x, int y, int w, int h) {
-  display.drawRect(x*scale_x, y*scale_y, w*scale_x, h*scale_y, _curr_color);
+  display_crc.update<int>(x);
+  display_crc.update<int>(y);
+  display_crc.update<int>(w);
+  display_crc.update<int>(h);
+  display.drawRect(x*SCALE_X, y*SCALE_Y, w*SCALE_X, h*SCALE_Y, _curr_color);
 }
 
 void GxEPDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
+  display_crc.update<int>(x);
+  display_crc.update<int>(y);
+  display_crc.update<int>(w);
+  display_crc.update<int>(h);
+  display_crc.update<uint8_t>(bits, w * h / 8);
   // Calculate the base position in display coordinates
   uint16_t startX = x * scale_x;
   uint16_t startY = y * scale_y;
@@ -133,5 +154,9 @@ uint16_t GxEPDDisplay::getTextWidth(const char* str) {
 }
 
 void GxEPDDisplay::endFrame() {
-  display.display(true);
+  uint32_t crc = display_crc.finalize();
+  if (crc != last_display_crc_value) {
+    display.display(true);
+    last_display_crc_value = crc;
+  }
 }
