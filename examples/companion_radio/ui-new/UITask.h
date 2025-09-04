@@ -43,6 +43,8 @@ class UITask : public AbstractUITask {
   // Button action handlers
   char checkDisplayOn(char c);
   char handleLongPress(char c);
+  char handleDoubleClick(char c);
+  char handleTripleClick(char c);
 
   void setCurrScreen(UIScreen* c);
 
@@ -60,6 +62,10 @@ public:
   int  getMsgCount() const { return _msgcount; }
   bool hasDisplay() const { return _display != NULL; }
   bool isButtonPressed() const;
+
+  void toggleBuzzer();
+  void toggleGPS();
+
 
   // from AbstractUITask
   void msgRead(int msgcount) override;
