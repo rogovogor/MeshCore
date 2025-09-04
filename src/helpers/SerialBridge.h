@@ -1,6 +1,7 @@
 #pragma once
 
 #include "helpers/AbstractBridge.h"
+#include "helpers/SimpleMeshTables.h"
 #include <Stream.h>
 
 #ifdef BRIDGE_OVER_SERIAL
@@ -25,6 +26,7 @@ public:
 private:
   Stream* _serial;
   mesh::PacketManager* _mgr;
+  SimpleMeshTables _seen_packets;
 };
 
 #endif

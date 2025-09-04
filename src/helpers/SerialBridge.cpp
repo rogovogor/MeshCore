@@ -42,10 +42,12 @@ void SerialBridge::begin() {
 }
 
 void SerialBridge::onPacketTransmitted(mesh::Packet* packet) {
-  SerialPacket spkt;
-  spkt.len = packet->writeTo(spkt.payload);
-  spkt.crc = fletcher16(spkt.payload, spkt.len);
-  _serial->write((uint8_t *)&spkt, sizeof(SerialPacket));
+  if (!_seen_packets.hasSeen(packet)) {
+    SerialPacket spkt;
+    spkt.len = packet->writeTo(spkt.payload);
+    spkt.crc = fletcher16(spkt.payload, spkt.len);
+    _serial->write((uint8_t *)&spkt, sizeof(SerialPacket));
+  }
 }
 
 void SerialBridge::loop() {
@@ -92,7 +94,11 @@ void SerialBridge::onPacketReceived() {
   }
 
   new_pkt->readFrom(bytes, len);
-  _mgr->queueInbound(new_pkt, 0);
+  if (!_seen_packets.hasSeen(new_pkt)) {
+    _mgr->queueInbound(new_pkt, 0);
+  } else {
+    _mgr->free(new_pkt);
+  }
 }
 
 #endif
