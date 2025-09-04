@@ -202,8 +202,8 @@ public:
       display.print(tmp);
     } else if (_page == HomePage::BLUETOOTH) {
       display.setColor(DisplayDriver::GREEN);
-      display.drawXbm((display.width() - 32) / 2, 18, 
-          _task->isSerialEnabled() ? bluetooth_on : bluetooth_off, 
+      display.drawXbm((display.width() - 32) / 2, 18,
+          _task->isSerialEnabled() ? bluetooth_on : bluetooth_off,
           32, 32);
       display.setTextSize(1);
       display.drawTextCentered(display.width() / 2, 64 - 11, "toggle: " PRESS_LABEL);
@@ -455,8 +455,8 @@ void UITask::setCurrScreen(UIScreen* c) {
   _next_refresh = 100;
 }
 
-/* 
-  hardware-agnostic pre-shutdown activity should be done here 
+/*
+  hardware-agnostic pre-shutdown activity should be done here
 */
 void UITask::shutdown(bool restart){
 
@@ -584,7 +584,7 @@ void UITask::loop() {
 
       // show low battery shutdown alert
       // we should only do this for eink displays, which will persist after power loss
-      #ifdef THINKNODE_M1
+      #if defined(THINKNODE_M1) || defined(LILYGO_TECHO)
       if (_display != NULL) {
         _display->startFrame();
         _display->setTextSize(2);
