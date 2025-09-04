@@ -5,9 +5,6 @@
   #define DISPLAY_ROTATION 3
 #endif
 
-#define SCALE_X   1.5625f   //  200 / 128
-#define SCALE_Y   1.5625f   //  200 / 128
-
 bool GxEPDDisplay::begin() {
   display.epd2.selectSPI(SPI1, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   SPI1.begin();
@@ -84,7 +81,7 @@ void GxEPDDisplay::setColor(Color c) {
 void GxEPDDisplay::setCursor(int x, int y) {
   display_crc.update<int>(x);
   display_crc.update<int>(y);
-  display.setCursor(x*SCALE_X, (y+10)*SCALE_Y);
+  display.setCursor((x+offset_x)*scale_x, (y+offset_y)*scale_y);
 }
 
 void GxEPDDisplay::print(const char* str) {
@@ -97,7 +94,7 @@ void GxEPDDisplay::fillRect(int x, int y, int w, int h) {
   display_crc.update<int>(y);
   display_crc.update<int>(w);
   display_crc.update<int>(h);
-  display.fillRect(x*SCALE_X, y*SCALE_Y, w*SCALE_X, h*SCALE_Y, _curr_color);
+  display.fillRect(x*scale_x, y*scale_y, w*scale_x, h*scale_y, _curr_color);
 }
 
 void GxEPDDisplay::drawRect(int x, int y, int w, int h) {
@@ -105,7 +102,7 @@ void GxEPDDisplay::drawRect(int x, int y, int w, int h) {
   display_crc.update<int>(y);
   display_crc.update<int>(w);
   display_crc.update<int>(h);
-  display.drawRect(x*SCALE_X, y*SCALE_Y, w*SCALE_X, h*SCALE_Y, _curr_color);
+  display.drawRect(x*scale_x, y*scale_y, w*scale_x, h*scale_y, _curr_color);
 }
 
 void GxEPDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
@@ -115,8 +112,8 @@ void GxEPDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
   display_crc.update<int>(h);
   display_crc.update<uint8_t>(bits, w * h / 8);
   // Calculate the base position in display coordinates
-  uint16_t startX = x * SCALE_X;
-  uint16_t startY = y * SCALE_Y;
+  uint16_t startX = x * scale_x;
+  uint16_t startY = y * scale_y;
   
   // Width in bytes for bitmap processing
   uint16_t widthInBytes = (w + 7) / 8;
@@ -124,15 +121,15 @@ void GxEPDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
   // Process the bitmap row by row
   for (uint16_t by = 0; by < h; by++) {
     // Calculate the target y-coordinates for this logical row
-    int y1 = startY + (int)(by * SCALE_Y);
-    int y2 = startY + (int)((by + 1) * SCALE_Y);
+    int y1 = startY + (int)(by * scale_y);
+    int y2 = startY + (int)((by + 1) * scale_y);
     int block_h = y2 - y1;
     
     // Scan across the row bit by bit
     for (uint16_t bx = 0; bx < w; bx++) {
       // Calculate the target x-coordinates for this logical column
-      int x1 = startX + (int)(bx * SCALE_X);
-      int x2 = startX + (int)((bx + 1) * SCALE_X);
+      int x1 = startX + (int)(bx * scale_x);
+      int x2 = startX + (int)((bx + 1) * scale_x);
       int block_w = x2 - x1;
       
       // Get the current bit
@@ -153,7 +150,7 @@ uint16_t GxEPDDisplay::getTextWidth(const char* str) {
   int16_t x1, y1;
   uint16_t w, h;
   display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
-  return ceil((w + 1) / SCALE_X);
+  return ceil((w + 1) / scale_x);
 }
 
 void GxEPDDisplay::endFrame() {
