@@ -17,6 +17,7 @@
 #define GxEPD2_DRIVER_CLASS GxEPD2_150_BN  // DEPG0150BN 200x200, SSD1681, (FPC8101), TTGO T5 V2.4.1
 
 #include <epd/GxEPD2_150_BN.h>  // 1.54" b/w
+#include <CRC32.h>
 
 #include "DisplayDriver.h"
 
@@ -29,6 +30,8 @@ class GxEPDDisplay : public DisplayDriver {
   bool _init = false;
   bool _isOn = false;
   uint16_t _curr_color;
+  CRC32 display_crc;
+  int last_display_crc_value = 0;
 
 public:
   // there is a margin in y...

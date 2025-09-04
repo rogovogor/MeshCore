@@ -3,7 +3,9 @@
 #include "../MyMesh.h"
 #include "target.h"
 
-#define AUTO_OFF_MILLIS     15000   // 15 seconds
+#ifndef AUTO_OFF_MILLIS
+  #define AUTO_OFF_MILLIS     15000   // 15 seconds
+#endif
 #define BOOT_SCREEN_MILLIS   3000   // 3 seconds
 
 #ifdef PIN_STATUS_LED
@@ -321,7 +323,11 @@ public:
     display.setColor(DisplayDriver::LIGHT);
     display.printWordWrap(p->msg, display.width());
 
+#if AUTO_OFF_MILLIS==0 // probably e-ink
+    return 10000; // 10 s
+#else
     return 1000;  // next render after 1000 ms
+#endif
   }
 
   bool handleInput(char c) override {
@@ -419,38 +425,34 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   if (_display != NULL) {
     if (!_display->isOn()) _display->turnOn();
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
-    _next_refresh = 0;  // trigger refresh
+    _next_refresh = 100;  // trigger refresh
   }
 }
 
 void UITask::userLedHandler() {
 #ifdef PIN_STATUS_LED
-  static int state = 0;
-  static int next_change = 0;
-  static int last_increment = 0;
-
   int cur_time = millis();
-  if (cur_time > next_change) {
-    if (state == 0) {
-      state = 1;
+  if (cur_time > next_led_change) {
+    if (led_state == 0) {
+      led_state = 1;
       if (_msgcount > 0) {
-        last_increment = LED_ON_MSG_MILLIS;
+        last_led_increment = LED_ON_MSG_MILLIS;
       } else {
-        last_increment = LED_ON_MILLIS;
+        last_led_increment = LED_ON_MILLIS;
       }
-      next_change = cur_time + last_increment;
+      next_led_change = cur_time + last_led_increment;
     } else {
-      state = 0;
-      next_change = cur_time + LED_CYCLE_MILLIS - last_increment;
+      led_state = 0;
+      next_led_change = cur_time + LED_CYCLE_MILLIS - last_led_increment;
     }
-    digitalWrite(PIN_STATUS_LED, state);
+    digitalWrite(PIN_STATUS_LED, led_state);
   }
 #endif
 }
 
 void UITask::setCurrScreen(UIScreen* c) {
   curr = c;
-  _next_refresh = 0;
+  _next_refresh = 100;
 }
 
 /* 
@@ -519,11 +521,18 @@ void UITask::loop() {
     c = handleLongPress(KEY_ENTER);
   }
 #endif
+#if defined(DISP_BACKLIGHT) && defined(BACKLIGHT_BTN)
+  if (millis() > next_backlight_btn_check) {
+    bool touch_state = digitalRead(PIN_BUTTON2);
+    digitalWrite(DISP_BACKLIGHT, !touch_state);
+    next_backlight_btn_check = millis() + 300;
+  }
+#endif
 
   if (c != 0 && curr) {
     curr->handleInput(c);
     _auto_off = millis() + AUTO_OFF_MILLIS;   // extend auto-off timer
-    _next_refresh = 0;  // trigger refresh
+    _next_refresh = 100;  // trigger refresh
   }
 
   userLedHandler();
@@ -553,9 +562,11 @@ void UITask::loop() {
       }
       _display->endFrame();
     }
+#if AUTO_OFF_MILLIS > 0
     if (millis() > _auto_off) {
       _display->turnOff();
     }
+#endif
   }
 
 #ifdef AUTO_SHUTDOWN_MILLIVOLTS
