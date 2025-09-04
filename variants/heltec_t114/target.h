@@ -8,9 +8,14 @@
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 #include <helpers/sensors/LocationProvider.h>
+
 #ifdef DISPLAY_CLASS
-  #include <helpers/ui/ST7789Display.h>
-  #include <helpers/ui/MomentaryButton.h>
+#include <helpers/ui/MomentaryButton.h>
+#ifdef HELTEC_T114_WITH_DISPLAY
+#include <helpers/ui/ST7789Display.h>
+#else
+#include "NullDisplayDriver.h"
+#endif
 #endif
 
 class T114SensorManager : public SensorManager {
