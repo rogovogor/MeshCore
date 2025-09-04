@@ -23,7 +23,7 @@ void HeltecT190Board::begin() {
   void HeltecT190Board::enterDeepSleep(uint32_t secs, int pin_wake_btn) {
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
 
-    // Make sure the DIO1 and NSS GPIOs are hold on required levels during deep sleep 
+    // Make sure the DIO1 and NSS GPIOs are hold on required levels during deep sleep
     rtc_gpio_set_direction((gpio_num_t)P_LORA_DIO_1, RTC_GPIO_MODE_INPUT_ONLY);
     rtc_gpio_pulldown_en((gpio_num_t)P_LORA_DIO_1);
 
@@ -44,8 +44,7 @@ void HeltecT190Board::begin() {
   }
 
   void HeltecT190Board::powerOff()  {
-    // TODO: re-enable this when there is a definite wake-up source pin:
-    //  enterDeepSleep(0);
+    enterDeepSleep(0);
   }
 
   uint16_t HeltecT190Board::getBattMilliVolts()  {
@@ -66,4 +65,3 @@ void HeltecT190Board::begin() {
   const char* HeltecT190Board::getManufacturerName() const {
     return "Heltec T190";
   }
-
