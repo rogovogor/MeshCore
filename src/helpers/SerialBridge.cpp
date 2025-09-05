@@ -1,5 +1,6 @@
 #include "SerialBridge.h"
 #include <HardwareSerial.h>
+#include <RTClib.h>
 
 #ifdef BRIDGE_OVER_SERIAL
 
@@ -16,7 +17,15 @@ inline static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
   return (sum2 << 8) | sum1;
 };
 
-SerialBridge::SerialBridge(Stream& serial, mesh::PacketManager* mgr) : _serial(&serial), _mgr(mgr) {}
+const char* SerialBridge::getLogDateTime() {
+  static char tmp[32];
+  uint32_t now = _rtc->getCurrentTime();
+  DateTime dt = DateTime(now);
+  sprintf(tmp, "%02d:%02d:%02d - %d/%d/%d U", dt.hour(), dt.minute(), dt.second(), dt.day(), dt.month(), dt.year());
+  return tmp;
+}
+
+SerialBridge::SerialBridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCClock* rtc) : _serial(&serial), _mgr(mgr), _rtc(rtc) {}
 
 void SerialBridge::begin() {
 #if defined(ESP32)
@@ -48,6 +57,10 @@ void SerialBridge::onPacketTransmitted(mesh::Packet* packet) {
     buffer[5 + len] = checksum & 0xFF;
 
     _serial->write(buffer, len + SERIAL_OVERHEAD);
+
+#if MESH_PACKET_LOGGING
+    Serial.printf("%s: BRIDGE: TX, len=%d crc=0x%04x\n", getLogDateTime(), len, checksum);
+#endif
   }
 }
 
@@ -77,6 +90,9 @@ void SerialBridge::loop() {
       if (_rx_buffer_pos == len + SERIAL_OVERHEAD) { // Full packet received
         uint16_t checksum = (_rx_buffer[4 + len] << 8) | _rx_buffer[5 + len];
         if (checksum == fletcher16(_rx_buffer + 4, len)) {
+#if MESH_PACKET_LOGGING
+          Serial.printf("%s: BRIDGE: RX, len=%d crc=0x%04x\n", getLogDateTime(), len, checksum);
+#endif
           mesh::Packet *pkt = _mgr->allocNew();
             if (pkt) {
               memcpy(pkt->payload, _rx_buffer + 4, len);

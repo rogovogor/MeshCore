@@ -16,14 +16,16 @@ public:
    * 
    * @param serial The serial port to use for the bridge.
    * @param mgr A pointer to the packet manager.
+   * @param rtc A pointer to the RTC clock.
    */
-  SerialBridge(Stream& serial, mesh::PacketManager* mgr);
+  SerialBridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCClock* rtc);
   void begin() override;
   void loop() override;
   void onPacketTransmitted(mesh::Packet* packet) override;
   void onPacketReceived(mesh::Packet* packet) override;
 
 private:
+  const char* getLogDateTime();
   /**
    * @brief The 2-byte magic word used to signify the start of a packet.
    */
@@ -50,6 +52,7 @@ private:
 
   Stream* _serial;
   mesh::PacketManager* _mgr;
+  mesh::RTCClock* _rtc;
   SimpleMeshTables _seen_packets;
   uint8_t _rx_buffer[MAX_SERIAL_PACKET_SIZE]; // Buffer for serial data
   uint16_t _rx_buffer_pos = 0;

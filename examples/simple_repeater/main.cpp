@@ -579,7 +579,7 @@ public:
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
   {
 #ifdef BRIDGE_OVER_SERIAL
-    bridge = new SerialBridge(BRIDGE_OVER_SERIAL, _mgr);
+    bridge = new SerialBridge(BRIDGE_OVER_SERIAL, _mgr, &rtc);
 #endif
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
