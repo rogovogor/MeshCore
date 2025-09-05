@@ -4,12 +4,12 @@
 #include "helpers/SimpleMeshTables.h"
 #include <Stream.h>
 
-#ifdef BRIDGE_OVER_SERIAL
+#ifdef WITH_RS232_BRIDGE
 
 /**
  * @brief A bridge implementation that uses a serial port to connect two mesh networks.
  */
-class SerialBridge : public AbstractBridge {
+class RS232Bridge : public AbstractBridge {
 public:
   /**
    * @brief Construct a new Serial Bridge object
@@ -18,7 +18,7 @@ public:
    * @param mgr A pointer to the packet manager.
    * @param rtc A pointer to the RTC clock.
    */
-  SerialBridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCClock* rtc);
+  RS232Bridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCClock* rtc);
   void begin() override;
   void loop() override;
   void onPacketTransmitted(mesh::Packet* packet) override;

@@ -78,8 +78,8 @@
 
 /* ------------------------------ Code -------------------------------- */
 
-#ifdef BRIDGE_OVER_SERIAL
-#include "helpers/SerialBridge.h"
+#ifdef WITH_RS232_BRIDGE
+#include "helpers/bridges/RS232Bridge.h"
 #endif
 
 #define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
@@ -118,7 +118,7 @@ struct ClientInfo {
   #define MAX_CLIENTS           32
 #endif
 
-#ifdef BRIDGE_OVER_SERIAL
+#ifdef WITH_RS232_BRIDGE
 AbstractBridge* bridge;
 #endif
 
@@ -308,7 +308,7 @@ protected:
     }
   }
   void logTx(mesh::Packet* pkt, int len) override {
-#ifdef BRIDGE_OVER_SERIAL
+#ifdef WITH_RS232_BRIDGE
     if (!pkt->isMarkedDoNotRetransmit()) {
       bridge->onPacketTransmitted(pkt);
     }
@@ -578,8 +578,8 @@ public:
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
   {
-#ifdef BRIDGE_OVER_SERIAL
-    bridge = new SerialBridge(BRIDGE_OVER_SERIAL, _mgr, &rtc);
+#ifdef WITH_RS232_BRIDGE
+    bridge = new RS232Bridge(WITH_RS232_BRIDGE, _mgr, &rtc);
 #endif
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
@@ -781,7 +781,7 @@ public:
   }
 
   void loop() {
-#ifdef BRIDGE_OVER_SERIAL
+#ifdef WITH_RS232_BRIDGE
     bridge->loop();
 #endif
 
@@ -833,7 +833,7 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-#ifdef BRIDGE_OVER_SERIAL
+#ifdef WITH_RS232_BRIDGE
   bridge->begin();
 #endif
 

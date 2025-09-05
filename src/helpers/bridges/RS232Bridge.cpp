@@ -1,8 +1,8 @@
-#include "SerialBridge.h"
+#include "RS232Bridge.h"
 #include <HardwareSerial.h>
 #include <RTClib.h>
 
-#ifdef BRIDGE_OVER_SERIAL
+#ifdef WITH_RS232_BRIDGE
 
 // Fletcher-16
 // https://en.wikipedia.org/wiki/Fletcher%27s_checksum
@@ -17,7 +17,7 @@ inline static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
   return (sum2 << 8) | sum1;
 };
 
-const char* SerialBridge::getLogDateTime() {
+const char* RS232Bridge::getLogDateTime() {
   static char tmp[32];
   uint32_t now = _rtc->getCurrentTime();
   DateTime dt = DateTime(now);
@@ -25,26 +25,30 @@ const char* SerialBridge::getLogDateTime() {
   return tmp;
 }
 
-SerialBridge::SerialBridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCClock* rtc) : _serial(&serial), _mgr(mgr), _rtc(rtc) {}
+RS232Bridge::RS232Bridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCClock* rtc) : _serial(&serial), _mgr(mgr), _rtc(rtc) {}
 
-void SerialBridge::begin() {
+void RS232Bridge::begin() {
+#if !defined(WITH_RS232_BRIDGE_RX) || !defined(WITH_RS232_BRIDGE_TX)
+#error "WITH_RS232_BRIDGE_RX and WITH_RS232_BRIDGE_TX must be defined"
+#endif
+
 #if defined(ESP32)
-  ((HardwareSerial *)_serial)->setPins(BRIDGE_OVER_SERIAL_RX, BRIDGE_OVER_SERIAL_TX);
+  ((HardwareSerial *)_serial)->setPins(WITH_RS232_BRIDGE_RX, WITH_RS232_BRIDGE_TX);
 #elif defined(NRF52_PLATFORM)
-  ((HardwareSerial *)_serial)->setPins(BRIDGE_OVER_SERIAL_RX, BRIDGE_OVER_SERIAL_TX);
+  ((HardwareSerial *)_serial)->setPins(WITH_RS232_BRIDGE_RX, WITH_RS232_BRIDGE_TX);
 #elif defined(RP2040_PLATFORM)
-  ((SerialUART *)_serial)->setRX(BRIDGE_OVER_SERIAL_RX);
-  ((SerialUART *)_serial)->setTX(BRIDGE_OVER_SERIAL_TX);
+  ((SerialUART *)_serial)->setRX(WITH_RS232_BRIDGE_RX);
+  ((SerialUART *)_serial)->setTX(WITH_RS232_BRIDGE_TX);
 #elif defined(STM32_PLATFORM)
-  ((HardwareSerial *)_serial)->setRx(BRIDGE_OVER_SERIAL_RX);
-  ((HardwareSerial *)_serial)->setTx(BRIDGE_OVER_SERIAL_TX);
+  ((HardwareSerial *)_serial)->setRx(WITH_RS232_BRIDGE_RX);
+  ((HardwareSerial *)_serial)->setTx(WITH_RS232_BRIDGE_TX);
 #else
-#error SerialBridge was not tested on the current platform
+#error RS232Bridge was not tested on the current platform
 #endif
   ((HardwareSerial*)_serial)->begin(115200);
 }
 
-void SerialBridge::onPacketTransmitted(mesh::Packet* packet) {
+void RS232Bridge::onPacketTransmitted(mesh::Packet* packet) {
   if (!_seen_packets.hasSeen(packet)) {
     uint8_t buffer[MAX_SERIAL_PACKET_SIZE];
     uint16_t len = packet->writeTo(buffer + 4);
@@ -66,7 +70,7 @@ void SerialBridge::onPacketTransmitted(mesh::Packet* packet) {
   }
 }
 
-void SerialBridge::loop() {
+void RS232Bridge::loop() {
   while (_serial->available()) {
     uint8_t b = _serial->read();
 
@@ -108,7 +112,7 @@ void SerialBridge::loop() {
   }
 }
 
-void SerialBridge::onPacketReceived(mesh::Packet* packet) {
+void RS232Bridge::onPacketReceived(mesh::Packet* packet) {
   if (!_seen_packets.hasSeen(packet)) {
     _mgr->queueInbound(packet, 0);
   } else {
