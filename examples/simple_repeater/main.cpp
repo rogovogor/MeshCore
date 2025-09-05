@@ -309,9 +309,7 @@ protected:
   }
   void logTx(mesh::Packet* pkt, int len) override {
 #ifdef WITH_RS232_BRIDGE
-    if (!pkt->isMarkedDoNotRetransmit()) {
-      bridge->onPacketTransmitted(pkt);
-    }
+    bridge->onPacketTransmitted(pkt);
 #endif
     if (_logging) {
       File f = openAppend(PACKET_LOG_FILE);
