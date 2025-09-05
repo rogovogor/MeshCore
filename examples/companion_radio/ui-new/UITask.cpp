@@ -309,6 +309,7 @@ public:
     }
     if (c == KEY_ENTER && _page == HomePage::SENSORS) {
       _task->toggleGPS();
+      next_sensors_refresh=0;
       return true;
     }
     if (c == KEY_ENTER && _page == HomePage::SHUTDOWN) {
