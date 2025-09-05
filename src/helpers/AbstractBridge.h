@@ -27,6 +27,8 @@ public:
 
   /**
    * @brief Processes a received packet from the bridge's medium.
+   * 
+   * @param packet The packet that was received.
    */
-  virtual void onPacketReceived() = 0;
+  virtual void onPacketReceived(mesh::Packet* packet) = 0;
 };

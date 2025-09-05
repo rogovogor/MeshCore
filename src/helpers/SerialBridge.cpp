@@ -3,14 +3,6 @@
 
 #ifdef BRIDGE_OVER_SERIAL
 
-#define SERIAL_PKT_MAGIC 0xcafe
-
-struct SerialPacket {
-  uint16_t magic, len, crc;
-  uint8_t payload[MAX_TRANS_UNIT];
-  SerialPacket() : magic(SERIAL_PKT_MAGIC), len(0), crc(0) {}
-};
-
 // Fletcher-16
 // https://en.wikipedia.org/wiki/Fletcher%27s_checksum
 inline static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
@@ -43,61 +35,67 @@ void SerialBridge::begin() {
 
 void SerialBridge::onPacketTransmitted(mesh::Packet* packet) {
   if (!_seen_packets.hasSeen(packet)) {
-    SerialPacket spkt;
-    spkt.len = packet->writeTo(spkt.payload);
-    spkt.crc = fletcher16(spkt.payload, spkt.len);
-    _serial->write((uint8_t *)&spkt, sizeof(SerialPacket));
+    uint8_t buffer[MAX_SERIAL_PACKET_SIZE];
+    uint16_t len = packet->writeTo(buffer + 4);
+
+    buffer[0] = (SERIAL_PKT_MAGIC >> 8) & 0xFF;
+    buffer[1] = SERIAL_PKT_MAGIC & 0xFF;
+    buffer[2] = (len >> 8) & 0xFF;
+    buffer[3] = len & 0xFF;
+
+    uint16_t checksum = fletcher16(buffer + 4, len);
+    buffer[4 + len] = (checksum >> 8) & 0xFF;
+    buffer[5 + len] = checksum & 0xFF;
+
+    _serial->write(buffer, len + SERIAL_OVERHEAD);
   }
 }
 
 void SerialBridge::loop() {
   while (_serial->available()) {
-    onPacketReceived();
+    uint8_t b = _serial->read();
+
+    if (_rx_buffer_pos < 2) {
+      // Waiting for magic word
+      if ((_rx_buffer_pos == 0 && b == ((SERIAL_PKT_MAGIC >> 8) & 0xFF)) ||
+          (_rx_buffer_pos == 1 && b == (SERIAL_PKT_MAGIC & 0xFF))) {
+        _rx_buffer[_rx_buffer_pos++] = b;
+      } else {
+        _rx_buffer_pos = 0;
+      }
+    } else {
+      // Reading length, payload, and checksum
+      _rx_buffer[_rx_buffer_pos++] = b;
+
+      if (_rx_buffer_pos >= 4) {
+        uint16_t len = (_rx_buffer[2] << 8) | _rx_buffer[3];
+        if (len > MAX_PACKET_PAYLOAD) {
+          _rx_buffer_pos = 0; // Invalid length, reset
+          return;
+        }
+
+      if (_rx_buffer_pos == len + SERIAL_OVERHEAD) { // Full packet received
+        uint16_t checksum = (_rx_buffer[4 + len] << 8) | _rx_buffer[5 + len];
+        if (checksum == fletcher16(_rx_buffer + 4, len)) {
+          mesh::Packet *pkt = _mgr->allocNew();
+            if (pkt) {
+              memcpy(pkt->payload, _rx_buffer + 4, len);
+              pkt->payload_len = len;
+              onPacketReceived(pkt);
+            }
+          }
+          _rx_buffer_pos = 0; // Reset for next packet
+        }
+      }
+    }
   }
 }
 
-void SerialBridge::onPacketReceived() {
-  static constexpr uint16_t size = sizeof(SerialPacket) + 1;
-  static uint8_t buffer[size];
-  static uint16_t tail = 0;
-
-  buffer[tail] = (uint8_t)_serial->read();
-  tail = (tail + 1) % size;
-
-  // Check for complete packet by looking back to where the magic number should be
-  const uint16_t head = (tail - sizeof(SerialPacket) + size) % size;
-  if ((buffer[head] | (buffer[(head + 1) % size] << 8)) != SERIAL_PKT_MAGIC) {
-    return;
-  }
-
-  uint8_t bytes[MAX_TRANS_UNIT];
-  const uint16_t len = buffer[(head + 2) % size] | (buffer[(head + 3) % size] << 8);
-
-  if (len == 0 || len > sizeof(bytes)) {
-    return;
-  }
-
-  for (size_t i = 0; i < len; i++) {
-    bytes[i] = buffer[(head + 6 + i) % size];
-  }
-
-  const uint16_t crc = buffer[(head + 4) % size] | (buffer[(head + 5) % size] << 8);
-  const uint16_t f16 = fletcher16(bytes, len);
-
-  if ((f16 != crc)) {
-    return;
-  }
-
-  mesh::Packet *new_pkt = _mgr->allocNew();
-  if (new_pkt == NULL) {
-    return;
-  }
-
-  new_pkt->readFrom(bytes, len);
-  if (!_seen_packets.hasSeen(new_pkt)) {
-    _mgr->queueInbound(new_pkt, 0);
+void SerialBridge::onPacketReceived(mesh::Packet* packet) {
+  if (!_seen_packets.hasSeen(packet)) {
+    _mgr->queueInbound(packet, 0);
   } else {
-    _mgr->free(new_pkt);
+    _mgr->free(packet);
   }
 }
 
