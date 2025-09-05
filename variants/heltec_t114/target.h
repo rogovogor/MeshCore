@@ -14,7 +14,7 @@
 #ifdef HELTEC_T114_WITH_DISPLAY
 #include <helpers/ui/ST7789Display.h>
 #else
-#include "NullDisplayDriver.h"
+#include "helpers/ui/NullDisplayDriver.h"
 #endif
 #endif
 
