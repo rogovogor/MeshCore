@@ -29,13 +29,15 @@ SerialBridge::SerialBridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCCl
 
 void SerialBridge::begin() {
 #if defined(ESP32)
-  ((HardwareSerial*)_serial)->setPins(BRIDGE_OVER_SERIAL_RX, BRIDGE_OVER_SERIAL_TX);
+  ((HardwareSerial *)_serial)->setPins(BRIDGE_OVER_SERIAL_RX, BRIDGE_OVER_SERIAL_TX);
+#elif defined(NRF52_PLATFORM)
+  ((HardwareSerial *)_serial)->setPins(BRIDGE_OVER_SERIAL_RX, BRIDGE_OVER_SERIAL_TX);
 #elif defined(RP2040_PLATFORM)
-  ((HardwareSerial*)_serial)->setRX(BRIDGE_OVER_SERIAL_RX);
-  ((HardwareSerial*)_serial)->setTX(BRIDGE_OVER_SERIAL_TX);
+  ((SerialUART *)_serial)->setRX(BRIDGE_OVER_SERIAL_RX);
+  ((SerialUART *)_serial)->setTX(BRIDGE_OVER_SERIAL_TX);
 #elif defined(STM32_PLATFORM)
-  ((HardwareSerial*)_serial)->setRx(BRIDGE_OVER_SERIAL_RX);
-  ((HardwareSerial*)_serial)->setTx(BRIDGE_OVER_SERIAL_TX);
+  ((HardwareSerial *)_serial)->setRx(BRIDGE_OVER_SERIAL_RX);
+  ((HardwareSerial *)_serial)->setTx(BRIDGE_OVER_SERIAL_TX);
 #else
 #error SerialBridge was not tested on the current platform
 #endif
@@ -82,21 +84,20 @@ void SerialBridge::loop() {
 
       if (_rx_buffer_pos >= 4) {
         uint16_t len = (_rx_buffer[2] << 8) | _rx_buffer[3];
-        if (len > MAX_PACKET_PAYLOAD) {
+        if (len > (MAX_TRANS_UNIT + 1)) {
           _rx_buffer_pos = 0; // Invalid length, reset
           return;
         }
 
-      if (_rx_buffer_pos == len + SERIAL_OVERHEAD) { // Full packet received
-        uint16_t checksum = (_rx_buffer[4 + len] << 8) | _rx_buffer[5 + len];
-        if (checksum == fletcher16(_rx_buffer + 4, len)) {
+        if (_rx_buffer_pos == len + SERIAL_OVERHEAD) { // Full packet received
+          uint16_t checksum = (_rx_buffer[4 + len] << 8) | _rx_buffer[5 + len];
+          if (checksum == fletcher16(_rx_buffer + 4, len)) {
 #if MESH_PACKET_LOGGING
-          Serial.printf("%s: BRIDGE: RX, len=%d crc=0x%04x\n", getLogDateTime(), len, checksum);
+            Serial.printf("%s: BRIDGE: RX, len=%d crc=0x%04x\n", getLogDateTime(), len, checksum);
 #endif
-          mesh::Packet *pkt = _mgr->allocNew();
+            mesh::Packet* pkt = _mgr->allocNew();
             if (pkt) {
-              memcpy(pkt->payload, _rx_buffer + 4, len);
-              pkt->payload_len = len;
+              pkt->readFrom(_rx_buffer + 4, len);
               onPacketReceived(pkt);
             }
           }
