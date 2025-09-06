@@ -7,7 +7,7 @@
   #define MAX_BLOBRECS 20
 #endif
 
-DataStore::DataStore(FILESYSTEM& fs, mesh::RTCClock& clock) : _fs(&fs), _clock(&clock),
+DataStore::DataStore(FILESYSTEM& fs, mesh::RTCClock& clock) : _fs(&fs), _fsExtra(nullptr), _clock(&clock),
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     identity_store(fs, "")
 #elif defined(RP2040_PLATFORM)
@@ -19,7 +19,6 @@ DataStore::DataStore(FILESYSTEM& fs, mesh::RTCClock& clock) : _fs(&fs), _clock(&
 }
 
 #if defined(EXTRAFS) || defined(QSPIFLASH)
-
 DataStore::DataStore(FILESYSTEM& fs, FILESYSTEM& fsExtra, mesh::RTCClock& clock) : _fs(&fs), _fsExtra(&fsExtra), _clock(&clock),
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     identity_store(fs, "")
@@ -66,13 +65,11 @@ void DataStore::begin() {
 #elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #if defined(QSPIFLASH)
     #include <CustomLFS_QSPIFlash.h>
-  #else
-  #if defined(EXTRAFS)
+  #elif defined(EXTRAFS)
     #include <CustomLFS.h>
   #else 
     #include <InternalFileSystem.h>
   #endif
-#endif
 #endif
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -98,13 +95,8 @@ uint32_t DataStore::getStorageUsedKb() const {
   _fs->info(info);
   return info.usedBytes / 1024;
 #elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  const lfs_config* config = _fsExtra->_getFS()->cfg;
-  int usedBlockCount = _getLfsUsedBlockCount(_fsExtra);
-#else
-  const lfs_config* config = _fs->_getFS()->cfg;
-  int usedBlockCount = _getLfsUsedBlockCount(_fs);
-#endif
+  const lfs_config* config = _getContactsChannelsFS()->_getFS()->cfg;
+  int usedBlockCount = _getLfsUsedBlockCount(_getContactsChannelsFS());
   int usedBytes = config->block_size * usedBlockCount;
   return usedBytes / 1024;
 #else
@@ -121,11 +113,7 @@ uint32_t DataStore::getStorageTotalKb() const {
   _fs->info(info);
   return info.totalBytes / 1024;
 #elif defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  const lfs_config* config = _fsExtra->_getFS()->cfg;
-#else
-  const lfs_config* config = _fs->_getFS()->cfg;
-#endif
+  const lfs_config* config = _getContactsChannelsFS()->_getFS()->cfg;
   int totalBytes = config->block_size * config->block_count;
   return totalBytes / 1024;
 #else
@@ -163,11 +151,11 @@ bool DataStore::removeFile(FILESYSTEM* fs, const char* filename) {
 
 bool DataStore::formatFileSystem() {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  return _fs->format() && _fsExtra->format(); // in future maybe return an error code based on which format failed?
-#else
-  return _fs->format();
-#endif
+  if (_fsExtra == nullptr) {
+    return _fs->format();
+  } else {
+    return _fs->format() && _fsExtra->format();
+  }
 #elif defined(RP2040_PLATFORM)
   return LittleFS.format();
 #elif defined(ESP32)
@@ -262,13 +250,8 @@ void DataStore::savePrefs(const NodePrefs& _prefs, double node_lat, double node_
 
 void DataStore::loadContacts(DataStoreHost* host) {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  if (_fsExtra->exists("/contacts3")) {
-    File file = _fsExtra->open("/contacts3");
-#else
-  if (_fs->exists("/contacts3")) {
-    File file = _fs->open("/contacts3");
-#endif
+  if (_getContactsChannelsFS()->exists("/contacts3")) {
+    File file = _getContactsChannelsFS()->open("/contacts3");
 #elif defined(RP2040_PLATFORM)
     if (_fs->exists("/contacts3")) {
     File file = _fs->open("/contacts3", "r");
@@ -307,11 +290,7 @@ void DataStore::loadContacts(DataStoreHost* host) {
 }
 
 void DataStore::saveContacts(DataStoreHost* host) {
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  File file = openWrite(_fsExtra, "/contacts3");
-#else
-  File file = openWrite(_fs, "/contacts3");
-#endif
+  File file = openWrite(_getContactsChannelsFS(), "/contacts3");
   if (file) {
     uint32_t idx = 0;
     ContactInfo c;
@@ -341,13 +320,8 @@ void DataStore::saveContacts(DataStoreHost* host) {
 
 void DataStore::loadChannels(DataStoreHost* host) {
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  if (_fsExtra->exists("/channels2")) {
-    File file = _fsExtra->open("/channels2");
-#else
-  if (_fs->exists("/channels2")) {
-    File file = _fs->open("/channels2");
-#endif
+  if (_getContactsChannelsFS()->exists("/channels2")) {
+    File file = _getContactsChannelsFS()->open("/channels2");
 #elif defined(RP2040_PLATFORM)
   if (_fs->exists("/channels2")) {
     File file = _fs->open("/channels2", "r");
@@ -380,11 +354,7 @@ void DataStore::loadChannels(DataStoreHost* host) {
 }
 
 void DataStore::saveChannels(DataStoreHost* host) {
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  File file = openWrite(_fsExtra, "/channels2");
-#else
-  File file = openWrite(_fs, "/channels2");
-#endif
+  File file = openWrite(_getContactsChannelsFS(), "/channels2");
   if (file) {
     uint8_t channel_idx = 0;
     ChannelDetails ch;
@@ -415,13 +385,8 @@ struct BlobRec {
 };
 
 void DataStore::checkAdvBlobFile() {
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  if (!_fsExtra->exists("/adv_blobs")) {
-    File file = openWrite(_fsExtra, "/adv_blobs");
-#else
-  if (!_fs->exists("/adv_blobs")) {
-    File file = openWrite(_fs, "/adv_blobs");
-#endif
+  if (!_getContactsChannelsFS()->exists("/adv_blobs")) {
+    File file = openWrite(_getContactsChannelsFS(), "/adv_blobs");
     if (file) {
       BlobRec zeroes;
       memset(&zeroes, 0, sizeof(zeroes));
@@ -542,13 +507,8 @@ void DataStore::migrateToSecondaryFS() {
 }
 
 uint8_t DataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]) {
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  File file = _fsExtra->open("/adv_blobs");
-#else
-  File file = _fs->open("/adv_blobs");
-#endif
+  File file = _getContactsChannelsFS()->open("/adv_blobs");
   uint8_t len = 0;  // 0 = not found
-
   if (file) {
     BlobRec tmp;
     while (file.read((uint8_t *) &tmp, sizeof(tmp)) == sizeof(tmp)) {
@@ -565,14 +525,8 @@ uint8_t DataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_b
 
 bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], uint8_t len) {
   if (len < PUB_KEY_SIZE+4+SIGNATURE_SIZE || len > MAX_ADVERT_PKT_LEN) return false;
-
   checkAdvBlobFile();
-
-#if defined(EXTRAFS) || defined(QSPIFLASH)
-  File file = _fsExtra->open("/adv_blobs", FILE_O_WRITE);
-#else
-  File file = _fs->open("/adv_blobs", FILE_O_WRITE);
-#endif
+  File file = _getContactsChannelsFS()->open("/adv_blobs", FILE_O_WRITE);
   if (file) {
     uint32_t pos = 0, found_pos = 0;
     uint32_t min_timestamp = 0xFFFFFFFF;
