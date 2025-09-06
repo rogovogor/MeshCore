@@ -6,18 +6,6 @@
 // LoRa radio module pins for Waveshare RP2040-LoRa-HF/LF
 // https://files.waveshare.com/wiki/RP2040-LoRa/Rp2040-lora-sch.pdf
 
-#define P_LORA_DIO_1             16
-#define P_LORA_NSS               13 // CS
-#define P_LORA_RESET             23
-#define P_LORA_BUSY              18
-#define P_LORA_SCLK              14
-#define P_LORA_MISO              24
-#define P_LORA_MOSI              15
-#define P_LORA_TX_LED            25
-
-#define SX126X_DIO2_AS_RF_SWITCH true
-#define SX126X_DIO3_TCXO_VOLTAGE 0
-
 /*
  * This board has no built-in way to read battery voltage.
  * Nevertheless it's very easy to make it work, you only require two 1% resistors.
