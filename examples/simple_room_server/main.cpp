@@ -22,11 +22,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "31 Aug 2025"
+  #define FIRMWARE_BUILD_DATE   "1 Sep 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.8.0"
+  #define FIRMWARE_VERSION   "v1.8.1"
 #endif
 
 #ifndef LORA_FREQ
@@ -865,6 +865,20 @@ public:
 
   mesh::LocalIdentity& getSelfId() override { return self_id; }
 
+  void saveIdentity(const mesh::LocalIdentity& new_id) override {
+    self_id = new_id;
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+    IdentityStore store(*_fs, "");
+#elif defined(ESP32)
+    IdentityStore store(*_fs, "/identity");
+#elif defined(RP2040_PLATFORM)
+    IdentityStore store(*_fs, "/identity");
+#else
+    #error "need to define saveIdentity()"
+#endif
+    store.save("_main", self_id);
+  }
+
   void clearStats() override {
     radio_driver.resetStats();
     resetStats();
@@ -979,6 +993,7 @@ void setup() {
 #ifdef DISPLAY_CLASS
   if (display.begin()) {
     display.startFrame();
+    display.setCursor(0, 0);
     display.print("Please wait...");
     display.endFrame();
   }
