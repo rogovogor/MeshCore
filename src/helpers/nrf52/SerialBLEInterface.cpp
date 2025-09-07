@@ -27,11 +27,7 @@ void SerialBLEInterface::begin(const char* device_name, uint32_t pin_code) {
 
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
   Bluefruit.configPrphConn(250, BLE_GAP_EVENT_LENGTH_MIN, 16, 16);  // increase MTU
-#ifdef BLE_LOW_POWER
-  Bluefruit.setTxPower(0);
-#else
-  Bluefruit.setTxPower(4);
-#endif
+  Bluefruit.setTxPower(BLE_TX_POWER);
   Bluefruit.begin();
   Bluefruit.setName(device_name);
 
