@@ -80,30 +80,36 @@
 
 #ifdef WITH_RS232_BRIDGE
 #include "helpers/bridges/RS232Bridge.h"
+#define WITH_BRIDGE
 #endif
 
-#define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
-#define REQ_TYPE_KEEP_ALIVE          0x02
-#define REQ_TYPE_GET_TELEMETRY_DATA  0x03
+#ifdef WITH_ESPNOW_BRIDGE
+#include "helpers/bridges/ESPNowBridge.h"
+#define WITH_BRIDGE
+#endif
 
-#define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
+#define REQ_TYPE_GET_STATUS         0x01 // same as _GET_STATS
+#define REQ_TYPE_KEEP_ALIVE         0x02
+#define REQ_TYPE_GET_TELEMETRY_DATA 0x03
 
-struct RepeaterStats {
-  uint16_t batt_milli_volts;
-  uint16_t curr_tx_queue_len;
-  int16_t  noise_floor;
-  int16_t  last_rssi;
-  uint32_t n_packets_recv;
-  uint32_t n_packets_sent;
-  uint32_t total_air_time_secs;
-  uint32_t total_up_time_secs;
-  uint32_t n_sent_flood, n_sent_direct;
-  uint32_t n_recv_flood, n_recv_direct;
-  uint16_t err_events;                // was 'n_full_events'
-  int16_t  last_snr;   // x 4
-  uint16_t n_direct_dups, n_flood_dups;
-  uint32_t total_rx_air_time_secs;
-};
+#define RESP_SERVER_LOGIN_OK        0 // response to ANON_REQ
+
+  struct RepeaterStats {
+    uint16_t batt_milli_volts;
+    uint16_t curr_tx_queue_len;
+    int16_t noise_floor;
+    int16_t last_rssi;
+    uint32_t n_packets_recv;
+    uint32_t n_packets_sent;
+    uint32_t total_air_time_secs;
+    uint32_t total_up_time_secs;
+    uint32_t n_sent_flood, n_sent_direct;
+    uint32_t n_recv_flood, n_recv_direct;
+    uint16_t err_events; // was 'n_full_events'
+    int16_t last_snr;    // x 4
+    uint16_t n_direct_dups, n_flood_dups;
+    uint32_t total_rx_air_time_secs;
+  };
 
 struct ClientInfo {
   mesh::Identity id;
@@ -118,7 +124,7 @@ struct ClientInfo {
   #define MAX_CLIENTS           32
 #endif
 
-#ifdef WITH_RS232_BRIDGE
+#ifdef WITH_BRIDGE
 AbstractBridge* bridge;
 #endif
 
@@ -308,7 +314,7 @@ protected:
     }
   }
   void logTx(mesh::Packet* pkt, int len) override {
-#ifdef WITH_RS232_BRIDGE
+#ifdef WITH_BRIDGE
     bridge->onPacketTransmitted(pkt);
 #endif
     if (_logging) {
@@ -576,8 +582,14 @@ public:
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
   {
-#ifdef WITH_RS232_BRIDGE
+#ifdef WITH_BRIDGE
+#if defined(WITH_RS232_BRIDGE)
     bridge = new RS232Bridge(WITH_RS232_BRIDGE, _mgr, &rtc);
+#elif defined(WITH_ESPNOW_BRIDGE)
+    bridge = new ESPNowBridge(_mgr, &rtc);
+#else
+#error "You must choose either RS232 or ESPNow bridge"
+#endif
 #endif
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
@@ -779,7 +791,7 @@ public:
   }
 
   void loop() {
-#ifdef WITH_RS232_BRIDGE
+#ifdef WITH_BRIDGE
     bridge->loop();
 #endif
 
@@ -831,7 +843,7 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-#ifdef WITH_RS232_BRIDGE
+#ifdef WITH_BRIDGE
   bridge->begin();
 #endif
 

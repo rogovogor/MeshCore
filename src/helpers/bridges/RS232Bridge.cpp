@@ -4,8 +4,9 @@
 
 #ifdef WITH_RS232_BRIDGE
 
-// Fletcher-16
-// https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+// Static Fletcher-16 checksum calculation
+// Based on: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+// Used to verify data integrity of received packets
 inline static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
   uint8_t sum1 = 0, sum2 = 0;
 
