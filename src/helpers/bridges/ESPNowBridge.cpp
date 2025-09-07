@@ -10,7 +10,7 @@
 ESPNowBridge *ESPNowBridge::_instance = nullptr;
 
 // Static callback wrappers
-void ESPNowBridge::recv_cb(const uint8_t *mac, const uint8_t *data, int len) {
+void ESPNowBridge::recv_cb(const uint8_t *mac, const uint8_t *data, int32_t len) {
   if (_instance) {
     _instance->onDataRecv(mac, data, len);
   }
@@ -78,33 +78,44 @@ void ESPNowBridge::xorCrypt(uint8_t *data, size_t len) {
   }
 }
 
-void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int len) {
-  // Ignore packets that are too small
-  if (len < 3) {
+void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t len) {
+  // Ignore packets that are too small to contain header + checksum
+  if (len < (MAGIC_HEADER_SIZE + CHECKSUM_SIZE)) {
 #if MESH_PACKET_LOGGING
     Serial.printf("%s: ESPNOW BRIDGE: RX packet too small, len=%d\n", getLogDateTime(), len);
 #endif
     return;
   }
 
-  // Check packet header magic
-  if (data[0] != ESPNOW_HEADER_MAGIC) {
+  // Validate total packet size
+  if (len > MAX_ESPNOW_PACKET_SIZE) {
 #if MESH_PACKET_LOGGING
-    Serial.printf("%s: ESPNOW BRIDGE: RX invalid magic 0x%02X\n", getLogDateTime(), data[0]);
+    Serial.printf("%s: ESPNOW BRIDGE: RX packet too large, len=%d\n", getLogDateTime(), len);
+#endif
+    return;
+  }
+
+  // Check packet header magic
+  uint16_t received_magic = (data[0] << 8) | data[1];
+  if (received_magic != ESPNOW_HEADER_MAGIC) {
+#if MESH_PACKET_LOGGING
+    Serial.printf("%s: ESPNOW BRIDGE: RX invalid magic 0x%04X\n", getLogDateTime(), received_magic);
 #endif
     return;
   }
 
   // Make a copy we can decrypt
   uint8_t decrypted[MAX_ESPNOW_PACKET_SIZE];
-  memcpy(decrypted, data + 1, len - 1); // Skip magic byte
+  const size_t encryptedDataLen = len - MAGIC_HEADER_SIZE;
+  memcpy(decrypted, data + MAGIC_HEADER_SIZE, encryptedDataLen);
 
-  // Try to decrypt
-  xorCrypt(decrypted, len - 1);
+  // Try to decrypt (checksum + payload)
+  xorCrypt(decrypted, encryptedDataLen);
 
   // Validate checksum
   uint16_t received_checksum = (decrypted[0] << 8) | decrypted[1];
-  uint16_t calculated_checksum = fletcher16(decrypted + 2, len - 3);
+  const size_t payloadLen = encryptedDataLen - CHECKSUM_SIZE;
+  uint16_t calculated_checksum = fletcher16(decrypted + CHECKSUM_SIZE, payloadLen);
 
   if (received_checksum != calculated_checksum) {
     // Failed to decrypt - likely from a different network
@@ -116,14 +127,14 @@ void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int len) 
   }
 
 #if MESH_PACKET_LOGGING
-  Serial.printf("%s: ESPNOW BRIDGE: RX, len=%d\n", getLogDateTime(), len - 3);
+  Serial.printf("%s: ESPNOW BRIDGE: RX, payload_len=%d\n", getLogDateTime(), payloadLen);
 #endif
 
   // Create mesh packet
   mesh::Packet *pkt = _instance->_mgr->allocNew();
   if (!pkt) return;
 
-  if (pkt->readFrom(decrypted + 2, len - 3)) {
+  if (pkt->readFrom(decrypted + CHECKSUM_SIZE, payloadLen)) {
     _instance->onPacketReceived(pkt);
   } else {
     _instance->_mgr->free(pkt);
@@ -144,27 +155,56 @@ void ESPNowBridge::onPacketReceived(mesh::Packet *packet) {
 
 void ESPNowBridge::onPacketTransmitted(mesh::Packet *packet) {
   if (!_seen_packets.hasSeen(packet)) {
+
+    // First validate the packet pointer
+    if (!packet) {
+#if MESH_PACKET_LOGGING
+      Serial.printf("%s: ESPNOW BRIDGE: TX invalid packet pointer\n", getLogDateTime());
+#endif
+      return;
+    }
+
+    // Create a temporary buffer just for size calculation and reuse for actual writing
+    uint8_t sizingBuffer[MAX_PAYLOAD_SIZE];
+    uint16_t meshPacketLen = packet->writeTo(sizingBuffer);
+
+    // Check if packet fits within our maximum payload size
+    if (meshPacketLen > MAX_PAYLOAD_SIZE) {
+#if MESH_PACKET_LOGGING
+      Serial.printf("%s: ESPNOW BRIDGE: TX packet too large (payload=%d, max=%d)\n", getLogDateTime(),
+                    meshPacketLen, MAX_PAYLOAD_SIZE);
+#endif
+      return;
+    }
+
     uint8_t buffer[MAX_ESPNOW_PACKET_SIZE];
-    buffer[0] = ESPNOW_HEADER_MAGIC;
 
-    // Write packet to buffer starting after magic byte and checksum
-    uint16_t len = packet->writeTo(buffer + 3);
+    // Write magic header (2 bytes)
+    buffer[0] = (ESPNOW_HEADER_MAGIC >> 8) & 0xFF;
+    buffer[1] = ESPNOW_HEADER_MAGIC & 0xFF;
 
-    // Calculate and add checksum
-    uint16_t checksum = fletcher16(buffer + 3, len);
-    buffer[1] = (checksum >> 8) & 0xFF;
-    buffer[2] = checksum & 0xFF;
+    // Write packet payload starting after magic header and checksum
+    const size_t packetOffset = MAGIC_HEADER_SIZE + CHECKSUM_SIZE;
+    memcpy(buffer + packetOffset, sizingBuffer, meshPacketLen);
 
-    // Encrypt payload (not including magic byte)
-    xorCrypt(buffer + 1, len + 2);
+    // Calculate and add checksum (only of the payload)
+    uint16_t checksum = fletcher16(buffer + packetOffset, meshPacketLen);
+    buffer[2] = (checksum >> 8) & 0xFF; // High byte
+    buffer[3] = checksum & 0xFF;        // Low byte
+
+    // Encrypt payload and checksum (not including magic header)
+    xorCrypt(buffer + MAGIC_HEADER_SIZE, meshPacketLen + CHECKSUM_SIZE);
+
+    // Total packet size: magic header + checksum + payload
+    const size_t totalPacketSize = MAGIC_HEADER_SIZE + CHECKSUM_SIZE + meshPacketLen;
 
     // Broadcast using ESP-NOW
     uint8_t broadcastAddress[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-    esp_err_t result = esp_now_send(broadcastAddress, buffer, len + 3);
+    esp_err_t result = esp_now_send(broadcastAddress, buffer, totalPacketSize);
 
 #if MESH_PACKET_LOGGING
     if (result == ESP_OK) {
-      Serial.printf("%s: ESPNOW BRIDGE: TX, len=%d\n", getLogDateTime(), len);
+      Serial.printf("%s: ESPNOW BRIDGE: TX, len=%d\n", getLogDateTime(), meshPacketLen);
     } else {
       Serial.printf("%s: ESPNOW BRIDGE: TX FAILED!\n", getLogDateTime());
     }

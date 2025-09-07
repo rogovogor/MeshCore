@@ -25,9 +25,9 @@
  * - Maximum packet size of 250 bytes (ESP-NOW limitation)
  *
  * Packet Structure:
- * [1 byte]  Magic Header (0xAB) - Used to identify ESPNowBridge packets
+ * [2 bytes] Magic Header - Used to identify ESPNowBridge packets
  * [2 bytes] Fletcher-16 checksum of encrypted payload (calculated over payload only)
- * [n bytes] Encrypted payload containing the mesh packet
+ * [246 bytes max] Encrypted payload containing the mesh packet
  *
  * The Fletcher-16 checksum is used to validate packet integrity and detect
  * corrupted or tampered packets. It's calculated over the encrypted payload
@@ -47,7 +47,7 @@
 class ESPNowBridge : public AbstractBridge {
 private:
   static ESPNowBridge *_instance;
-  static void recv_cb(const uint8_t *mac, const uint8_t *data, int len);
+  static void recv_cb(const uint8_t *mac, const uint8_t *data, int32_t len);
   static void send_cb(const uint8_t *mac, esp_now_send_status_t status);
 
   /** Packet manager for allocating and queuing mesh packets */
@@ -60,18 +60,29 @@ private:
   SimpleMeshTables _seen_packets;
 
   /**
-   * Maximum ESP-NOW packet size (250 bytes)
-   * This is a hardware limitation of ESP-NOW protocol:
-   * - ESP-NOW header: 20 bytes
-   * - Max payload: 250 bytes
-   * Source: ESP-NOW API documentation
+   * ESP-NOW Protocol Structure:
+   * - ESP-NOW header: 20 bytes (handled by ESP-NOW protocol)
+   * - ESP-NOW payload: 250 bytes maximum
+   * Total ESP-NOW packet: 270 bytes
+   *
+   * Our Bridge Packet Structure (must fit in ESP-NOW payload):
+   * - Magic header: 2 bytes
+   * - Checksum: 2 bytes
+   * - Available payload: 246 bytes
    */
   static const size_t MAX_ESPNOW_PACKET_SIZE = 250;
 
   /**
-   * Magic byte to identify ESPNowBridge packets (0xAB)
+   * Size constants for packet parsing
    */
-  static const uint8_t ESPNOW_HEADER_MAGIC = 0xAB;
+  static const size_t MAGIC_HEADER_SIZE = 2;
+  static const size_t CHECKSUM_SIZE = 2;
+  static const size_t MAX_PAYLOAD_SIZE = MAX_ESPNOW_PACKET_SIZE - (MAGIC_HEADER_SIZE + CHECKSUM_SIZE);
+
+  /**
+   * Magic bytes to identify ESPNowBridge packets
+   */
+  static const uint16_t ESPNOW_HEADER_MAGIC = 0xC03E;
 
   /** Buffer for receiving ESP-NOW packets */
   uint8_t _rx_buffer[MAX_ESPNOW_PACKET_SIZE];
@@ -106,7 +117,7 @@ private:
    * @param data Received data
    * @param len Length of received data
    */
-  void onDataRecv(const uint8_t *mac, const uint8_t *data, int len);
+  void onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t len);
 
   /**
    * ESP-NOW send callback

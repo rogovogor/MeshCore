@@ -21,7 +21,7 @@
  * - Baud rate fixed at 115200
  *
  * Packet Structure:
- * [2 bytes] Magic Header (0xCAFE) - Used to identify start of packet
+ * [2 bytes] Magic Header - Used to identify start of packet
  * [2 bytes] Fletcher-16 checksum - Data integrity check
  * [1 byte]  Payload length
  * [n bytes] Packet payload
@@ -87,8 +87,8 @@ private:
   /** Helper function to get formatted timestamp for logging */
   const char* getLogDateTime();
 
-  /** Magic number to identify start of RS232 packets (0xCAFE) */
-  static constexpr uint16_t SERIAL_PKT_MAGIC = 0xCAFE;
+  /** Magic number to identify start of RS232 packets */
+  static constexpr uint16_t SERIAL_PKT_MAGIC = 0xC03E;
 
   /**
    * @brief The total overhead of the serial protocol in bytes.
