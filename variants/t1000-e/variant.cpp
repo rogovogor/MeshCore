@@ -69,7 +69,7 @@ void initVariant()
   pinMode(BATTERY_PIN, INPUT);
   pinMode(EXT_CHRG_DETECT, INPUT);
   pinMode(EXT_PWR_DETECT, INPUT);
-  pinMode(GPS_RESETB, OUTPUT);
+  pinMode(GPS_RESETB, INPUT);
   pinMode(PIN_BUTTON1, INPUT);
 
   pinMode(PIN_3V3_EN, OUTPUT);
@@ -92,6 +92,5 @@ void initVariant()
   digitalWrite(GPS_VRTC_EN, LOW);
   digitalWrite(GPS_SLEEP_INT, HIGH);
   digitalWrite(GPS_RTC_INT, LOW);
-  digitalWrite(GPS_RESETB, LOW);
   digitalWrite(LED_PIN, LOW);
 }

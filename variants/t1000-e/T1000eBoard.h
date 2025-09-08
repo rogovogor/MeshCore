@@ -57,8 +57,6 @@ public:
         digitalWrite(GPS_SLEEP_INT, LOW);
         digitalWrite(GPS_RTC_INT, LOW);
         digitalWrite(GPS_EN, LOW);
-        pinMode(GPS_RESETB, OUTPUT);
-        digitalWrite(GPS_RESETB, LOW);
     #endif
 
     #ifdef BUZZER_EN
