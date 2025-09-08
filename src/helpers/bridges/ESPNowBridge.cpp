@@ -1,6 +1,5 @@
 #include "ESPNowBridge.h"
 
-#include <RTClib.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
 
@@ -22,21 +21,8 @@ void ESPNowBridge::send_cb(const uint8_t *mac, esp_now_send_status_t status) {
   }
 }
 
-// Fletcher16 checksum calculation
-static uint16_t fletcher16(const uint8_t *data, size_t len) {
-  uint16_t sum1 = 0;
-  uint16_t sum2 = 0;
-
-  while (len--) {
-    sum1 = (sum1 + *data++) % 255;
-    sum2 = (sum2 + sum1) % 255;
-  }
-
-  return (sum2 << 8) | sum1;
-}
-
 ESPNowBridge::ESPNowBridge(mesh::PacketManager *mgr, mesh::RTCClock *rtc)
-    : _mgr(mgr), _rtc(rtc), _rx_buffer_pos(0) {
+    : BridgeBase(mgr, rtc), _rx_buffer_pos(0) {
   _instance = this;
 }
 
@@ -115,13 +101,12 @@ void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t l
   // Validate checksum
   uint16_t received_checksum = (decrypted[0] << 8) | decrypted[1];
   const size_t payloadLen = encryptedDataLen - CHECKSUM_SIZE;
-  uint16_t calculated_checksum = fletcher16(decrypted + CHECKSUM_SIZE, payloadLen);
 
-  if (received_checksum != calculated_checksum) {
+  if (!validateChecksum(decrypted + CHECKSUM_SIZE, payloadLen, received_checksum)) {
     // Failed to decrypt - likely from a different network
 #if MESH_PACKET_LOGGING
-    Serial.printf("%s: ESPNOW BRIDGE: RX checksum mismatch, rcv=0x%04X calc=0x%04X\n", getLogDateTime(),
-                  received_checksum, calculated_checksum);
+    Serial.printf("%s: ESPNOW BRIDGE: RX checksum mismatch, rcv=0x%04X\n", getLogDateTime(),
+                  received_checksum);
 #endif
     return;
   }
@@ -146,23 +131,19 @@ void ESPNowBridge::onDataSent(const uint8_t *mac_addr, esp_now_send_status_t sta
 }
 
 void ESPNowBridge::onPacketReceived(mesh::Packet *packet) {
-  if (!_seen_packets.hasSeen(packet)) {
-    _mgr->queueInbound(packet, 0);
-  } else {
-    _mgr->free(packet);
-  }
+  handleReceivedPacket(packet);
 }
 
 void ESPNowBridge::onPacketTransmitted(mesh::Packet *packet) {
-  if (!_seen_packets.hasSeen(packet)) {
-
-    // First validate the packet pointer
-    if (!packet) {
+  // First validate the packet pointer
+  if (!packet) {
 #if MESH_PACKET_LOGGING
-      Serial.printf("%s: ESPNOW BRIDGE: TX invalid packet pointer\n", getLogDateTime());
+    Serial.printf("%s: ESPNOW BRIDGE: TX invalid packet pointer\n", getLogDateTime());
 #endif
-      return;
-    }
+    return;
+  }
+
+  if (!_seen_packets.hasSeen(packet)) {
 
     // Create a temporary buffer just for size calculation and reuse for actual writing
     uint8_t sizingBuffer[MAX_PAYLOAD_SIZE];
@@ -210,15 +191,6 @@ void ESPNowBridge::onPacketTransmitted(mesh::Packet *packet) {
     }
 #endif
   }
-}
-
-const char *ESPNowBridge::getLogDateTime() {
-  static char tmp[32];
-  uint32_t now = _rtc->getCurrentTime();
-  DateTime dt = DateTime(now);
-  sprintf(tmp, "%02d:%02d:%02d - %d/%d/%d U", dt.hour(), dt.minute(), dt.second(), dt.day(), dt.month(),
-          dt.year());
-  return tmp;
 }
 
 #endif

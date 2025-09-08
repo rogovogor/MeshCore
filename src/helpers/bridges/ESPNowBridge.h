@@ -2,8 +2,7 @@
 
 #include "MeshCore.h"
 #include "esp_now.h"
-#include "helpers/AbstractBridge.h"
-#include "helpers/SimpleMeshTables.h"
+#include "helpers/bridges/BridgeBase.h"
 
 #ifdef WITH_ESPNOW_BRIDGE
 
@@ -44,20 +43,11 @@
  * WITH_ESPNOW_BRIDGE_SECRET values. Packets encrypted with a different key will
  * fail the checksum validation and be discarded.
  */
-class ESPNowBridge : public AbstractBridge {
+class ESPNowBridge : public BridgeBase {
 private:
   static ESPNowBridge *_instance;
   static void recv_cb(const uint8_t *mac, const uint8_t *data, int32_t len);
   static void send_cb(const uint8_t *mac, esp_now_send_status_t status);
-
-  /** Packet manager for allocating and queuing mesh packets */
-  mesh::PacketManager *_mgr;
-
-  /** RTC clock for timestamping debug messages */
-  mesh::RTCClock *_rtc;
-
-  /** Tracks seen packets to prevent loops in broadcast communications */
-  SimpleMeshTables _seen_packets;
 
   /**
    * ESP-NOW Protocol Structure:
@@ -168,14 +158,6 @@ public:
    * @param packet The mesh packet to transmit
    */
   void onPacketTransmitted(mesh::Packet *packet) override;
-
-  /**
-   * Gets formatted date/time string for logging
-   * Format: "HH:MM:SS - DD/MM/YYYY U"
-   *
-   * @return Formatted date/time string
-   */
-  const char *getLogDateTime();
 };
 
 #endif

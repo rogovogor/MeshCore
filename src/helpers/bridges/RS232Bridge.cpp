@@ -1,32 +1,11 @@
 #include "RS232Bridge.h"
+
 #include <HardwareSerial.h>
-#include <RTClib.h>
 
 #ifdef WITH_RS232_BRIDGE
 
-// Static Fletcher-16 checksum calculation
-// Based on: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
-// Used to verify data integrity of received packets
-inline static uint16_t fletcher16(const uint8_t *bytes, const size_t len) {
-  uint8_t sum1 = 0, sum2 = 0;
-
-  for (size_t i = 0; i < len; i++) {
-    sum1 = (sum1 + bytes[i]) % 255;
-    sum2 = (sum2 + sum1) % 255;
-  }
-
-  return (sum2 << 8) | sum1;
-};
-
-const char* RS232Bridge::getLogDateTime() {
-  static char tmp[32];
-  uint32_t now = _rtc->getCurrentTime();
-  DateTime dt = DateTime(now);
-  sprintf(tmp, "%02d:%02d:%02d - %d/%d/%d U", dt.hour(), dt.minute(), dt.second(), dt.day(), dt.month(), dt.year());
-  return tmp;
-}
-
-RS232Bridge::RS232Bridge(Stream& serial, mesh::PacketManager* mgr, mesh::RTCClock* rtc) : _serial(&serial), _mgr(mgr), _rtc(rtc) {}
+RS232Bridge::RS232Bridge(Stream &serial, mesh::PacketManager *mgr, mesh::RTCClock *rtc)
+    : BridgeBase(mgr, rtc), _serial(&serial) {}
 
 void RS232Bridge::begin() {
 #if !defined(WITH_RS232_BRIDGE_RX) || !defined(WITH_RS232_BRIDGE_TX)
@@ -46,27 +25,48 @@ void RS232Bridge::begin() {
 #else
 #error RS232Bridge was not tested on the current platform
 #endif
-  ((HardwareSerial*)_serial)->begin(115200);
+  ((HardwareSerial *)_serial)->begin(115200);
 }
 
-void RS232Bridge::onPacketTransmitted(mesh::Packet* packet) {
+void RS232Bridge::onPacketTransmitted(mesh::Packet *packet) {
+  // First validate the packet pointer
+  if (!packet) {
+#if MESH_PACKET_LOGGING
+    Serial.printf("%s: RS232 BRIDGE: TX invalid packet pointer\n", getLogDateTime());
+#endif
+    return;
+  }
+
   if (!_seen_packets.hasSeen(packet)) {
+
     uint8_t buffer[MAX_SERIAL_PACKET_SIZE];
     uint16_t len = packet->writeTo(buffer + 4);
 
-    buffer[0] = (SERIAL_PKT_MAGIC >> 8) & 0xFF;
-    buffer[1] = SERIAL_PKT_MAGIC & 0xFF;
-    buffer[2] = (len >> 8) & 0xFF;
-    buffer[3] = len & 0xFF;
+    // Check if packet fits within our maximum payload size
+    if (len > (MAX_TRANS_UNIT + 1)) {
+#if MESH_PACKET_LOGGING
+      Serial.printf("%s: RS232 BRIDGE: TX packet too large (payload=%d, max=%d)\n", getLogDateTime(), len,
+                    MAX_TRANS_UNIT + 1);
+#endif
+      return;
+    }
 
+    // Build packet header
+    buffer[0] = (SERIAL_PKT_MAGIC >> 8) & 0xFF; // Magic high byte
+    buffer[1] = SERIAL_PKT_MAGIC & 0xFF;        // Magic low byte
+    buffer[2] = (len >> 8) & 0xFF;              // Length high byte
+    buffer[3] = len & 0xFF;                     // Length low byte
+
+    // Calculate checksum over the payload
     uint16_t checksum = fletcher16(buffer + 4, len);
-    buffer[4 + len] = (checksum >> 8) & 0xFF;
-    buffer[5 + len] = checksum & 0xFF;
+    buffer[4 + len] = (checksum >> 8) & 0xFF; // Checksum high byte
+    buffer[5 + len] = checksum & 0xFF;        // Checksum low byte
 
+    // Send complete packet
     _serial->write(buffer, len + SERIAL_OVERHEAD);
 
 #if MESH_PACKET_LOGGING
-    Serial.printf("%s: BRIDGE: TX, len=%d crc=0x%04x\n", getLogDateTime(), len, checksum);
+    Serial.printf("%s: RS232 BRIDGE: TX, len=%d crc=0x%04x\n", getLogDateTime(), len, checksum);
 #endif
   }
 }
@@ -81,7 +81,12 @@ void RS232Bridge::loop() {
           (_rx_buffer_pos == 1 && b == (SERIAL_PKT_MAGIC & 0xFF))) {
         _rx_buffer[_rx_buffer_pos++] = b;
       } else {
+        // Invalid magic byte, reset and start over
         _rx_buffer_pos = 0;
+        // Check if this byte could be the start of a new magic word
+        if (b == ((SERIAL_PKT_MAGIC >> 8) & 0xFF)) {
+          _rx_buffer[_rx_buffer_pos++] = b;
+        }
       }
     } else {
       // Reading length, payload, and checksum
@@ -89,22 +94,44 @@ void RS232Bridge::loop() {
 
       if (_rx_buffer_pos >= 4) {
         uint16_t len = (_rx_buffer[2] << 8) | _rx_buffer[3];
+
+        // Validate length field
         if (len > (MAX_TRANS_UNIT + 1)) {
+#if MESH_PACKET_LOGGING
+          Serial.printf("%s: RS232 BRIDGE: RX invalid length %d, resetting\n", getLogDateTime(), len);
+#endif
           _rx_buffer_pos = 0; // Invalid length, reset
-          return;
+          continue;
         }
 
         if (_rx_buffer_pos == len + SERIAL_OVERHEAD) { // Full packet received
-          uint16_t checksum = (_rx_buffer[4 + len] << 8) | _rx_buffer[5 + len];
-          if (checksum == fletcher16(_rx_buffer + 4, len)) {
+          uint16_t received_checksum = (_rx_buffer[4 + len] << 8) | _rx_buffer[5 + len];
+
+          if (validateChecksum(_rx_buffer + 4, len, received_checksum)) {
 #if MESH_PACKET_LOGGING
-            Serial.printf("%s: BRIDGE: RX, len=%d crc=0x%04x\n", getLogDateTime(), len, checksum);
+            Serial.printf("%s: RS232 BRIDGE: RX, len=%d crc=0x%04x\n", getLogDateTime(), len,
+                          received_checksum);
 #endif
-            mesh::Packet* pkt = _mgr->allocNew();
+            mesh::Packet *pkt = _mgr->allocNew();
             if (pkt) {
-              pkt->readFrom(_rx_buffer + 4, len);
-              onPacketReceived(pkt);
+              if (pkt->readFrom(_rx_buffer + 4, len)) {
+                onPacketReceived(pkt);
+              } else {
+#if MESH_PACKET_LOGGING
+                Serial.printf("%s: RS232 BRIDGE: RX failed to parse packet\n", getLogDateTime());
+#endif
+                _mgr->free(pkt);
+              }
+            } else {
+#if MESH_PACKET_LOGGING
+              Serial.printf("%s: RS232 BRIDGE: RX failed to allocate packet\n", getLogDateTime());
+#endif
             }
+          } else {
+#if MESH_PACKET_LOGGING
+            Serial.printf("%s: RS232 BRIDGE: RX checksum mismatch, rcv=0x%04x\n", getLogDateTime(),
+                          received_checksum);
+#endif
           }
           _rx_buffer_pos = 0; // Reset for next packet
         }
@@ -113,12 +140,8 @@ void RS232Bridge::loop() {
   }
 }
 
-void RS232Bridge::onPacketReceived(mesh::Packet* packet) {
-  if (!_seen_packets.hasSeen(packet)) {
-    _mgr->queueInbound(packet, 0);
-  } else {
-    _mgr->free(packet);
-  }
+void RS232Bridge::onPacketReceived(mesh::Packet *packet) {
+  handleReceivedPacket(packet);
 }
 
 #endif
