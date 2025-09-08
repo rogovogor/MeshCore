@@ -52,8 +52,8 @@ void RS232Bridge::onPacketTransmitted(mesh::Packet *packet) {
     }
 
     // Build packet header
-    buffer[0] = (SERIAL_PKT_MAGIC >> 8) & 0xFF; // Magic high byte
-    buffer[1] = SERIAL_PKT_MAGIC & 0xFF;        // Magic low byte
+    buffer[0] = (BRIDGE_PACKET_MAGIC >> 8) & 0xFF; // Magic high byte
+    buffer[1] = BRIDGE_PACKET_MAGIC & 0xFF;        // Magic low byte
     buffer[2] = (len >> 8) & 0xFF;              // Length high byte
     buffer[3] = len & 0xFF;                     // Length low byte
 
@@ -77,14 +77,14 @@ void RS232Bridge::loop() {
 
     if (_rx_buffer_pos < 2) {
       // Waiting for magic word
-      if ((_rx_buffer_pos == 0 && b == ((SERIAL_PKT_MAGIC >> 8) & 0xFF)) ||
-          (_rx_buffer_pos == 1 && b == (SERIAL_PKT_MAGIC & 0xFF))) {
+      if ((_rx_buffer_pos == 0 && b == ((BRIDGE_PACKET_MAGIC >> 8) & 0xFF)) ||
+          (_rx_buffer_pos == 1 && b == (BRIDGE_PACKET_MAGIC & 0xFF))) {
         _rx_buffer[_rx_buffer_pos++] = b;
       } else {
         // Invalid magic byte, reset and start over
         _rx_buffer_pos = 0;
         // Check if this byte could be the start of a new magic word
-        if (b == ((SERIAL_PKT_MAGIC >> 8) & 0xFF)) {
+        if (b == ((BRIDGE_PACKET_MAGIC >> 8) & 0xFF)) {
           _rx_buffer[_rx_buffer_pos++] = b;
         }
       }

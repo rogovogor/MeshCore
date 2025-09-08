@@ -66,7 +66,7 @@ void ESPNowBridge::xorCrypt(uint8_t *data, size_t len) {
 
 void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t len) {
   // Ignore packets that are too small to contain header + checksum
-  if (len < (MAGIC_HEADER_SIZE + CHECKSUM_SIZE)) {
+  if (len < (BRIDGE_MAGIC_SIZE + BRIDGE_CHECKSUM_SIZE)) {
 #if MESH_PACKET_LOGGING
     Serial.printf("%s: ESPNOW BRIDGE: RX packet too small, len=%d\n", getLogDateTime(), len);
 #endif
@@ -83,7 +83,7 @@ void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t l
 
   // Check packet header magic
   uint16_t received_magic = (data[0] << 8) | data[1];
-  if (received_magic != ESPNOW_HEADER_MAGIC) {
+  if (received_magic != BRIDGE_PACKET_MAGIC) {
 #if MESH_PACKET_LOGGING
     Serial.printf("%s: ESPNOW BRIDGE: RX invalid magic 0x%04X\n", getLogDateTime(), received_magic);
 #endif
@@ -92,17 +92,17 @@ void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t l
 
   // Make a copy we can decrypt
   uint8_t decrypted[MAX_ESPNOW_PACKET_SIZE];
-  const size_t encryptedDataLen = len - MAGIC_HEADER_SIZE;
-  memcpy(decrypted, data + MAGIC_HEADER_SIZE, encryptedDataLen);
+  const size_t encryptedDataLen = len - BRIDGE_MAGIC_SIZE;
+  memcpy(decrypted, data + BRIDGE_MAGIC_SIZE, encryptedDataLen);
 
   // Try to decrypt (checksum + payload)
   xorCrypt(decrypted, encryptedDataLen);
 
   // Validate checksum
   uint16_t received_checksum = (decrypted[0] << 8) | decrypted[1];
-  const size_t payloadLen = encryptedDataLen - CHECKSUM_SIZE;
+  const size_t payloadLen = encryptedDataLen - BRIDGE_CHECKSUM_SIZE;
 
-  if (!validateChecksum(decrypted + CHECKSUM_SIZE, payloadLen, received_checksum)) {
+  if (!validateChecksum(decrypted + BRIDGE_CHECKSUM_SIZE, payloadLen, received_checksum)) {
     // Failed to decrypt - likely from a different network
 #if MESH_PACKET_LOGGING
     Serial.printf("%s: ESPNOW BRIDGE: RX checksum mismatch, rcv=0x%04X\n", getLogDateTime(),
@@ -119,7 +119,7 @@ void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t l
   mesh::Packet *pkt = _instance->_mgr->allocNew();
   if (!pkt) return;
 
-  if (pkt->readFrom(decrypted + CHECKSUM_SIZE, payloadLen)) {
+  if (pkt->readFrom(decrypted + BRIDGE_CHECKSUM_SIZE, payloadLen)) {
     _instance->onPacketReceived(pkt);
   } else {
     _instance->_mgr->free(pkt);
@@ -161,11 +161,11 @@ void ESPNowBridge::onPacketTransmitted(mesh::Packet *packet) {
     uint8_t buffer[MAX_ESPNOW_PACKET_SIZE];
 
     // Write magic header (2 bytes)
-    buffer[0] = (ESPNOW_HEADER_MAGIC >> 8) & 0xFF;
-    buffer[1] = ESPNOW_HEADER_MAGIC & 0xFF;
+    buffer[0] = (BRIDGE_PACKET_MAGIC >> 8) & 0xFF;
+    buffer[1] = BRIDGE_PACKET_MAGIC & 0xFF;
 
     // Write packet payload starting after magic header and checksum
-    const size_t packetOffset = MAGIC_HEADER_SIZE + CHECKSUM_SIZE;
+    const size_t packetOffset = BRIDGE_MAGIC_SIZE + BRIDGE_CHECKSUM_SIZE;
     memcpy(buffer + packetOffset, sizingBuffer, meshPacketLen);
 
     // Calculate and add checksum (only of the payload)
@@ -174,10 +174,10 @@ void ESPNowBridge::onPacketTransmitted(mesh::Packet *packet) {
     buffer[3] = checksum & 0xFF;        // Low byte
 
     // Encrypt payload and checksum (not including magic header)
-    xorCrypt(buffer + MAGIC_HEADER_SIZE, meshPacketLen + CHECKSUM_SIZE);
+    xorCrypt(buffer + BRIDGE_MAGIC_SIZE, meshPacketLen + BRIDGE_CHECKSUM_SIZE);
 
     // Total packet size: magic header + checksum + payload
-    const size_t totalPacketSize = MAGIC_HEADER_SIZE + CHECKSUM_SIZE + meshPacketLen;
+    const size_t totalPacketSize = BRIDGE_MAGIC_SIZE + BRIDGE_CHECKSUM_SIZE + meshPacketLen;
 
     // Broadcast using ESP-NOW
     uint8_t broadcastAddress[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };

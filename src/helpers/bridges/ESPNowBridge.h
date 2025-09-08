@@ -65,14 +65,7 @@ private:
   /**
    * Size constants for packet parsing
    */
-  static const size_t MAGIC_HEADER_SIZE = 2;
-  static const size_t CHECKSUM_SIZE = 2;
-  static const size_t MAX_PAYLOAD_SIZE = MAX_ESPNOW_PACKET_SIZE - (MAGIC_HEADER_SIZE + CHECKSUM_SIZE);
-
-  /**
-   * Magic bytes to identify ESPNowBridge packets
-   */
-  static const uint16_t ESPNOW_HEADER_MAGIC = 0xC03E;
+  static const size_t MAX_PAYLOAD_SIZE = MAX_ESPNOW_PACKET_SIZE - (BRIDGE_MAGIC_SIZE + BRIDGE_CHECKSUM_SIZE);
 
   /** Buffer for receiving ESP-NOW packets */
   uint8_t _rx_buffer[MAX_ESPNOW_PACKET_SIZE];

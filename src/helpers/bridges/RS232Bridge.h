@@ -113,21 +113,11 @@ private:
    * Total overhead: 6 bytes
    */
 
-  /** Magic number to identify start of RS232Bridge packets */
-  static constexpr uint16_t SERIAL_PKT_MAGIC = 0xC03E;
-
-  /**
-   * Size constants for packet parsing and construction
-   */
-  static constexpr uint16_t MAGIC_HEADER_SIZE = 2;
-  static constexpr uint16_t LENGTH_FIELD_SIZE = 2;
-  static constexpr uint16_t CHECKSUM_SIZE = 2;
-
   /**
    * @brief The total overhead of the serial protocol in bytes.
    * Includes: MAGIC_WORD (2) + LENGTH (2) + CHECKSUM (2) = 6 bytes
    */
-  static constexpr uint16_t SERIAL_OVERHEAD = MAGIC_HEADER_SIZE + LENGTH_FIELD_SIZE + CHECKSUM_SIZE;
+  static constexpr uint16_t SERIAL_OVERHEAD = BRIDGE_MAGIC_SIZE + BRIDGE_LENGTH_SIZE + BRIDGE_CHECKSUM_SIZE;
 
   /**
    * @brief The maximum size of a complete packet on the serial line.
