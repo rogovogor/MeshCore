@@ -23,7 +23,7 @@ public:
 
   /**
    * @brief Common magic number used by all bridge implementations for packet identification
-   * 
+   *
    * This magic number is placed at the beginning of bridge packets to identify
    * them as mesh bridge packets and provide frame synchronization.
    */
@@ -31,7 +31,7 @@ public:
 
   /**
    * @brief Common field sizes used by bridge implementations
-   * 
+   *
    * These constants define the size of common packet fields used across bridges.
    * BRIDGE_MAGIC_SIZE is used by all bridges for packet identification.
    * BRIDGE_LENGTH_SIZE is used by bridges that need explicit length fields (like RS232).
@@ -40,6 +40,14 @@ public:
   static constexpr uint16_t BRIDGE_MAGIC_SIZE = sizeof(BRIDGE_PACKET_MAGIC);
   static constexpr uint16_t BRIDGE_LENGTH_SIZE = sizeof(uint16_t);
   static constexpr uint16_t BRIDGE_CHECKSUM_SIZE = sizeof(uint16_t);
+
+  /**
+   * @brief Default delay in milliseconds for scheduling inbound packet processing
+   *
+   * It provides a buffer to prevent immediate processing conflicts in the mesh network.
+   * Used in handleReceivedPacket() as: millis() + BRIDGE_DELAY
+   */
+  static constexpr uint16_t BRIDGE_DELAY = 500; // TODO: maybe too high ?
 
 protected:
   /** Packet manager for allocating and queuing mesh packets */

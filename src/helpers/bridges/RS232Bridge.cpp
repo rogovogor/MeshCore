@@ -54,8 +54,8 @@ void RS232Bridge::onPacketTransmitted(mesh::Packet *packet) {
     // Build packet header
     buffer[0] = (BRIDGE_PACKET_MAGIC >> 8) & 0xFF; // Magic high byte
     buffer[1] = BRIDGE_PACKET_MAGIC & 0xFF;        // Magic low byte
-    buffer[2] = (len >> 8) & 0xFF;              // Length high byte
-    buffer[3] = len & 0xFF;                     // Length low byte
+    buffer[2] = (len >> 8) & 0xFF;                 // Length high byte
+    buffer[3] = len & 0xFF;                        // Length low byte
 
     // Calculate checksum over the payload
     uint16_t checksum = fletcher16(buffer + 4, len);

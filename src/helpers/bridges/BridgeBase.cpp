@@ -1,5 +1,7 @@
 #include "BridgeBase.h"
 
+#include <Arduino.h>
+
 const char *BridgeBase::getLogDateTime() {
   static char tmp[32];
   uint32_t now = _rtc->getCurrentTime();
@@ -27,7 +29,7 @@ bool BridgeBase::validateChecksum(const uint8_t *data, size_t len, uint16_t rece
 
 void BridgeBase::handleReceivedPacket(mesh::Packet *packet) {
   if (!_seen_packets.hasSeen(packet)) {
-    _mgr->queueInbound(packet, 0);
+    _mgr->queueInbound(packet, millis() + BRIDGE_DELAY);
   } else {
     _mgr->free(packet);
   }
