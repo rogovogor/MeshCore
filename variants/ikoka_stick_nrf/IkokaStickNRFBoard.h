@@ -5,7 +5,7 @@
 
 #ifdef XIAO_NRF52
 
-class ikoka_stick_nrf_board : public mesh::MainBoard {
+class IkokaStickNRFBoard : public mesh::MainBoard {
 protected:
   uint8_t startup_reason;
 
@@ -46,7 +46,7 @@ public:
     return (adcvalue * ADC_MULTIPLIER * AREF_VOLTAGE) / 4.096;
   }
 
-  const char* getManufacturerName() const override {
+  const char *getManufacturerName() const override {
     return MANUFACTURER_STRING;
   }
 
@@ -54,7 +54,7 @@ public:
     NVIC_SystemReset();
   }
 
-  bool startOTAUpdate(const char* id, char reply[]) override;
+  bool startOTAUpdate(const char *id, char reply[]) override;
 };
 
 #endif
