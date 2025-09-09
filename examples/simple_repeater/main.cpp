@@ -8,6 +8,10 @@
   static UITask ui_task(display);
 #endif
 
+#ifdef WITH_BRIDGE
+AbstractBridge* bridge;
+#endif
+
 StdRNG fast_rng;
 SimpleMeshTables tables;
 
@@ -23,6 +27,10 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
+#ifdef WITH_BRIDGE
+  bridge->begin();
+#endif
+
   board.begin();
 
 #ifdef DISPLAY_CLASS
@@ -34,7 +42,9 @@ void setup() {
   }
 #endif
 
-  if (!radio_init()) { halt(); }
+  if (!radio_init()) {
+    halt();
+  }
 
   fast_rng.begin(radio_get_rng_seed());
 

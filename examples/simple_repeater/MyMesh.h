@@ -21,6 +21,20 @@
 #include <RTClib.h>
 #include <target.h>
 
+#ifdef WITH_RS232_BRIDGE
+#include "helpers/bridges/RS232Bridge.h"
+#define WITH_BRIDGE
+#endif
+
+#ifdef WITH_ESPNOW_BRIDGE
+#include "helpers/bridges/ESPNowBridge.h"
+#define WITH_BRIDGE
+#endif
+
+#ifdef WITH_BRIDGE
+extern AbstractBridge* bridge;
+#endif
+
 struct RepeaterStats {
   uint16_t batt_milli_volts;
   uint16_t curr_tx_queue_len;

@@ -207,6 +207,9 @@ void MyMesh::logRx(mesh::Packet *pkt, int len, float score) {
 }
 
 void MyMesh::logTx(mesh::Packet *pkt, int len) {
+#ifdef WITH_BRIDGE
+  bridge->onPacketTransmitted(pkt);
+#endif
   if (_logging) {
     File f = openAppend(PACKET_LOG_FILE);
     if (f) {
@@ -471,6 +474,15 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
                mesh::RTCClock &rtc, mesh::MeshTables &tables)
     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4) {
+#ifdef WITH_BRIDGE
+#if defined(WITH_RS232_BRIDGE)
+    bridge = new RS232Bridge(WITH_RS232_BRIDGE, _mgr, &rtc);
+#elif defined(WITH_ESPNOW_BRIDGE)
+    bridge = new ESPNowBridge(_mgr, &rtc);
+#else
+#error "You must choose either RS232 or ESPNow bridge"
+#endif
+#endif
   memset(known_clients, 0, sizeof(known_clients));
   next_local_advert = next_flood_advert = 0;
   set_radio_at = revert_radio_at = 0;
@@ -655,6 +667,10 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
 }
 
 void MyMesh::loop() {
+#ifdef WITH_BRIDGE
+  bridge->loop();
+#endif
+
   mesh::Mesh::loop();
 
   if (next_flood_advert && millisHasNowPassed(next_flood_advert)) {
