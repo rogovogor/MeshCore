@@ -124,10 +124,6 @@ struct ClientInfo {
   #define MAX_CLIENTS           32
 #endif
 
-#ifdef WITH_BRIDGE
-AbstractBridge* bridge;
-#endif
-
 struct NeighbourInfo {
   mesh::Identity id;
   uint32_t advert_timestamp;
@@ -154,6 +150,11 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   float pending_bw;
   uint8_t pending_sf;
   uint8_t pending_cr;
+#if defined(WITH_RS232_BRIDGE)
+  RS232Bridge bridge;
+#elif defined(WITH_ESPNOW_BRIDGE)
+  ESPNowBridge bridge;
+#endif
 
   ClientInfo* putClient(const mesh::Identity& id) {
     uint32_t min_time = 0xFFFFFFFF;
@@ -315,7 +316,7 @@ protected:
   }
   void logTx(mesh::Packet* pkt, int len) override {
 #ifdef WITH_BRIDGE
-    bridge->onPacketTransmitted(pkt);
+    bridge.onPacketTransmitted(pkt);
 #endif
     if (_logging) {
       File f = openAppend(PACKET_LOG_FILE);
@@ -581,16 +582,12 @@ public:
   MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
-  {
-#ifdef WITH_BRIDGE
 #if defined(WITH_RS232_BRIDGE)
-    bridge = new RS232Bridge(WITH_RS232_BRIDGE, _mgr, &rtc);
+      , bridge(WITH_RS232_BRIDGE, _mgr, &rtc)
 #elif defined(WITH_ESPNOW_BRIDGE)
-    bridge = new ESPNowBridge(_mgr, &rtc);
-#else
-#error "You must choose either RS232 or ESPNow bridge"
+      , bridge(_mgr, &rtc)
 #endif
-#endif
+  {
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
     set_radio_at = revert_radio_at = 0;
@@ -625,6 +622,10 @@ public:
     _fs = fs;
     // load persisted prefs
     _cli.loadPrefs(_fs);
+
+  #ifdef WITH_BRIDGE
+    bridge.begin();
+  #endif
 
     radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
     radio_set_tx_power(_prefs.tx_power_dbm);
@@ -792,7 +793,7 @@ public:
 
   void loop() {
 #ifdef WITH_BRIDGE
-    bridge->loop();
+    bridge.loop();
 #endif
 
     mesh::Mesh::loop();
@@ -842,10 +843,6 @@ static char command[160];
 void setup() {
   Serial.begin(115200);
   delay(1000);
-
-#ifdef WITH_BRIDGE
-  bridge->begin();
-#endif
 
   board.begin();
 
