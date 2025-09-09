@@ -59,6 +59,19 @@
 #define PIN_SPI_NSS             (24)
 
 ////////////////////////////////////////////////////////////////////////////////
+// QSPI FLASH
+
+#define PIN_QSPI_SCK            (46)
+#define PIN_QSPI_CS             (47)
+#define PIN_QSPI_IO0            (44)
+#define PIN_QSPI_IO1            (45)
+#define PIN_QSPI_IO2            (7)
+#define PIN_QSPI_IO3            (5)
+
+#define EXTERNAL_FLASH_DEVICES ZD25WQ16BUIGR
+#define EXTERNAL_FLASH_USE_QSPI
+
+////////////////////////////////////////////////////////////////////////////////
 // Builtin LEDs
 
 #define LED_RED                 (13)

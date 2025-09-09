@@ -1,35 +1,9 @@
 #include <Arduino.h>
-#include "T1000eBoard.h"
-#include <Wire.h>
+#include "RAKWismeshTagBoard.h"
 
 #include <bluefruit.h>
+#include <Wire.h>
 
-void T1000eBoard::begin() {
-  // for future use, sub-classes SHOULD call this from their begin()
-  startup_reason = BD_STARTUP_NORMAL;
-  btn_prev_state = HIGH;
-
-  sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
-
-  // Enable DC/DC converter for improved power efficiency
-  NRF_POWER->DCDCEN = 1;
-
-#ifdef BUTTON_PIN
-  pinMode(BATTERY_PIN, INPUT);
-  pinMode(BUTTON_PIN, INPUT);
-  pinMode(LED_PIN, OUTPUT);
-#endif
-
-#if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
-  Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL);
-#endif
-
-  Wire.begin();
-
-  delay(10);   // give sx1262 some time to power up
-}
-
-#if 0
 static BLEDfu bledfu;
 
 static void connect_callback(uint16_t conn_handle) {
@@ -44,8 +18,21 @@ static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
   MESH_DEBUG_PRINTLN("BLE client disconnected");
 }
 
+void RAKWismeshTagBoard::begin() {
+  // for future use, sub-classes SHOULD call this from their begin()
+  startup_reason = BD_STARTUP_NORMAL;
+  pinMode(PIN_VBAT_READ, INPUT);
+  pinMode(PIN_USER_BTN, INPUT_PULLUP);
 
-bool TrackerT1000eBoard::startOTAUpdate(const char* id, char reply[]) {
+  Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL);
+  Wire.begin();
+
+  pinMode(SX126X_POWER_EN, OUTPUT);
+  digitalWrite(SX126X_POWER_EN, HIGH);
+  delay(10);   // give sx1262 some time to power up
+}
+
+bool RAKWismeshTagBoard::startOTAUpdate(const char* id, char reply[]) {
   // Config the peripheral connection with maximum bandwidth
   // more SRAM required by SoftDevice
   // Note: All config***() function must be called before begin()
@@ -56,7 +43,7 @@ bool TrackerT1000eBoard::startOTAUpdate(const char* id, char reply[]) {
   // Set max power. Accepted values are: -40, -30, -20, -16, -12, -8, -4, 0, 4
   Bluefruit.setTxPower(4);
   // Set the BLE device name
-  Bluefruit.setName("T1000E_OTA");
+  Bluefruit.setName("WISMESHTAG_OTA");
 
   Bluefruit.Periph.setConnectCallback(connect_callback);
   Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
@@ -84,7 +71,11 @@ bool TrackerT1000eBoard::startOTAUpdate(const char* id, char reply[]) {
   Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
   Bluefruit.Advertising.start(0);             // 0 = Don't stop advertising after n seconds
 
-  strcpy(reply, "OK - started");
+  uint8_t mac_addr[6];
+  memset(mac_addr, 0, sizeof(mac_addr));
+  Bluefruit.getAddr(mac_addr);
+  sprintf(reply, "OK - mac: %02X:%02X:%02X:%02X:%02X:%02X",
+      mac_addr[5], mac_addr[4], mac_addr[3], mac_addr[2], mac_addr[1], mac_addr[0]);
+
   return true;
 }
-#endif

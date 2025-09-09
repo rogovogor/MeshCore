@@ -3,21 +3,6 @@
 #include <Arduino.h>
 #include <MeshCore.h>
 
-// LoRa radio module pins for the Xiao RP2040
-// https://wiki.seeedstudio.com/XIAO-RP2040/
-
-#define P_LORA_DIO_1      27 // D1
-#define P_LORA_NSS        6  // D4
-#define P_LORA_RESET      28 // D2
-#define P_LORA_BUSY       29 // D3
-#define P_LORA_TX_LED     17
-
-#define SX126X_RXEN       7  // D5
-#define SX126X_TXEN       -1
-
-#define SX126X_DIO2_AS_RF_SWITCH true
-#define SX126X_DIO3_TCXO_VOLTAGE 1.8
-
 /*
  * This board has no built-in way to read battery voltage.
  * Nevertheless it's very easy to make it work, you only require two 1% resistors.

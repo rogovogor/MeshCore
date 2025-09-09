@@ -78,28 +78,38 @@
 
 /* ------------------------------ Code -------------------------------- */
 
-#define REQ_TYPE_GET_STATUS          0x01   // same as _GET_STATS
-#define REQ_TYPE_KEEP_ALIVE          0x02
-#define REQ_TYPE_GET_TELEMETRY_DATA  0x03
+#ifdef WITH_RS232_BRIDGE
+#include "helpers/bridges/RS232Bridge.h"
+#define WITH_BRIDGE
+#endif
 
-#define RESP_SERVER_LOGIN_OK      0   // response to ANON_REQ
+#ifdef WITH_ESPNOW_BRIDGE
+#include "helpers/bridges/ESPNowBridge.h"
+#define WITH_BRIDGE
+#endif
 
-struct RepeaterStats {
-  uint16_t batt_milli_volts;
-  uint16_t curr_tx_queue_len;
-  int16_t  noise_floor;
-  int16_t  last_rssi;
-  uint32_t n_packets_recv;
-  uint32_t n_packets_sent;
-  uint32_t total_air_time_secs;
-  uint32_t total_up_time_secs;
-  uint32_t n_sent_flood, n_sent_direct;
-  uint32_t n_recv_flood, n_recv_direct;
-  uint16_t err_events;                // was 'n_full_events'
-  int16_t  last_snr;   // x 4
-  uint16_t n_direct_dups, n_flood_dups;
-  uint32_t total_rx_air_time_secs;
-};
+#define REQ_TYPE_GET_STATUS         0x01 // same as _GET_STATS
+#define REQ_TYPE_KEEP_ALIVE         0x02
+#define REQ_TYPE_GET_TELEMETRY_DATA 0x03
+
+#define RESP_SERVER_LOGIN_OK        0 // response to ANON_REQ
+
+  struct RepeaterStats {
+    uint16_t batt_milli_volts;
+    uint16_t curr_tx_queue_len;
+    int16_t noise_floor;
+    int16_t last_rssi;
+    uint32_t n_packets_recv;
+    uint32_t n_packets_sent;
+    uint32_t total_air_time_secs;
+    uint32_t total_up_time_secs;
+    uint32_t n_sent_flood, n_sent_direct;
+    uint32_t n_recv_flood, n_recv_direct;
+    uint16_t err_events; // was 'n_full_events'
+    int16_t last_snr;    // x 4
+    uint16_t n_direct_dups, n_flood_dups;
+    uint32_t total_rx_air_time_secs;
+  };
 
 struct ClientInfo {
   mesh::Identity id;
@@ -140,6 +150,11 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   float pending_bw;
   uint8_t pending_sf;
   uint8_t pending_cr;
+#if defined(WITH_RS232_BRIDGE)
+  RS232Bridge bridge;
+#elif defined(WITH_ESPNOW_BRIDGE)
+  ESPNowBridge bridge;
+#endif
 
   ClientInfo* putClient(const mesh::Identity& id) {
     uint32_t min_time = 0xFFFFFFFF;
@@ -300,6 +315,9 @@ protected:
     }
   }
   void logTx(mesh::Packet* pkt, int len) override {
+#ifdef WITH_BRIDGE
+    bridge.onPacketTransmitted(pkt);
+#endif
     if (_logging) {
       File f = openAppend(PACKET_LOG_FILE);
       if (f) {
@@ -364,9 +382,9 @@ protected:
       } else if (strcmp((char *) &data[4], _prefs.guest_password) == 0) {  // check guest password
         is_admin = false;
       } else {
-    #if MESH_DEBUG
+#if MESH_DEBUG
         MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
-    #endif
+#endif
         return;
       }
 
@@ -384,15 +402,15 @@ protected:
 
       uint32_t now = getRTCClock()->getCurrentTimeUnique();
       memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
-    #if 0
+#if 0
       memcpy(&reply_data[4], "OK", 2);   // legacy response
-    #else
+#else
       reply_data[4] = RESP_SERVER_LOGIN_OK;
       reply_data[5] = 0;  // NEW: recommended keep-alive interval (secs / 16)
       reply_data[6] = is_admin ? 1 : 0;
       reply_data[7] = 0;  // FUTURE: reserved
       getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
-  #endif
+#endif
 
       if (packet->isRouteFlood()) {
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
@@ -564,15 +582,20 @@ public:
   MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
       _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
+#if defined(WITH_RS232_BRIDGE)
+      , bridge(WITH_RS232_BRIDGE, _mgr, &rtc)
+#elif defined(WITH_ESPNOW_BRIDGE)
+      , bridge(_mgr, &rtc)
+#endif
   {
     memset(known_clients, 0, sizeof(known_clients));
     next_local_advert = next_flood_advert = 0;
     set_radio_at = revert_radio_at = 0;
     _logging = false;
 
-  #if MAX_NEIGHBOURS
+#if MAX_NEIGHBOURS
     memset(neighbours, 0, sizeof(neighbours));
-  #endif
+#endif
 
     // defaults
     memset(&_prefs, 0, sizeof(_prefs));
@@ -599,6 +622,10 @@ public:
     _fs = fs;
     // load persisted prefs
     _cli.loadPrefs(_fs);
+
+  #ifdef WITH_BRIDGE
+    bridge.begin();
+  #endif
 
     radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
     radio_set_tx_power(_prefs.tx_power_dbm);
@@ -765,6 +792,10 @@ public:
   }
 
   void loop() {
+#ifdef WITH_BRIDGE
+    bridge.loop();
+#endif
+
     mesh::Mesh::loop();
 
     if (next_flood_advert && millisHasNowPassed(next_flood_advert)) {
@@ -824,7 +855,9 @@ void setup() {
   }
 #endif
 
-  if (!radio_init()) { halt(); }
+  if (!radio_init()) {
+    halt();
+  }
 
   fast_rng.begin(radio_get_rng_seed());
 
