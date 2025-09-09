@@ -102,6 +102,11 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   uint8_t pending_sf;
   uint8_t pending_cr;
   int  matching_peer_indexes[MAX_CLIENTS];
+#if defined(WITH_RS232_BRIDGE)
+  RS232Bridge bridge;
+#elif defined(WITH_ESPNOW_BRIDGE)
+  ESPNowBridge bridge;
+#endif
 
   ClientInfo* putClient(const mesh::Identity& id);
   void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr);
