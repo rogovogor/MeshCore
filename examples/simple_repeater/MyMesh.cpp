@@ -168,7 +168,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
     memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
     return 4 + tlen; // reply_len
   }
-  if (payload[0] == REQ_TYPE_GET_ACCESS_LIST && (sender->permissions & PERM_ACL_ROLE_MASK) == PERM_ACL_ADMIN) {
+  if (payload[0] == REQ_TYPE_GET_ACCESS_LIST && sender->isAdmin()) {
     uint8_t res1 = payload[1];   // reserved for future  (extra query params)
     uint8_t res2 = payload[2];
     if (res1 == 0 && res2 == 0) {
@@ -672,7 +672,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
     command += 3;
   }
 
-  // handle sensor-specific CLI commands
+  // handle ACL related commands
   if (memcmp(command, "setperm ", 8) == 0) {   // format:  setperm {pubkey-hex} {permissions-int8}
     char* hex = &command[8];
     char* sp = strchr(hex, ' ');   // look for separator char
@@ -743,7 +743,7 @@ void MyMesh::loop() {
     MESH_DEBUG_PRINTLN("Radio params restored");
   }
 
-  // is there are pending dirty contacts write needed?
+  // is pending dirty contacts write needed?
   if (dirty_contacts_expiry && millisHasNowPassed(dirty_contacts_expiry)) {
     acl.save(_fs);
     dirty_contacts_expiry = 0;
