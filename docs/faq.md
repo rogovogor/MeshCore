@@ -63,10 +63,11 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [6.1. Q: My client says another client or a repeater or a room server was last seen many, many days ago.](#61-q-my-client-says-another-client-or-a-repeater-or-a-room-server-was-last-seen-many-many-days-ago)
   - [6.2. Q: A repeater or a client or a room server I expect to see on my discover list (on T-Deck) or contact list (on a smart device client) are not listed.](#62-q-a-repeater-or-a-client-or-a-room-server-i-expect-to-see-on-my-discover-list-on-t-deck-or-contact-list-on-a-smart-device-client-are-not-listed)
   - [6.3. Q: How to connect to a repeater via BLE (Bluetooth)?](#63-q-how-to-connect-to-a-repeater-via-ble-bluetooth)
-  - [6.4. Q: I can't connect via Bluetooth, what is the Bluetooth pairing code?](#64-q-i-cant-connect-via-bluetooth-what-is-the-bluetooth-pairing-code)
-  - [6.5. Q: My Heltec V3 keeps disconnecting from my smartphone.  It can't hold a solid Bluetooth connection.](#65-q-my-heltec-v3-keeps-disconnecting-from-my-smartphone--it-cant-hold-a-solid-bluetooth-connection)
-  - [6.6. Q: My RAK/T1000-E/xiao\_nRF52 device seems to be corrupted, how do I wipe it clean to start fresh?](#66-q-my-rakt1000-exiao_nrf52-device-seems-to-be-corrupted-how-do-i-wipe-it-clean-to-start-fresh)
-  - [6.7. Q: WebFlasher fails on Linux with failed to open](#67-q-webflasher-fails-on-linux-with-failed-to-open)
+  - [6.4. Q: My companion isn't showing up over Bluetooth?](#64-q-my-companion-isnt-showing-up-over-bluetooth)
+  - [6.5. Q: I can't connect via Bluetooth, what is the Bluetooth pairing code?](#64-q-i-cant-connect-via-bluetooth-what-is-the-bluetooth-pairing-code)
+  - [6.6. Q: My Heltec V3 keeps disconnecting from my smartphone.  It can't hold a solid Bluetooth connection.](#65-q-my-heltec-v3-keeps-disconnecting-from-my-smartphone--it-cant-hold-a-solid-bluetooth-connection)
+  - [6.7. Q: My RAK/T1000-E/xiao\_nRF52 device seems to be corrupted, how do I wipe it clean to start fresh?](#66-q-my-rakt1000-exiao_nrf52-device-seems-to-be-corrupted-how-do-i-wipe-it-clean-to-start-fresh)
+  - [6.8. Q: WebFlasher fails on Linux with failed to open](#67-q-webflasher-fails-on-linux-with-failed-to-open)
 - [7. Other Questions:](#7-other-questions)
   - [7.1 Q: How to update nRF (RAK, T114, Seed XIAO) repeater and room server firmware over the air using the new simpler DFU app?](#71-q-how-to-update-nrf-rak-t114-seed-xiao-repeater-and-room-server-firmware-over-the-air-using-the-new-simpler-dfu-app)
   - [7.2 Q: How to update ESP32-based devices over the air?](#72-q-how-to-update-esp32-based-devices-over-the-air)
@@ -563,15 +564,19 @@ You can get the epoch time on <https://www.epochconverter.com/> and use it to se
 ### 6.3. Q: How to connect to a repeater via BLE (Bluetooth)?
 **A:** You can't connect to a device running repeater firmware  via Bluetooth.  Devices running the BLE companion firmware you can connect to it via Bluetooth using the android app
 
-### 6.4. Q: I can't connect via Bluetooth, what is the Bluetooth pairing code?
+### 6.4. Q: My companion isn't showing up over Bluetooth?
+
+**A:** make sure that you flashed the Bluetooth companion firmware and not the USB-only companion firmware.
+
+### 6.5. Q: I can't connect via Bluetooth, what is the Bluetooth pairing code?
 
 **A:** the default Bluetooth pairing code is `123456`
 
-### 6.5. Q: My Heltec V3 keeps disconnecting from my smartphone.  It can't hold a solid Bluetooth connection.
+### 6.6. Q: My Heltec V3 keeps disconnecting from my smartphone.  It can't hold a solid Bluetooth connection.
 
 **A:** Heltec V3 has a very small coil antenna on its PCB for Wi-Fi and Bluetooth connectivity.  It has a very short range, only a few feet.  It is possible to remove the coil antenna  and replace it with a 31mm wire.  The BT range is much improved with the modification.
 
-### 6.6. Q: My RAK/T1000-E/xiao_nRF52 device seems to be corrupted, how do I wipe it clean to start fresh?
+### 6.7. Q: My RAK/T1000-E/xiao_nRF52 device seems to be corrupted, how do I wipe it clean to start fresh?
 
 **A:** 
 1. Connect USB-C cable to your device, per your device's instruction, get it to flash mode:
@@ -591,8 +596,7 @@ You can get the epoch time on <https://www.epochconverter.com/> and use it to se
 
 Separately, starting in firmware version 1.7.0, there is a CLI Rescue mode.  If your device has a user button (e.g. some RAK, T114), you can activate the rescue mode by hold down the user button of the device within 8 seconds of boot.  Then you can use the 'Console' on flasher.meshcore.co.uk 
 
-
-### 6.7. Q: WebFlasher fails on Linux with failed to open
+### 6.8. Q: WebFlasher fails on Linux with failed to open
 
 **A:** If the usb port doesn't have the right ownership for this task, the process fails with the following error:
 `NetworkError: Failed to execute 'open' on 'SerialPort': Failed to open serial port.`
