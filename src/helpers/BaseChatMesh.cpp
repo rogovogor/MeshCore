@@ -158,6 +158,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
     data[len] = 0; // need to make a C string again, with null terminator
 
     if (flags == TXT_TYPE_PLAIN) {
+      from.lastmod = getRTCClock()->getCurrentTime(); // update last heard time
       onMessageRecv(from, packet, timestamp, (const char *) &data[5]);  // let UI know
 
       uint32_t ack_hash;    // calc truncated hash of the message timestamp + text + sender pub_key, to prove to sender that we got it
@@ -184,6 +185,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
       if (timestamp > from.sync_since) {  // make sure 'sync_since' is up-to-date
         from.sync_since = timestamp;
       }
+      from.lastmod = getRTCClock()->getCurrentTime(); // update last heard time
       onSignedMessageRecv(from, packet, timestamp, &data[5], (const char *) &data[9]);  // let UI know
 
       uint32_t ack_hash;    // calc truncated hash of the message timestamp + text + OUR pub_key, to prove to sender that we got it
