@@ -90,6 +90,7 @@ class HomeScreen : public UIScreen {
   bool _shutdown_init;
   AdvertPath recent[UI_RECENT_LIST_SIZE];
 
+
   void renderBatteryIndicator(DisplayDriver& display, uint16_t batteryMilliVolts) {
     // Convert millivolts to percentage
     const int minMilliVolts = 3000; // Minimum voltage (e.g., 3.0V)
@@ -157,10 +158,12 @@ public:
   int render(DisplayDriver& display) override {
     char tmp[80];
     // node name
-    display.setCursor(0, 0);
     display.setTextSize(1);
     display.setColor(DisplayDriver::GREEN);
-    display.print(_node_prefs->node_name);
+    char filtered_name[sizeof(_node_prefs->node_name)];
+    display.translateUTF8ToBlocks(filtered_name, _node_prefs->node_name, sizeof(filtered_name));
+    display.setCursor(0, 0);
+    display.print(filtered_name);
 
     // battery voltage
     renderBatteryIndicator(display, _task->getBattMilliVolts());
@@ -199,8 +202,6 @@ public:
       for (int i = 0; i < UI_RECENT_LIST_SIZE; i++, y += 11) {
         auto a = &recent[i];
         if (a->name[0] == 0) continue;  // empty slot
-        display.setCursor(0, y);
-        display.print(a->name);
         int secs = _rtc->getCurrentTime() - a->recv_timestamp;
         if (secs < 60) {
           sprintf(tmp, "%ds", secs);
@@ -209,7 +210,14 @@ public:
         } else {
           sprintf(tmp, "%dh", secs / (60*60));
         }
-        display.setCursor(display.width() - display.getTextWidth(tmp) - 1, y);
+        
+        int timestamp_width = display.getTextWidth(tmp);
+        int max_name_width = display.width() - timestamp_width - 1;
+        
+        char filtered_recent_name[sizeof(a->name)];
+        display.translateUTF8ToBlocks(filtered_recent_name, a->name, sizeof(filtered_recent_name));
+        display.drawTextEllipsized(0, y, max_name_width, filtered_recent_name);
+        display.setCursor(display.width() - timestamp_width - 1, y);
         display.print(tmp);
       }
     } else if (_page == HomePage::RADIO) {
@@ -427,11 +435,15 @@ public:
 
     display.setCursor(0, 14);
     display.setColor(DisplayDriver::YELLOW);
-    display.print(p->origin);
+    char filtered_origin[sizeof(p->origin)];
+    display.translateUTF8ToBlocks(filtered_origin, p->origin, sizeof(filtered_origin));
+    display.print(filtered_origin);
 
     display.setCursor(0, 25);
     display.setColor(DisplayDriver::LIGHT);
-    display.printWordWrap(p->msg, display.width());
+    char filtered_msg[sizeof(p->msg)];
+    display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
+    display.printWordWrap(filtered_msg, display.width());
 
 #if AUTO_OFF_MILLIS==0 // probably e-ink
     return 10000; // 10 s
