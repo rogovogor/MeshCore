@@ -542,7 +542,6 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   ((MsgPreviewScreen *) msg_preview)->addPreview(path_len, from_name, text);
   setCurrScreen(msg_preview);
 
-
   if (_display != NULL) {
     if (!_display->isOn()) _display->turnOn();
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
