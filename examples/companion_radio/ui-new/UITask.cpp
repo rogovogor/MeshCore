@@ -356,9 +356,7 @@ public:
       return true;
     }
     if (c == KEY_ENTER && _page == HomePage::ADVERT) {
-  #ifdef PIN_BUZZER
-      _task->soundBuzzer(UIEventType::ack);
-  #endif
+      _task->notify(UIEventType::ack);
       if (the_mesh.advert()) {
         _task->showAlert("Advert sent!", 1000);
       } else {
@@ -495,6 +493,10 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   buzzer.begin();
 #endif
 
+#ifdef PIN_VIBRATION
+  vibration.begin();
+#endif
+
   ui_started_at = millis();
   _alert_expiry = 0;
 
@@ -509,9 +511,9 @@ void UITask::showAlert(const char* text, int duration_millis) {
   _alert_expiry = millis() + duration_millis;
 }
 
-void UITask::soundBuzzer(UIEventType bet) {
+void UITask::notify(UIEventType t) {
 #if defined(PIN_BUZZER)
-switch(bet){
+switch(t){
   case UIEventType::contactMessage:
     // gemini's pick
     buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
@@ -529,7 +531,15 @@ switch(bet){
     break;
 }
 #endif
+
+#ifdef PIN_VIBRATION
+  // Trigger vibration for all UI events except none
+  if (t != UIEventType::none) {
+    vibration.trigger();
+  }
+#endif
 }
+
 
 void UITask::msgRead(int msgcount) {
   _msgcount = msgcount;
@@ -699,6 +709,10 @@ void UITask::loop() {
 #endif
   }
 
+#ifdef PIN_VIBRATION
+  vibration.loop();
+#endif
+
 #ifdef AUTO_SHUTDOWN_MILLIVOLTS
   if (millis() > next_batt_chck) {
     uint16_t milliVolts = getBattMilliVolts();
@@ -767,11 +781,11 @@ void UITask::toggleGPS() {
       if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
         if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
           _sensors->setSettingValue("gps", "0");
-          soundBuzzer(UIEventType::ack);
+          notify(UIEventType::ack);
           showAlert("GPS: Disabled", 800);
         } else {
           _sensors->setSettingValue("gps", "1");
-          soundBuzzer(UIEventType::ack);
+          notify(UIEventType::ack);
           showAlert("GPS: Enabled", 800);
         }
         _next_refresh = 0;
@@ -786,7 +800,7 @@ void UITask::toggleBuzzer() {
   #ifdef PIN_BUZZER
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
-      soundBuzzer(UIEventType::ack);
+      notify(UIEventType::ack);
       showAlert("Buzzer: ON", 800);
     } else {
       buzzer.quiet(true);
