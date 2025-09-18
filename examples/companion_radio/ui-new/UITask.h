@@ -12,7 +12,7 @@
   #include <helpers/ui/buzzer.h>
 #endif
 #ifdef PIN_VIBRATION
-  #include <helpers/ui/vibration.h>
+  #include <helpers/ui/GenericVibration.h>
 #endif
 
 #include "../AbstractUITask.h"
@@ -25,7 +25,7 @@ class UITask : public AbstractUITask {
   genericBuzzer buzzer;
 #endif
 #ifdef PIN_VIBRATION
-  genericVibration vibration;
+  GenericVibration vibration;
 #endif
   unsigned long _next_refresh, _auto_off;
   NodePrefs* _node_prefs;
