@@ -28,6 +28,6 @@
     "protocol": "stlink",
     "protocols": ["stlink", "jlink"]
   },
-  "url": "YAOAO",
+  "url": "https://www.st.com/en/microcontrollers-microprocessors/stm32wle5cc.html",
   "vendor": "YAOYAO"
 }
