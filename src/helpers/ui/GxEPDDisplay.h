@@ -24,7 +24,7 @@
 
 class GxEPDDisplay : public DisplayDriver {
 
-#if defined(HELTEC_MESH_POCKET)
+#if defined(EINK_DISPLAY_MODEL)
   GxEPD2_BW<EINK_DISPLAY_MODEL, EINK_DISPLAY_MODEL::HEIGHT> display;
   const float scale_x  = EINK_SCALE_X; 
   const float scale_y  = EINK_SCALE_Y;
@@ -45,7 +45,7 @@ class GxEPDDisplay : public DisplayDriver {
 
 public:
   // there is a margin in y...
-#if defined(HELTEC_MESH_POCKET)
+#if defined(EINK_DISPLAY_MODEL)
   GxEPDDisplay() : DisplayDriver(128, 128), display(EINK_DISPLAY_MODEL(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) {}
 #else
   GxEPDDisplay() : DisplayDriver(128, 128), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) {}

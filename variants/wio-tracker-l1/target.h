@@ -8,7 +8,11 @@
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/ArduinoHelpers.h>
 #ifdef DISPLAY_CLASS
-  #include <helpers/ui/SH1106Display.h>
+  #if defined(WIO_TRACKER_L1_EINK)
+    #include <helpers/ui/GxEPDDisplay.h>
+  #else
+    #include <helpers/ui/SH1106Display.h>
+  #endif
   #include <helpers/ui/MomentaryButton.h>
 #endif
 #include <helpers/sensors/EnvironmentSensorManager.h>
