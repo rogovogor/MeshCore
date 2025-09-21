@@ -78,8 +78,8 @@
 
 #define PIN_WIRE_SDA            (14)
 #define PIN_WIRE_SCL            (15)
-#define PIN_WIRE1_SDA           (17)
-#define PIN_WIRE1_SCL           (18)
+#define PIN_WIRE1_SDA           (18)
+#define PIN_WIRE1_SCL           (17)
 #define I2C_NO_RESCAN
 #define DISPLAY_ADDRESS         0x3D  // SH1106 OLED I2C address
 

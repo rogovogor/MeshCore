@@ -108,7 +108,13 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
   #if ENV_PIN_SDA && ENV_PIN_SCL
+    #ifdef NRF52_PLATFORM
+  Wire1.setPins(ENV_PIN_SDA, ENV_PIN_SCL);
+  Wire1.setClock(100000);
+  Wire1.begin();
+    #else
   Wire1.begin(ENV_PIN_SDA, ENV_PIN_SCL, 100000);
+    #endif
   MESH_DEBUG_PRINTLN("Second I2C initialized on pins SDA: %d SCL: %d", ENV_PIN_SDA, ENV_PIN_SCL);
   #endif
 
