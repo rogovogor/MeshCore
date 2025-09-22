@@ -175,14 +175,17 @@ void MyMesh::updateContactFromFrame(ContactInfo &contact, uint32_t& last_mod, co
   }
 }
 
+bool MyMesh::Frame::isChannelMsg() const {
+  return buf[0] == RESP_CODE_CHANNEL_MSG_RECV || buf[0] == RESP_CODE_CHANNEL_MSG_RECV_V3;
+}
+
 void MyMesh::addToOfflineQueue(const uint8_t frame[], int len) {
   if (offline_queue_len >= OFFLINE_QUEUE_SIZE) {
     MESH_DEBUG_PRINTLN("WARN: offline_queue is full!");
     int pos = 0;
     while (pos < offline_queue_len) {
-      if ((offline_queue[pos].buf[0] == RESP_CODE_CHANNEL_MSG_RECV) ||
-          offline_queue[pos].buf[0] == RESP_CODE_CHANNEL_MSG_RECV_V3) {
-        for (int i = pos; i < offline_queue_len; i++) { // delete oldest channel msg from queue
+      if (offline_queue[pos].isChannelMsg()) {
+        for (int i = pos; i < offline_queue_len - 1; i++) { // delete oldest channel msg from queue
           offline_queue[i] = offline_queue[i + 1];
         }
         MESH_DEBUG_PRINTLN("INFO: removed oldest channel message from queue.");
