@@ -433,8 +433,19 @@ void EnvironmentSensorManager::initBasicGPS() {
   // Try to detect if GPS is physically connected to determine if we should expose the setting
   #ifdef PIN_GPS_EN
     pinMode(PIN_GPS_EN, OUTPUT);
+  #ifdef PIN_GPS_EN_ACTIVE
+    digitalWrite(PIN_GPS_EN, PIN_GPS_EN_ACTIVE);   // Power on GPS
+  #else
     digitalWrite(PIN_GPS_EN, HIGH);   // Power on GPS
   #endif
+  #endif
+
+#ifdef PIN_GPS_RESET
+    pinMode(PIN_GPS_RESET, OUTPUT);
+    digitalWrite(PIN_GPS_RESET, PIN_GPS_RESET_ACTIVE); // assert for 10ms
+    delay(10);
+    digitalWrite(PIN_GPS_RESET, !PIN_GPS_RESET_ACTIVE);
+#endif
 
   #ifndef PIN_GPS_EN
     MESH_DEBUG_PRINTLN("No GPS wake/reset pin found for this board. Continuing on...");
@@ -456,7 +467,11 @@ void EnvironmentSensorManager::initBasicGPS() {
     MESH_DEBUG_PRINTLN("No GPS detected");
   }
   #ifdef PIN_GPS_EN
+  #ifdef PIN_GPS_EN_ACTIVE
+    digitalWrite(PIN_GPS_EN, !PIN_GPS_EN_ACTIVE);  
+  #else
     digitalWrite(PIN_GPS_EN, LOW);  // Power off GPS until the setting is changed
+  #endif
   #endif
   gps_active = false; //Set GPS visibility off until setting is changed
 }
@@ -542,9 +557,23 @@ void EnvironmentSensorManager::start_gps() {
   #endif
   #ifdef PIN_GPS_EN
     pinMode(PIN_GPS_EN, OUTPUT);
+  #ifdef PIN_GPS_EN_ACTIVE
+    digitalWrite(PIN_GPS_EN, PIN_GPS_EN_ACTIVE);  
+  #else
     digitalWrite(PIN_GPS_EN, HIGH);
+  #endif
+  #ifndef PIN_GPS_RESET
     return;
   #endif
+  #endif
+
+#ifdef PIN_GPS_RESET
+    pinMode(PIN_GPS_RESET, OUTPUT);
+    digitalWrite(PIN_GPS_RESET, PIN_GPS_RESET_ACTIVE); // assert for 10ms
+    delay(10);
+    digitalWrite(PIN_GPS_RESET, !PIN_GPS_RESET_ACTIVE);
+    return;
+#endif
 
   MESH_DEBUG_PRINTLN("Start GPS is N/A on this board. Actual GPS state unchanged");
 }
@@ -558,8 +587,12 @@ void EnvironmentSensorManager::stop_gps() {
   #endif
   #ifdef PIN_GPS_EN
     pinMode(PIN_GPS_EN, OUTPUT);
+  #ifdef PIN_GPS_EN_ACTIVE
+    digitalWrite(PIN_GPS_EN, !PIN_GPS_EN_ACTIVE);  
+  #else
     digitalWrite(PIN_GPS_EN, LOW);
-    return;
+  #endif   
+  return;
   #endif
 
   MESH_DEBUG_PRINTLN("Stop GPS is N/A on this board. Actual GPS state unchanged");
