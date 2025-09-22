@@ -88,7 +88,7 @@
 #define PIN_GPS_TX              PIN_SERIAL1_RX
 #define PIN_GPS_RX              PIN_SERIAL1_TX
 #define PIN_GPS_STANDBY         (0)
-#define PIN_GPS_EN              (18)
+#define PIN_GPS_EN              (PIN_GPS_STANDBY)
 
 // QSPI Pins
 #define PIN_QSPI_SCK            (19)
