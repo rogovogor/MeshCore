@@ -26,10 +26,6 @@ EnvironmentSensorManager sensors = EnvironmentSensorManager();
 
 bool radio_init() {
   rtc_clock.begin(Wire);
-  
-  // pinMode(SX126X_RF_VC1, OUTPUT);
-  // pinMode(SX126X_RF_VC2, OUTPUT);
-  // set_SX126X_RF_Transmitter_Switch(false);
 
   return radio.std_init(&SPI);
 }
@@ -47,7 +43,6 @@ void radio_set_params(float freq, float bw, uint8_t sf, uint8_t cr) {
 
 void radio_set_tx_power(uint8_t dbm) {
   radio.setOutputPower(dbm);
-  // set_SX126X_RF_Transmitter_Switch(true);
 }
 
 mesh::LocalIdentity radio_new_identity() {
