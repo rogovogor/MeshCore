@@ -70,7 +70,7 @@ static Adafruit_INA260 INA260;
 #define TELEM_INA226_SHUNT_VALUE 0.100
 #define TELEM_INA226_MAX_AMP 0.8
 #include <INA226.h>
-static INA226 INA226(TELEM_INA226_ADDRESS);
+static INA226 INA226(TELEM_INA226_ADDRESS, TELEM_WIRE);
 #endif
 
 #if ENV_INCLUDE_MLX90614
@@ -108,7 +108,13 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
   #if ENV_PIN_SDA && ENV_PIN_SCL
+    #ifdef NRF52_PLATFORM
+  Wire1.setPins(ENV_PIN_SDA, ENV_PIN_SCL);
+  Wire1.setClock(100000);
+  Wire1.begin();
+    #else
   Wire1.begin(ENV_PIN_SDA, ENV_PIN_SCL, 100000);
+    #endif
   MESH_DEBUG_PRINTLN("Second I2C initialized on pins SDA: %d SCL: %d", ENV_PIN_SDA, ENV_PIN_SCL);
   #endif
 

@@ -78,8 +78,8 @@
 
 #define PIN_WIRE_SDA            (14)
 #define PIN_WIRE_SCL            (15)
-#define PIN_WIRE1_SDA           (17)
-#define PIN_WIRE1_SCL           (18)
+#define PIN_WIRE1_SDA           (18)
+#define PIN_WIRE1_SCL           (17)
 #define I2C_NO_RESCAN
 #define DISPLAY_ADDRESS         0x3D  // SH1106 OLED I2C address
 
@@ -88,7 +88,7 @@
 #define PIN_GPS_TX              PIN_SERIAL1_RX
 #define PIN_GPS_RX              PIN_SERIAL1_TX
 #define PIN_GPS_STANDBY         (0)
-#define PIN_GPS_EN              (18)
+#define PIN_GPS_EN              (PIN_GPS_STANDBY)
 
 // QSPI Pins
 #define PIN_QSPI_SCK            (19)
