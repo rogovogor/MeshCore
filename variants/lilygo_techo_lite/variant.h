@@ -21,9 +21,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Power
 
-#define PIN_PWR_EN              (30) // RT9080_EN
+#define PIN_PWR_EN              _PINNUM(0, 30) // RT9080_EN
 
-#define BATTERY_PIN             (0 + 2)
+#define BATTERY_PIN             _PINNUM(0, 2)
 #define ADC_MULTIPLIER          (4.90F)
 
 #define ADC_RESOLUTION          (14)
@@ -47,28 +47,28 @@
 ////////////////////////////////////////////////////////////////////////////////
 // I2C pin definition
 
-#define PIN_WIRE_SDA            (4) // (SDA)
-#define PIN_WIRE_SCL            (2) // (SCL)
+#define PIN_WIRE_SDA            _PINNUM(0, 4) // (SDA)
+#define PIN_WIRE_SCL            _PINNUM(0, 2) // (SCL)
 
 ////////////////////////////////////////////////////////////////////////////////
 // SPI pin definition
 
-#define SPI_INTERFACES_COUNT    (2)
+#define SPI_INTERFACES_COUNT    _PINNUM(0, 2)
 
-#define PIN_SPI_MISO            (17) // (MISO)
-#define PIN_SPI_MOSI            (15) // (MOSI)
-#define PIN_SPI_SCK             (13) // (SCK)
+#define PIN_SPI_MISO            _PINNUM(0, 17) // (MISO)
+#define PIN_SPI_MOSI            _PINNUM(0, 15) // (MOSI)
+#define PIN_SPI_SCK             _PINNUM(0, 13) // (SCK)
 #define PIN_SPI_NSS             (-1)
 
 ////////////////////////////////////////////////////////////////////////////////
 // QSPI FLASH
 
-#define PIN_QSPI_SCK            (4)
-#define PIN_QSPI_CS             (12)
-#define PIN_QSPI_IO0            (6)
-#define PIN_QSPI_IO1            (8)
-#define PIN_QSPI_IO2            (32 + 9)
-#define PIN_QSPI_IO3            (26)
+#define PIN_QSPI_SCK            _PINNUM(0, 4)
+#define PIN_QSPI_CS             _PINNUM(0, 12)
+#define PIN_QSPI_IO0            _PINNUM(0, 6)
+#define PIN_QSPI_IO1            _PINNUM(0, 8)
+#define PIN_QSPI_IO2            _PINNUM(1, 9)
+#define PIN_QSPI_IO3            _PINNUM(0, 26)
 
 #define EXTERNAL_FLASH_DEVICES ZD25WQ32CEIGR
 #define EXTERNAL_FLASH_USE_QSPI
@@ -76,9 +76,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Builtin LEDs
 
-#define LED_RED                 (32 + 14) // LED_3
-#define LED_BLUE                (32 + 5)  // LED_2
-#define LED_GREEN               (32 + 7)  // LED_1
+#define LED_RED                 _PINNUM(1, 14) // LED_3
+#define LED_BLUE                _PINNUM(1, 5)  // LED_2
+#define LED_GREEN               _PINNUM(1, 7)  // LED_1
 
 //#define PIN_STATUS_LED          LED_BLUE
 #define LED_BUILTIN             (-1)
@@ -88,11 +88,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Builtin buttons
 
-#define PIN_BUTTON1             (24) // BOOT
+#define PIN_BUTTON1             _PINNUM(0, 24) // BOOT
 #define BUTTON_PIN              PIN_BUTTON1
 #define PIN_USER_BTN            BUTTON_PIN
 
-#define PIN_BUTTON2             (18)
+#define PIN_BUTTON2             _PINNUM(0, 18)
 #define BUTTON_PIN2             PIN_BUTTON2
 
 #define EXTERNAL_FLASH_DEVICES MX25R1635F
@@ -102,20 +102,20 @@
 // Lora
 
 #define USE_SX1262
-#define LORA_CS                 (11) 
-#define SX126X_POWER_EN         (30)
-#define SX126X_DIO1             (32 + 8) 
-#define SX126X_BUSY             (14)
-#define SX126X_RESET            (7)
-#define SX126X_RF_VC1           (27)
-#define SX126X_RF_VC2           (33)
+#define LORA_CS                 _PINNUM(0, 11)
+#define SX126X_POWER_EN         _PINNUM(0, 30)
+#define SX126X_DIO1             _PINNUM(1, 8)
+#define SX126X_BUSY             _PINNUM(0, 14)
+#define SX126X_RESET            _PINNUM(0, 7)
+#define SX126X_RF_VC1           _PINNUM(0, 27)
+#define SX126X_RF_VC2           _PINNUM(0, 33)
 
 ////////////////////////////////////////////////////////////////////////////////
 // SPI1
 
 #define PIN_SPI1_MISO           (-1)
-#define PIN_SPI1_MOSI           (20)
-#define PIN_SPI1_SCK            (19)
+#define PIN_SPI1_MOSI           _PINNUM(0, 20)
+#define PIN_SPI1_SCK            _PINNUM(0, 19)
 
 // GxEPD2 needs that for a panel that is not even used !
 extern const int MISO;
@@ -126,13 +126,13 @@ extern const int SCK;
 // Display
 
 // #define DISP_MISO               (-1)
-#define DISP_MOSI               (20)
-#define DISP_SCLK               (19)
-#define DISP_CS                 (22)
-#define DISP_DC                 (21)
-#define DISP_RST                (28)
-#define DISP_BUSY               (3)
-#define DISP_POWER              (32 + 12)
+#define DISP_MOSI               _PINNUM(0, 20)
+#define DISP_SCLK               _PINNUM(0, 19)
+#define DISP_CS                 _PINNUM(0, 22)
+#define DISP_DC                 _PINNUM(0, 21)
+#define DISP_RST                _PINNUM(0, 28)
+#define DISP_BUSY               _PINNUM(0, 3)
+#define DISP_POWER              _PINNUM(1, 12)
 // #define DISP_BACKLIGHT          (-1)
 
 #define PIN_DISPLAY_CS          DISP_CS
@@ -143,8 +143,8 @@ extern const int SCK;
 ////////////////////////////////////////////////////////////////////////////////
 // GPS
 
-#define PIN_GPS_RX              (32 + 13) // RXD
-#define PIN_GPS_TX              (32 + 15) // TXD
-#define GPS_EN                  (32 + 11) // POWER_RT9080_EN
-#define PIN_GPS_STANDBY         (32 + 10)
-#define PIN_GPS_PPS             (29) // 1PPS
+#define PIN_GPS_RX              _PINNUM(1, 13) // RXD
+#define PIN_GPS_TX              _PINNUM(1, 15) // TXD
+#define GPS_EN                  _PINNUM(1, 11) // POWER_RT9080_EN
+#define PIN_GPS_STANDBY         _PINNUM(1, 10)
+#define PIN_GPS_PPS             _PINNUM(0, 29) // 1PPS
