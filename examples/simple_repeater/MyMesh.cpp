@@ -197,11 +197,12 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
       int reply_offset = 4;
 
       // get request params
-      uint8_t count = payload[2]; // how many neighbours to fetch
-      uint8_t offset = payload[3]; // offset from start of neighbours list
-      uint8_t order_by = payload[4]; // how to order neighbours. 0=newest_to_oldest, 1=oldest_to_newest, 2=strongest_to_weakest, 3=weakest_to_strongest
-      uint8_t pubkey_prefix_length = payload[5]; // how many bytes of neighbour pub key we want
-      // we also send a 4 byte random blob in payload[6...9] to help packet uniqueness
+      uint8_t count = payload[2]; // how many neighbours to fetch (0-255)
+      uint16_t offset;
+      memcpy(&offset, &payload[3], 2); // offset from start of neighbours list (0-65535)
+      uint8_t order_by = payload[5]; // how to order neighbours. 0=newest_to_oldest, 1=oldest_to_newest, 2=strongest_to_weakest, 3=weakest_to_strongest
+      uint8_t pubkey_prefix_length = payload[6]; // how many bytes of neighbour pub key we want
+      // we also send a 4 byte random blob in payload[7...10] to help packet uniqueness
 
       MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS count=%d, offset=%d, order_by=%d, pubkey_prefix_length=%d", count, offset, order_by, pubkey_prefix_length);
 
