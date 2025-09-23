@@ -214,11 +214,11 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
 
       // create copy of neighbours list, skipping empty entries so we can sort it separately from main list
       int16_t neighbours_count = 0;
-      NeighbourInfo sorted_neighbours[MAX_NEIGHBOURS];
+      NeighbourInfo* sorted_neighbours[MAX_NEIGHBOURS];
       for (int i = 0; i < MAX_NEIGHBOURS; i++) {
         auto neighbour = &neighbours[i];
         if (neighbour->heard_timestamp > 0) {
-          sorted_neighbours[neighbours_count] = *neighbour;
+          sorted_neighbours[neighbours_count] = neighbour;
           neighbours_count++;
         }
       }
@@ -227,26 +227,26 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
       if (order_by == 0) {
         // sort by newest to oldest
         MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting newest to oldest");
-        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
-          return a.heard_timestamp > b.heard_timestamp; // desc
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo* a, const NeighbourInfo* b) {
+          return a->heard_timestamp > b->heard_timestamp; // desc
         });
       } else if (order_by == 1) {
         // sort by oldest to newest
         MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting oldest to newest");
-        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
-          return a.heard_timestamp < b.heard_timestamp; // asc
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo* a, const NeighbourInfo* b) {
+          return a->heard_timestamp < b->heard_timestamp; // asc
         });
       } else if (order_by == 2) {
         // sort by strongest to weakest
         MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting strongest to weakest");
-        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
-          return a.snr > b.snr; // desc
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo* a, const NeighbourInfo* b) {
+          return a->snr > b->snr; // desc
         });
       } else if (order_by == 3) {
         // sort by weakest to strongest
         MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting weakest to strongest");
-        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
-          return a.snr < b.snr; // asc
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo* a, const NeighbourInfo* b) {
+          return a->snr < b->snr; // asc
         });
       }
 
@@ -264,7 +264,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
         }
 
         // add next neighbour to results
-        auto neighbour = &sorted_neighbours[index + offset];
+        auto neighbour = sorted_neighbours[index + offset];
         uint32_t heard_seconds_ago = getRTCClock()->getCurrentTime() - neighbour->heard_timestamp;
         memcpy(&results_buffer[results_offset], neighbour->id.pub_key, pubkey_prefix_length); results_offset += pubkey_prefix_length;
         memcpy(&results_buffer[results_offset], &heard_seconds_ago, 4); results_offset += 4;
