@@ -110,10 +110,18 @@
 #define SX126X_RF_VC1           _PINNUM(0, 27)
 #define SX126X_RF_VC2           _PINNUM(0, 33)
 
+#define P_LORA_DIO_1            SX126X_DIO1
+#define P_LORA_NSS              LORA_CS
+#define P_LORA_RESET            SX126X_RESET
+#define P_LORA_BUSY             SX126X_BUSY
+#define P_LORA_SCLK             PIN_SPI_SCK
+#define P_LORA_MISO             PIN_SPI_MISO
+#define P_LORA_MOSI             PIN_SPI_MOSI
+
 ////////////////////////////////////////////////////////////////////////////////
 // SPI1
 
-#define PIN_SPI1_MISO           (-1)
+#define PIN_SPI1_MISO           (-1)            // Not used for Display
 #define PIN_SPI1_MOSI           _PINNUM(0, 20)
 #define PIN_SPI1_SCK            _PINNUM(0, 19)
 
@@ -125,7 +133,7 @@ extern const int SCK;
 ////////////////////////////////////////////////////////////////////////////////
 // Display
 
-// #define DISP_MISO               (-1)
+// #define DISP_MISO               (-1)         // Not used for Display
 #define DISP_MOSI               _PINNUM(0, 20)
 #define DISP_SCLK               _PINNUM(0, 19)
 #define DISP_CS                 _PINNUM(0, 22)
@@ -133,7 +141,7 @@ extern const int SCK;
 #define DISP_RST                _PINNUM(0, 28)
 #define DISP_BUSY               _PINNUM(0, 3)
 #define DISP_POWER              _PINNUM(1, 12)
-// #define DISP_BACKLIGHT          (-1)
+// #define DISP_BACKLIGHT          (-1)         // Display has no backlight
 
 #define PIN_DISPLAY_CS          DISP_CS
 #define PIN_DISPLAY_DC          DISP_DC
