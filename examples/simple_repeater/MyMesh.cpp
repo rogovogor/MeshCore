@@ -1,4 +1,5 @@
 #include "MyMesh.h"
+#include <algorithm>
 
 /* ------------------------------ Config -------------------------------- */
 
@@ -46,6 +47,7 @@
 #define REQ_TYPE_KEEP_ALIVE         0x02
 #define REQ_TYPE_GET_TELEMETRY_DATA 0x03
 #define REQ_TYPE_GET_ACCESS_LIST    0x05
+#define REQ_TYPE_GET_NEIGHBOURS     0x06
 
 #define RESP_SERVER_LOGIN_OK        0 // response to ANON_REQ
 
@@ -185,6 +187,98 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
         reply_data[ofs++] = c->permissions;
       }
       return ofs;
+    }
+  }
+  if (payload[0] == REQ_TYPE_GET_NEIGHBOURS) {
+    uint8_t request_version = payload[1];
+    if (request_version == 0) {
+
+      // reply data offset (after response sender_timestamp/tag)
+      int reply_offset = 4;
+
+      // get request params
+      uint8_t count = payload[2]; // how many neighbours to fetch
+      uint8_t offset = payload[3]; // offset from start of neighbours list
+      uint8_t order_by = payload[4]; // how to order neighbours. 0=newest_to_oldest, 1=oldest_to_newest, 2=strongest_to_weakest, 3=weakest_to_strongest
+      uint8_t pubkey_prefix_length = payload[5]; // how many bytes of neighbour pub key we want
+      // we also send a 4 byte random blob in payload[6...9] to help packet uniqueness
+
+      MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS count=%d, offset=%d, order_by=%d, pubkey_prefix_length=%d", count, offset, order_by, pubkey_prefix_length);
+
+      // clamp pub key prefix length to max pub key length
+      if(pubkey_prefix_length > PUB_KEY_SIZE){
+        pubkey_prefix_length = PUB_KEY_SIZE;
+        MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS invalid pubkey_prefix_length=%d clamping to %d", pubkey_prefix_length, PUB_KEY_SIZE);
+      }
+
+      // create copy of neighbours list, skipping empty entries so we can sort it separately from main list
+      int16_t neighbours_count = 0;
+      NeighbourInfo sorted_neighbours[MAX_NEIGHBOURS];
+      for (int i = 0; i < MAX_NEIGHBOURS; i++) {
+        auto neighbour = &neighbours[i];
+        if (neighbour->heard_timestamp > 0) {
+          sorted_neighbours[neighbours_count] = *neighbour;
+          neighbours_count++;
+        }
+      }
+
+      // sort neighbours based on order
+      if (order_by == 0) {
+        // sort by newest to oldest
+        MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting newest to oldest");
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
+          return a.heard_timestamp > b.heard_timestamp; // desc
+        });
+      } else if (order_by == 1) {
+        // sort by oldest to newest
+        MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting oldest to newest");
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
+          return a.heard_timestamp < b.heard_timestamp; // asc
+        });
+      } else if (order_by == 2) {
+        // sort by strongest to weakest
+        MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting strongest to weakest");
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
+          return a.snr > b.snr; // desc
+        });
+      } else if (order_by == 3) {
+        // sort by weakest to strongest
+        MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS sorting weakest to strongest");
+        std::sort(sorted_neighbours, sorted_neighbours + neighbours_count, [](const NeighbourInfo &a, const NeighbourInfo &b) {
+          return a.snr < b.snr; // asc
+        });
+      }
+
+      // build results buffer
+      int results_count = 0;
+      int results_offset = 0;
+      uint8_t results_buffer[130];
+      for(int index = 0; index < count && index + offset < neighbours_count; index++){
+        
+        // stop if we can't fit another entry in results
+        int entry_size = pubkey_prefix_length + 4 + 1;
+        if(results_offset + entry_size > sizeof(results_buffer)){
+          MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS no more entries can fit in results buffer");
+          break;
+        }
+
+        // add next neighbour to results
+        auto neighbour = &sorted_neighbours[index + offset];
+        uint32_t heard_seconds_ago = getRTCClock()->getCurrentTime() - neighbour->heard_timestamp;
+        memcpy(&results_buffer[results_offset], neighbour->id.pub_key, pubkey_prefix_length); results_offset += pubkey_prefix_length;
+        memcpy(&results_buffer[results_offset], &heard_seconds_ago, 4); results_offset += 4;
+        memcpy(&results_buffer[results_offset], &neighbour->snr, 1); results_offset += 1;
+        results_count++;
+
+      }
+
+      // build reply
+      MESH_DEBUG_PRINTLN("REQ_TYPE_GET_NEIGHBOURS neighbours_count=%d results_count=%d", neighbours_count, results_count);
+      memcpy(&reply_data[reply_offset], &neighbours_count, 2); reply_offset += 2;
+      memcpy(&reply_data[reply_offset], &results_count, 2); reply_offset += 2;
+      memcpy(&reply_data[reply_offset], &results_buffer, results_offset); reply_offset += results_offset;
+
+      return reply_offset;
     }
   }
   return 0; // unknown command
