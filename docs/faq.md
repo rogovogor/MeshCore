@@ -75,7 +75,7 @@ author: https://github.com/LitBomb<!-- omit from toc -->
   - [7.3. Q: Is there a way to lower the chance of a failed OTA device firmware update (DFU)?](#73-q-is-there-a-way-to-lower-the-chance-of-a-failed-ota-device-firmware-update-dfu)
   - [7.4. Q: are the MeshCore logo and font available?](#74-q-are-the-meshcore-logo-and-font-available)
   - [7.5. Q: What is the format of a contact or channel QR code?](#75-q-what-is-the-format-of-a-contact-or-channel-qr-code)
-  - [7.6. Q: How do I connect to the comnpanion via WIFI, e.g. using a heltec v3?](#76-q-how-do-i-connect-to-the-comnpanion-via-wifi-eg-using-a-heltec-v3)
+  - [7.6. Q: How do I connect to the companion via WIFI, e.g. using a heltec v3?](#76-q-how-do-i-connect-to-the-comnpanion-via-wifi-eg-using-a-heltec-v3)
 
 ## 1. Introduction
 
@@ -101,7 +101,7 @@ Anyone is able to build anything they like on top of MeshCore without paying any
  Main web site: [https://meshcore.co.uk/](https://meshcore.co.uk/)
  Firmware Flasher: https://flasher.meshcore.co.uk/
  Phone Client Applications: https://meshcore.co.uk/apps.html
- MeshCore Fimrware GitHub: https://github.com/ripplebiz/MeshCore
+ MeshCore Firmware GitHub: https://github.com/ripplebiz/MeshCore
 
  NOTE: Andy Kirby has a very useful [intro video](https://www.youtube.com/watch?v=t1qne8uJBAc) for beginners.
  
@@ -159,7 +159,7 @@ The recommendation is to run repeater and room server on separate devices for th
 
 If you have two supported devices, and there are not many MeshCore users near you, flash both to BLE Companion firmware so you can use your devices to communicate with your near-by friends and family.
 
-If you have two supported devices, and there are other MeshcCore users nearby, you can flash one of your devices with BLE Companion firmware and flash another supported device to repeater firmware.  Place the repeater high above ground to extend your MeshCore network's reach.
+If you have two supported devices, and there are other MeshCore users nearby, you can flash one of your devices with BLE Companion firmware and flash another supported device to repeater firmware.  Place the repeater high above ground to extend your MeshCore network's reach.
 
 After you flashed the latest firmware onto your repeater device, keep the device connected to your computer via USB serial, use the console feature on the web flasher and set the frequency for your region or country, so your client can remote administer the repeater or room server over RF:
 
@@ -391,7 +391,7 @@ In MeshCore, only repeaters and room server with `set repeat on` repeat.
 
 **A:** If you used to reach a node through a repeater and the repeater is no longer reachable, the client will send the message using the existing (but now broken) known path, the message will fail after 3 retries, and the app will reset the path and send the message as flood on the last retry by default.  This can be turned off in settings.  If the destination is reachable directly or through another repeater, the new path will be used going forward.  Or you can set the path manually if you know a specific repeater to use to reach that destination.
 
-In the case if users are moving around frequently, and the paths are breaking, they just see the phone client retries and revert to flood to attempt to reestablish a path. 
+In the case if users are moving around frequently, and the paths are breaking, they just see the phone client retries and revert to flood to attempt to re-establish a path. 
 
 ### 5.4. Q: How does a node discovery a path to its destination and then use it to send messages in the future, instead of flooding every message it sends like Meshtastic?
 
@@ -463,7 +463,7 @@ Andy also has a video on how to build using VS Code:
 
 ### 5.10. Q: Are there other MeshCore related open source projects?
 
-**A:** [Liam Cottle](https://liamcottle.net)'s MeshCore web client and MeshCore Javascript libary are open source under MIT license.
+**A:** [Liam Cottle](https://liamcottle.net)'s MeshCore web client and MeshCore Javascript library are open source under MIT license.
 
 Web client: https://github.com/liamcottle/meshcore-web
 Javascript: https://github.com/liamcottle/meshcore.js
@@ -471,7 +471,7 @@ Javascript: https://github.com/liamcottle/meshcore.js
 ### 5.11. Q: Does MeshCore support ATAK
 **A:** ATAK is not currently on MeshCore's roadmap.
 
-Meshcore would not be best suited to ATAK  because MeshCore:
+Meshcore would not be best suited to ATAK because MeshCore:
 clients do not repeat and therefore you would need a network of repeaters in place
 will not have a stable path where all clients are constantly moving between repeaters
 
@@ -569,7 +569,7 @@ Bindings to access your MeshCore companion radio nodes in python.
 https://github.com/fdlamotte/meshcore_py
 
 #### 5.14.4. meshcore-cli  
-CLI interface to MeshCore companion radio over BLE, TCP, or serial.  Uses Pyton MeshCore above.
+CLI interface to MeshCore companion radio over BLE, TCP, or serial.  Uses Python MeshCore above.
  https://github.com/fdlamotte/meshcore-cli
 
 #### 5.14.5. meshcore.js
@@ -637,13 +637,13 @@ Allow the browser user on it:
 
 1. Download nRF's DFU app from iOS App Store or Android's Play Store, you can find the app by searching for `nrf dfu`, the app's full name is `nRF Device Firmware Update`
 2. On flasher.meshcore.co.uk, download the **ZIP** version of the firmware for your nRF device (e.g. RAK or Heltec T114 or Seeed Studio's Xiao)
-3. From the MeshCore app, login remotely to the repeater you want to update with admin priviledge
+3. From the MeshCore app, login remotely to the repeater you want to update with admin privilege
 4. Go to the Command Line tab, type `start ota` and hit enter.
 5. you should see `OK` to confirm the repeater device is now in OTA mode
 6. Run the DFU app,tab `Settings` on the top right corner
 7. Enable `Packets receipt notifications`, and change `Number of Packets` to 10 for RAK, 8 for T114.  8 also works for RAK.  
 9. Select the firmware zip file you downloaded
-10. Select the device you want to update. If the device you want to updat is not on the list, try enabling`OTA` on the device again
+10. Select the device you want to update. If the device you want to update is not on the list, try enabling`OTA` on the device again
 11. If the device is not found, enable `Force Scanning` in the DFU app
 12. Tab the `Upload` to begin OTA update
 13. If it fails, try turning off and on Bluetooth on your phone.  If that doesn't work, try rebooting your phone.  
@@ -654,7 +654,7 @@ Allow the browser user on it:
 
 **A:** For ESP32-based devices (e.g. Heltec V3):
 1. On flasher.meshcore.co.uk, download the **non-merged** version of the firmware for your ESP32 device (e.g. `Heltec_v3_repeater-v1.6.2-4449fd3.bin`, no `"merged"` in the file name)
-2. From the MeshCore app, login remotely to the repeater you want to update with admin priviledge
+2. From the MeshCore app, login remotely to the repeater you want to update with admin privilege
 4. Go to the Command Line tab, type `start ota` and hit enter.
 5. you should see `OK` to confirm the repeater device is now in OTA mode
 6. The command `start ota` on an ESP32-based device starts a wifi hotspot named `MeshCore OTA`
@@ -694,7 +694,7 @@ where `&type` is:
 `room = 3`
 `sensor = 4`
 
-### 7.6. Q: How do I connect to the comnpanion via WIFI, e.g. using a heltec v3?
+### 7.6. Q: How do I connect to the companion via WIFI, e.g. using a heltec v3?
  **A:** 
 WiFi firmware requires you to compile it yourself, as you need to set the wifi ssid and password.
 Edit WIFI_SSID and WIFI_PWD in `./variants/heltec_v3/platformio.ini` and then flash it to your device.
