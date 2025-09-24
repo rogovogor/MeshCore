@@ -366,12 +366,13 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
   uint32_t now = getRTCClock()->getCurrentTimeUnique();
   memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
   reply_data[4] = RESP_SERVER_LOGIN_OK;
-  reply_data[5] = FIRMWARE_VER_LEVEL;
+  reply_data[5] = 0;
   reply_data[6] = client->isAdmin() ? 1 : 0;
   reply_data[7] = client->permissions;
   getRNG()->random(&reply_data[8], 4);   // random blob to help packet-hash uniqueness
+  reply_data[12] = FIRMWARE_VER_LEVEL;
 
-  return 12;  // reply length
+  return 13;  // reply length
 }
 
 void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* reply) {

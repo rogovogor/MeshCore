@@ -1690,8 +1690,8 @@ void MyMesh::checkSerialInterface() {
       _serial->writeFrame(out_frame, 5);
       _iter_started = false;
     }
-  } else if (!_serial->isWriteBusy()) {
-    checkConnections();
+  //} else if (!_serial->isWriteBusy()) {
+  //  checkConnections();    // TODO - deprecate the 'Connections' stuff
   }
 }
 
