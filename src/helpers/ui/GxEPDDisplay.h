@@ -39,7 +39,7 @@ class GxEPDDisplay : public DisplayDriver {
 
 public:
 #if defined(EINK_DISPLAY_MODEL)
-  GxEPDDisplay() : DisplayDriver(EINK_DISPLAY_MODEL::WIDTH, EINK_DISPLAY_MODEL::HEIGHT), display(EINK_DISPLAY_MODEL(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) {}
+  GxEPDDisplay() : DisplayDriver(128, 128), display(EINK_DISPLAY_MODEL(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) {}
 #else
   GxEPDDisplay() : DisplayDriver(128, 128), display(GxEPD2_150_BN(DISP_CS, DISP_DC, DISP_RST, DISP_BUSY)) {}
 #endif
