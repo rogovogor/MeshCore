@@ -12,8 +12,6 @@
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold12pt7b.h>
 #include <Fonts/FreeSans18pt7b.h>
-
-#include <epd/GxEPD2_150_BN.h>  // 1.54" b/w
 #include <CRC32.h>
 
 #include "DisplayDriver.h"
