@@ -165,12 +165,13 @@ public:
   void updateAdvertTimer() override;
   void updateFloodAdvertTimer() override;
 
-#if defined(WITH_ESPNOW_BRIDGE)
+#if defined(WITH_BRIDGE)
   void setBridgeState(bool enable) {
     if (enable == bridge.getState()) return;
     enable ? bridge.begin() : bridge.end();
   }
 
+#if defined(WITH_ESPNOW_BRIDGE)
   void updateBridgeChannel(int ch) override {
     bridge.setChannel(ch);
     if (bridge.getState()) {
@@ -178,6 +179,7 @@ public:
       bridge.begin();
     }
   }
+#endif
 #endif
 
   void setLoggingOn(bool enable) override { _logging = enable; }

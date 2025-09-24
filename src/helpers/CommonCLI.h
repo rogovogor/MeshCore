@@ -31,7 +31,7 @@ struct NodePrefs { // persisted to file
   uint8_t interference_threshold;
   uint8_t agc_reset_interval; // secs / 4
   uint8_t bridge_enabled;     // boolean
-  uint8_t bridge_channel;     // 0 = AUTO, 1-14 valid
+  uint8_t bridge_channel;     // 1-14
 };
 
 class CommonCLICallbacks {
@@ -56,7 +56,7 @@ public:
   virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
   virtual void clearStats() = 0;
   virtual void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) = 0;
-  
+
 #ifdef WITH_ESPNOW_BRIDGE
   virtual void setBridgeState(bool enable) = 0;
   virtual void updateBridgeChannel(int ch) = 0;
