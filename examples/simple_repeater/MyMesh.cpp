@@ -115,7 +115,9 @@ uint8_t MyMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* secr
     client->permissions |= perms;
     memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
-    dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
+    if (perms != PERM_ACL_GUEST) {   // keep number of FS writes to a minimum
+      dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
+    }
   }
 
   uint32_t now = getRTCClock()->getCurrentTimeUnique();
