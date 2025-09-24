@@ -10,7 +10,7 @@
 
 #define POST_SYNC_DELAY_SECS        6
 
-#define CLIENT_KEEP_ALIVE_SECS      0 // Now Disabled (was 128)
+#define FIRMWARE_VER_LEVEL       1
 
 #define REQ_TYPE_GET_STATUS         0x01 // same as _GET_STATS
 #define REQ_TYPE_KEEP_ALIVE         0x02
@@ -336,7 +336,7 @@ void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const m
     memcpy(reply_data, &now, 4); // response packets always prefixed with timestamp
     // TODO: maybe reply with count of messages waiting to be synced for THIS client?
     reply_data[4] = RESP_SERVER_LOGIN_OK;
-    reply_data[5] = (CLIENT_KEEP_ALIVE_SECS >> 4); // NEW: recommended keep-alive interval (secs / 16)
+    reply_data[5] = FIRMWARE_VER_LEVEL; // Legacy: was recommended keep-alive interval (secs / 16)
     reply_data[6] = (client->isAdmin() ? 1 : (client->permissions == 0 ? 2 : 0));
     // LEGACY: reply_data[7] = getUnsyncedCount(client);
     reply_data[7] = client->permissions; // NEW
