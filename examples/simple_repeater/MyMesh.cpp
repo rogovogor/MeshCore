@@ -83,16 +83,16 @@ void MyMesh::putNeighbour(const mesh::Identity &id, uint32_t timestamp, float sn
 }
 
 uint8_t MyMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data) {
-  ClientInfo* client;
+  ClientInfo* client = NULL;
   if (data[0] == 0) {   // blank password, just check if sender is in ACL
     client = acl.getClient(sender.pub_key, PUB_KEY_SIZE);
     if (client == NULL) {
     #if MESH_DEBUG
       MESH_DEBUG_PRINTLN("Login, sender not in ACL");
     #endif
-      return 0;
     }
-  } else {
+  }
+  if (client == NULL) {
     uint8_t perms;
     if (strcmp((char *)data, _prefs.password) == 0) { // check for valid admin password
       perms = PERM_ACL_ADMIN;
