@@ -143,8 +143,11 @@ mkdir -p out
 
 # handle script args
 if [[ $1 == "build-firmware" ]]; then
-  if [ "$2" ]; then
-    build_firmware $2
+  TARGETS=${@:2}
+  if [ "$TARGETS" ]; then
+    for env in $TARGETS; do
+      build_firmware $env
+    done
   else
     echo "usage: $0 build-firmware <target>"
     exit 1
