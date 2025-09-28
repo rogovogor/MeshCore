@@ -67,7 +67,7 @@ public :
     void reset() override {
         if (_pin_reset != -1) {
             digitalWrite(_pin_reset, GPS_RESET_FORCE);
-            delay(100);
+            delay(10);
             digitalWrite(_pin_reset, !GPS_RESET_FORCE);
         }
     }
