@@ -75,7 +75,7 @@ class HomeScreen : public UIScreen {
     RADIO,
     BLUETOOTH,
     ADVERT,
-#if UI_GPS_PAGE == 1
+#if ENV_INCLUDE_GPS == 1
     GPS,
 #endif
 #if UI_SENSORS_PAGE == 1
@@ -173,7 +173,7 @@ public:
 
     // curr page indicator
     int y = 14;
-    int x = display.width() / 2 - 25;
+    int x = display.width() / 2 - 5 * (HomePage::Count-1);
     for (uint8_t i = 0; i < HomePage::Count; i++, x += 10) {
       if (i == _page) {
         display.fillRect(x-1, y-1, 3, 3);
@@ -253,7 +253,7 @@ public:
       display.setColor(DisplayDriver::GREEN);
       display.drawXbm((display.width() - 32) / 2, 18, advert_icon, 32, 32);
       display.drawTextCentered(display.width() / 2, 64 - 11, "advert: " PRESS_LABEL);
-#if UI_GPS_PAGE == 1
+#if ENV_INCLUDE_GPS == 1
     } else if (_page == HomePage::GPS) {
       LocationProvider* nmea = sensors.getLocationProvider();
       int y = 18;
@@ -408,7 +408,7 @@ public:
       }
       return true;
     }
-#if UI_GPS_PAGE == 1
+#if ENV_INCLUDE_GPS == 1
     if (c == KEY_ENTER && _page == HomePage::GPS) {
       _task->toggleGPS();
       return true;
