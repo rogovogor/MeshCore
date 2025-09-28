@@ -71,7 +71,7 @@ build_firmware() {
 
   # build .uf2 for nrf52 boards
   if [[ -f .pio/build/$1/firmware.zip && -f .pio/build/$1/firmware.hex ]]; then
-    python bin/uf2conv/uf2conv.py .pio/build/$1/firmware.hex -c -o .pio/build/$1/firmware.uf2 -f 0xADA52840
+    python3 bin/uf2conv/uf2conv.py .pio/build/$1/firmware.hex -c -o .pio/build/$1/firmware.uf2 -f 0xADA52840
   fi
 
   # copy .bin, .uf2, and .zip to out folder
