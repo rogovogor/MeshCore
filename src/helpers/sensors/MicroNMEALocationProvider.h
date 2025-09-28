@@ -5,15 +5,31 @@
 #include <RTClib.h>
 
 #ifndef GPS_EN
-#define GPS_EN (-1)
+    #ifdef PIN_GPS_EN
+        #define GPS_EN PIN_GPS_EN
+    #else
+        #define GPS_EN (-1)
+    #endif
+#endif
+
+#ifndef PIN_GPS_EN_ACTIVE
+    #define PIN_GPS_EN_ACTIVE HIGH
 #endif
 
 #ifndef GPS_RESET
-#define GPS_RESET (-1)
+    #ifdef PIN_GPS_RESET
+        #define GPS_RESET PIN_GPS_RESET
+    #else
+        #define GPS_RESET (-1)
+    #endif
 #endif
 
 #ifndef GPS_RESET_FORCE
-#define GPS_RESET_FORCE LOW
+    #ifdef PIN_GPS_RESET_ACTIVE
+        #define GPS_RESET_FORCE PIN_GPS_RESET_ACTIVE
+    #else
+        #define GPS_RESET_FORCE LOW
+    #endif
 #endif
 
 class MicroNMEALocationProvider : public LocationProvider {
@@ -40,25 +56,25 @@ public :
     }
 
     void begin() override {
+        if (_pin_en != -1) {
+            digitalWrite(_pin_en, PIN_GPS_EN_ACTIVE);
+        }
         if (_pin_reset != -1) {
             digitalWrite(_pin_reset, !GPS_RESET_FORCE);
-        }
-        if (_pin_en != -1) {
-            digitalWrite(_pin_en, HIGH);
         }
     }
 
     void reset() override {
         if (_pin_reset != -1) {
             digitalWrite(_pin_reset, GPS_RESET_FORCE);
-            delay(100);
+            delay(10);
             digitalWrite(_pin_reset, !GPS_RESET_FORCE);
         }
     }
 
     void stop() override {
         if (_pin_en != -1) {
-            digitalWrite(_pin_en, LOW);
+            digitalWrite(_pin_en, !PIN_GPS_EN_ACTIVE);
         }        
     }
 
