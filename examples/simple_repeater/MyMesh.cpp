@@ -405,6 +405,7 @@ void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const m
     uint32_t timestamp;
     memcpy(&timestamp, data, 4);
 
+    data[len] = 0;  // ensure null terminator
     uint8_t reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
 
     if (reply_len == 0) return;   // invalid request
