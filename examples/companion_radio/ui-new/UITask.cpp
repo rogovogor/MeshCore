@@ -257,40 +257,27 @@ public:
     } else if (_page == HomePage::GPS) {
       LocationProvider* nmea = sensors.getLocationProvider();
       int y = 18;
-      display.setCursor(0, y);
-      display.print(_task->getGPSState() ? "gps on" : "gps off");
+      display.drawTextLeftAlign(0, y, _task->getGPSState() ? "gps on" : "gps off");
       if (nmea == NULL) {
         y = y + 12;
-        display.setCursor(0, y);
-        display.print("Can't access GPS");
+        display.drawTextLeftAlign(0, y, "Can't access GPS");
       } else {
         char buf[50];
         strcpy(buf, nmea->isValid()?"fix":"no fix");
-        display.setCursor(
-          display.width()-display.getTextWidth(buf)-1, y);
-        display.print(buf);
+        display.drawTextRightAlign(display.width()-1, y, buf);
         y = y + 12;
-        display.setCursor(0,y);
-        display.print("sat");
+        display.drawTextLeftAlign(0, y, "sat");
         sprintf(buf, "%d", nmea->satellitesCount());
-        display.setCursor(
-          display.width()-display.getTextWidth(buf)-1, y);
-        display.print(buf);
+        display.drawTextRightAlign(display.width()-1, y, buf);
         y = y + 12;
-        display.setCursor(0,y);
-        display.print("pos");
+        display.drawTextLeftAlign(0, y, "pos");
         sprintf(buf, "%.4f %.4f", 
           nmea->getLatitude()/1000000., nmea->getLongitude()/1000000.);
-        display.setCursor(
-          display.width()-display.getTextWidth(buf)-1, y);
-        display.print(buf);
+        display.drawTextRightAlign(display.width()-1, y, buf);
         y = y + 12;
-        display.setCursor(0,y);
-        display.print("alt");
+        display.drawTextLeftAlign(0, y, "alt");
         sprintf(buf, "%.2f", nmea->getAltitude()/1000.);
-        display.setCursor(
-          display.width()-display.getTextWidth(buf)-1, y);
-        display.print(buf);
+        display.drawTextRightAlign(display.width()-1, y, buf);
         y = y + 12;
       }
 #endif
