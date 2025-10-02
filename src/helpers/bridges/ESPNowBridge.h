@@ -6,10 +6,6 @@
 
 #ifdef WITH_ESPNOW_BRIDGE
 
-#ifndef WITH_ESPNOW_BRIDGE_SECRET
-#error WITH_ESPNOW_BRIDGE_SECRET must be defined to use ESPNowBridge
-#endif
-
 /**
  * @brief Bridge implementation using ESP-NOW protocol for packet transport
  *
@@ -36,11 +32,11 @@
  *
  * Configuration:
  * - Define WITH_ESPNOW_BRIDGE to enable this bridge
- * - Define WITH_ESPNOW_BRIDGE_SECRET with a string to set the network encryption key
+ * - Define _prefs->bridge_secret with a string to set the network encryption key
  *
  * Network Isolation:
  * Multiple independent mesh networks can coexist by using different
- * WITH_ESPNOW_BRIDGE_SECRET values. Packets encrypted with a different key will
+ * _prefs->bridge_secret values. Packets encrypted with a different key will
  * fail the checksum validation and be discarded.
  */
 class ESPNowBridge : public BridgeBase {
@@ -76,8 +72,8 @@ private:
   /**
    * Performs XOR encryption/decryption of data
    * Used to isolate different mesh networks
-   * 
-   * Uses WITH_ESPNOW_BRIDGE_SECRET as the key in a simple XOR operation.
+   *
+   * Uses _prefs->bridge_secret as the key in a simple XOR operation.
    * The same operation is used for both encryption and decryption.
    * While not cryptographically secure, it provides basic network isolation.
    *
