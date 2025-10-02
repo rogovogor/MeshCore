@@ -57,9 +57,11 @@ public:
   virtual void clearStats() = 0;
   virtual void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) = 0;
 
-#ifdef WITH_ESPNOW_BRIDGE
+#ifdef WITH_BRIDGE
   virtual void setBridgeState(bool enable) = 0;
+#ifdef WITH_ESPNOW_BRIDGE
   virtual void updateBridgeChannel(int ch) = 0;
+#endif
 #endif
 };
 
