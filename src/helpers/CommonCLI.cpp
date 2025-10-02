@@ -59,7 +59,11 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)&_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));   // 125
     file.read((uint8_t *)&_prefs->interference_threshold, sizeof(_prefs->interference_threshold)); // 126
     file.read((uint8_t *)&_prefs->bridge_enabled, sizeof(_prefs->bridge_enabled));                 // 127
-    file.read((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 128
+    file.read((uint8_t *)&_prefs->bridge_delay, sizeof(_prefs->bridge_delay));                     // 128
+    file.read((uint8_t *)&_prefs->bridge_pkt_src, sizeof(_prefs->bridge_pkt_src));                 // 130
+    file.read((uint8_t *)&_prefs->bridge_baud, sizeof(_prefs->bridge_baud));                       // 131
+    file.read((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 132
+    file.read((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 133
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -72,7 +76,12 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     _prefs->cr = constrain(_prefs->cr, 5, 8);
     _prefs->tx_power_dbm = constrain(_prefs->tx_power_dbm, 1, 30);
     _prefs->multi_acks = constrain(_prefs->multi_acks, 0, 1);
+
+    // sanitise bad bridge pref values
     _prefs->bridge_enabled = constrain(_prefs->bridge_enabled, 0, 1);
+    _prefs->bridge_delay = constrain(_prefs->bridge_delay, 0, 10000);
+    _prefs->bridge_pkt_src = constrain(_prefs->bridge_pkt_src, 0, 1);
+    _prefs->bridge_baud = constrain(_prefs->bridge_baud, 9600, 115200);
     _prefs->bridge_channel = constrain(_prefs->bridge_channel, 0, 14);
 
     file.close();
@@ -119,7 +128,11 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)&_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));   // 125
     file.write((uint8_t *)&_prefs->interference_threshold, sizeof(_prefs->interference_threshold)); // 126
     file.write((uint8_t *)&_prefs->bridge_enabled, sizeof(_prefs->bridge_enabled));                 // 127
-    file.write((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 128
+    file.write((uint8_t *)&_prefs->bridge_delay, sizeof(_prefs->bridge_delay));                     // 128
+    file.write((uint8_t *)&_prefs->bridge_pkt_src, sizeof(_prefs->bridge_pkt_src));                 // 130
+    file.write((uint8_t *)&_prefs->bridge_baud, sizeof(_prefs->bridge_baud));                       // 131
+    file.write((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 132
+    file.write((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 133
 
     file.close();
   }
@@ -205,6 +218,9 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
     } else if (memcmp(command, "clear stats", 11) == 0) {
       _callbacks->clearStats();
       strcpy(reply, "(OK - stats reset)");
+    /*
+     * GET commands
+     */
     } else if (memcmp(command, "get ", 4) == 0) {
       const char* config = &command[4];
       if (memcmp(config, "af", 2) == 0) {
@@ -261,38 +277,29 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 #ifdef WITH_BRIDGE
       } else if (memcmp(config, "bridge.enabled", 14) == 0) {
         sprintf(reply, "> %s", _prefs->bridge_enabled ? "on" : "off");
+      } else if (memcmp(config, "bridge.delay", 12) == 0) {
+        sprintf(reply, "> %d", (uint32_t)_prefs->bridge_delay);
+      } else if (memcmp(config, "bridge.source", 13) == 0) {
+        sprintf(reply, "> %s", _prefs->bridge_pkt_src ? "logRx" : "logTx");
+#endif
+#ifdef WITH_RS232_BRIDGE
+      } else if (memcmp(config, "bridge.baud", 11) == 0) {
+        sprintf(reply, "> %d", (uint32_t)_prefs->bridge_baud);
+#endif
 #ifdef WITH_ESPNOW_BRIDGE
       } else if (memcmp(config, "bridge.channel", 14) == 0) {
         sprintf(reply, "> %d", (uint32_t)_prefs->bridge_channel);
-#endif
+      } else if (memcmp(config, "bridge.secret", 13) == 0) {
+        sprintf(reply, "> %s", _prefs->bridge_secret);
 #endif
       } else {
         sprintf(reply, "??: %s", config);
       }
+    /*
+     * SET commands
+     */
     } else if (memcmp(command, "set ", 4) == 0) {
       const char* config = &command[4];
-#ifdef WITH_BRIDGE
-      if (memcmp(config, "bridge.enabled ", 15) == 0) {
-        _prefs->bridge_enabled = memcmp(&config[15], "on", 2) == 0;
-        _callbacks->setBridgeState(_prefs->bridge_enabled);
-        savePrefs();
-        strcpy(reply, "OK");
-      }
-      else 
-#ifdef WITH_ESPNOW_BRIDGE
-      if (memcmp(config, "bridge.channel ", 15) == 0) {
-        int ch = atoi(&config[15]);
-        if (ch > 0 && ch < 15) {
-          _prefs->bridge_channel = (uint8_t)ch;
-          _callbacks->updateBridgeChannel(ch);
-          savePrefs();
-          strcpy(reply, "OK");
-        } else {
-          strcpy(reply, "Error: channel must be 0 (AUTO) or 1-14");
-        }
-      } else
-#endif
-#endif
       if (memcmp(config, "af ", 3) == 0) {
         _prefs->airtime_factor = atof(&config[3]);
         savePrefs();
@@ -428,6 +435,55 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         _prefs->freq = atof(&config[5]);
         savePrefs();
         strcpy(reply, "OK - reboot to apply");
+#ifdef WITH_BRIDGE
+      } else if (memcmp(config, "bridge.enabled ", 15) == 0) {
+        _prefs->bridge_enabled = memcmp(&config[15], "on", 2) == 0;
+        _callbacks->setBridgeState(_prefs->bridge_enabled);
+        savePrefs();
+        strcpy(reply, "OK");
+      } else if (memcmp(config, "bridge.delay ", 13) == 0) {
+        int delay = _atoi(&config[13]);
+        if (delay >= 0 && delay <= 10000) {
+          _prefs->bridge_delay = (uint16_t)delay;
+          savePrefs();
+          strcpy(reply, "OK");
+        } else {
+          strcpy(reply, "Error: delay must be between 0-10000 ms");
+        }
+      } else if (memcmp(config, "bridge.source ", 14) == 0) {
+        _prefs->bridge_pkt_src = memcmp(&config[14], "rx", 2) == 0;
+        savePrefs();
+        strcpy(reply, "OK");
+#endif
+#ifdef WITH_RS232_BRIDGE
+      } else if (memcmp(config, "bridge.baud ", 12) == 0) {
+        uint32_t baud = atoi(&config[12]);
+        if (baud >= 9600 && baud <= 115200) {
+          _prefs->bridge_baud = (uint32_t)baud;
+          _callbacks->restartBridge();
+          savePrefs();
+          strcpy(reply, "OK");
+        } else {
+          strcpy(reply, "Error: baud rate must be between 9600-115200");
+        }
+#endif
+#ifdef WITH_ESPNOW_BRIDGE
+      } else if (memcmp(config, "bridge.channel ", 15) == 0) {
+        int ch = atoi(&config[15]);
+        if (ch > 0 && ch < 15) {
+          _prefs->bridge_channel = (uint8_t)ch;
+          _callbacks->restartBridge();
+          savePrefs();
+          strcpy(reply, "OK");
+        } else {
+          strcpy(reply, "Error: channel must be between 1-14");
+        }
+      } else if (memcmp(config, "bridge.secret ", 14) == 0) {
+        StrHelper::strncpy(_prefs->bridge_secret, &config[14], sizeof(_prefs->bridge_secret));
+        _callbacks->restartBridge();
+        savePrefs();
+        strcpy(reply, "OK");
+#endif
       } else {
         sprintf(reply, "unknown config: %s", config);
       }

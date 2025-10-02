@@ -165,23 +165,6 @@ public:
   void updateAdvertTimer() override;
   void updateFloodAdvertTimer() override;
 
-#if defined(WITH_BRIDGE)
-  void setBridgeState(bool enable) {
-    if (enable == bridge.getState()) return;
-    enable ? bridge.begin() : bridge.end();
-  }
-
-#if defined(WITH_ESPNOW_BRIDGE)
-  void updateBridgeChannel(int ch) override {
-    bridge.setChannel(ch);
-    if (bridge.getState()) {
-      bridge.end();
-      bridge.begin();
-    }
-  }
-#endif
-#endif
-
   void setLoggingOn(bool enable) override { _logging = enable; }
 
   void eraseLogFile() override {
@@ -199,4 +182,17 @@ public:
   void clearStats() override;
   void handleCommand(uint32_t sender_timestamp, char* command, char* reply);
   void loop();
+
+#if defined(WITH_BRIDGE)
+  void setBridgeState(bool enable) override {
+    if (enable == bridge.getState()) return;
+    enable ? bridge.begin() : bridge.end();
+  }
+
+  void restartBridge() override {
+    if (!bridge.getState()) return;
+    bridge.end();
+    bridge.begin();
+  }
+#endif
 };

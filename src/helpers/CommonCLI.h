@@ -30,8 +30,13 @@ struct NodePrefs { // persisted to file
   uint8_t flood_max;
   uint8_t interference_threshold;
   uint8_t agc_reset_interval; // secs / 4
-  uint8_t bridge_enabled;     // boolean
-  uint8_t bridge_channel;     // 1-14
+  // Bridge settings
+  uint8_t bridge_enabled; // boolean
+  uint16_t bridge_delay;  // milliseconds (default 500 ms)
+  uint8_t bridge_pkt_src; // 0 = logTx, 1 = logRx (default logTx)
+  uint32_t bridge_baud;   // 9600, 19200, 38400, 57600, 115200 (default 115200)
+  uint8_t bridge_channel; // 1-14 (ESP-NOW only)
+  char bridge_secret[16]; // for XOR encryption of bridge packets (ESP-NOW only)
 };
 
 class CommonCLICallbacks {
@@ -57,12 +62,13 @@ public:
   virtual void clearStats() = 0;
   virtual void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) = 0;
 
-#ifdef WITH_BRIDGE
-  virtual void setBridgeState(bool enable) = 0;
-#ifdef WITH_ESPNOW_BRIDGE
-  virtual void updateBridgeChannel(int ch) = 0;
-#endif
-#endif
+  virtual void setBridgeState(bool enable) {
+    // no op by default
+  };
+
+  virtual void restartBridge() {
+    // no op by default
+  };
 };
 
 class CommonCLI {

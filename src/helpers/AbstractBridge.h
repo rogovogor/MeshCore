@@ -35,7 +35,7 @@ public:
    *
    * @param packet The packet that was transmitted.
    */
-  virtual void onPacketTransmitted(mesh::Packet* packet) = 0;
+  virtual void sendPacket(mesh::Packet* packet) = 0;
 
   /**
    * @brief Processes a received packet from the bridge's medium.

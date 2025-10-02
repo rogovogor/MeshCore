@@ -21,8 +21,8 @@ void ESPNowBridge::send_cb(const uint8_t *mac, esp_now_send_status_t status) {
   }
 }
 
-ESPNowBridge::ESPNowBridge(mesh::PacketManager *mgr, mesh::RTCClock *rtc)
-    : BridgeBase(mgr, rtc), _rx_buffer_pos(0) {
+ESPNowBridge::ESPNowBridge(NodePrefs *prefs, mesh::PacketManager *mgr, mesh::RTCClock *rtc)
+    : BridgeBase(prefs, mgr, rtc), _rx_buffer_pos(0) {
   _instance = this;
 }
 
@@ -33,8 +33,8 @@ void ESPNowBridge::begin() {
   WiFi.mode(WIFI_STA);
   
   // Set wifi channel
-  if (esp_wifi_set_channel(_channel, WIFI_SECOND_CHAN_NONE) != ESP_OK) {
-    Serial.printf("%s: ESPNOW BRIDGE: Error setting WIFI channel to %d\n", getLogDateTime(), _channel);
+  if (esp_wifi_set_channel(_prefs->bridge_channel, WIFI_SECOND_CHAN_NONE) != ESP_OK) {
+    Serial.printf("%s: ESPNOW BRIDGE: Error setting WIFI channel to %d\n", getLogDateTime(), _prefs->bridge_channel);
     return;
   }
 
@@ -52,7 +52,7 @@ void ESPNowBridge::begin() {
   esp_now_peer_info_t peerInfo = {};
   memset(&peerInfo, 0, sizeof(peerInfo));
   memset(peerInfo.peer_addr, 0xFF, ESP_NOW_ETH_ALEN); // Broadcast address
-  peerInfo.channel = _channel;
+  peerInfo.channel = _prefs->bridge_channel;
   peerInfo.encrypt = false;
 
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
@@ -94,9 +94,9 @@ void ESPNowBridge::loop() {
 }
 
 void ESPNowBridge::xorCrypt(uint8_t *data, size_t len) {
-  size_t keyLen = strlen(_secret);
+  size_t keyLen = strlen(_prefs->bridge_secret);
   for (size_t i = 0; i < len; i++) {
-    data[i] ^= _secret[i % keyLen];
+    data[i] ^= _prefs->bridge_secret[i % keyLen];
   }
 }
 
@@ -166,10 +166,9 @@ void ESPNowBridge::onDataSent(const uint8_t *mac_addr, esp_now_send_status_t sta
   // Could add transmission error handling here if needed
 }
 
-void ESPNowBridge::onPacketTransmitted(mesh::Packet *packet) {
+void ESPNowBridge::sendPacket(mesh::Packet *packet) {
   // Guard against uninitialized state
   if (_initialized == false) {
-    Serial.printf("%s: ESPNOW BRIDGE: TX packet attempted before initialization\n", getLogDateTime());
     return;
   }
 

@@ -4,11 +4,11 @@
 
 #ifdef WITH_RS232_BRIDGE
 
-RS232Bridge::RS232Bridge(Stream &serial, mesh::PacketManager *mgr, mesh::RTCClock *rtc)
-    : BridgeBase(mgr, rtc), _serial(&serial) {}
+RS232Bridge::RS232Bridge(NodePrefs *prefs, Stream &serial, mesh::PacketManager *mgr, mesh::RTCClock *rtc)
+    : BridgeBase(prefs, mgr, rtc), _serial(&serial) {}
 
 void RS232Bridge::begin() {
-  Serial.printf("%s: RS232 BRIDGE: Initializing...\n", getLogDateTime());
+  Serial.printf("%s: RS232 BRIDGE: Initializing at %d baud...\n", getLogDateTime(), _prefs->bridge_baud);
 #if !defined(WITH_RS232_BRIDGE_RX) || !defined(WITH_RS232_BRIDGE_TX)
 #error "WITH_RS232_BRIDGE_RX and WITH_RS232_BRIDGE_TX must be defined"
 #endif
@@ -26,7 +26,7 @@ void RS232Bridge::begin() {
 #else
 #error RS232Bridge was not tested on the current platform
 #endif
-  ((HardwareSerial *)_serial)->begin(115200);
+  ((HardwareSerial *)_serial)->begin(_prefs->bridge_baud);
 
   // Update bridge state
   _initialized = true;
@@ -114,10 +114,9 @@ void RS232Bridge::loop() {
   }
 }
 
-void RS232Bridge::onPacketTransmitted(mesh::Packet *packet) {
+void RS232Bridge::sendPacket(mesh::Packet *packet) {
   // Guard against uninitialized state
   if (_initialized == false) {
-    Serial.printf("%s: ESPNOW BRIDGE: TX packet attempted before initialization\n", getLogDateTime());
     return;
   }
 

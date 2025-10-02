@@ -74,21 +74,9 @@ private:
   size_t _rx_buffer_pos;
 
   /**
-   * Network encryption key from build define
-   * Must be defined with WITH_ESPNOW_BRIDGE_SECRET
-   * Used for XOR encryption to isolate different mesh networks
-   */
-  const char *_secret = WITH_ESPNOW_BRIDGE_SECRET;
-
-  /**
-   * Channel for ESP-NOW communication
-   * Valid 2.4GHz channels: 1-14
-   */
-  int _channel = 0;
-
-  /**
    * Performs XOR encryption/decryption of data
-   *
+   * Used to isolate different mesh networks
+   * 
    * Uses WITH_ESPNOW_BRIDGE_SECRET as the key in a simple XOR operation.
    * The same operation is used for both encryption and decryption.
    * While not cryptographically secure, it provides basic network isolation.
@@ -121,10 +109,11 @@ public:
   /**
    * Constructs an ESPNowBridge instance
    *
+   * @param prefs Node preferences for configuration settings
    * @param mgr PacketManager for allocating and queuing packets
    * @param rtc RTCClock for timestamping debug messages
    */
-  ESPNowBridge(mesh::PacketManager *mgr, mesh::RTCClock *rtc);
+  ESPNowBridge(NodePrefs *prefs, mesh::PacketManager *mgr, mesh::RTCClock *rtc);
 
   /**
    * Initializes the ESP-NOW bridge
@@ -166,21 +155,7 @@ public:
    *
    * @param packet The mesh packet to transmit
    */
-  void onPacketTransmitted(mesh::Packet *packet) override;
-
-  /**
-   * Gets the current channel
-   *
-   * @return The current channel (0 = AUTO, 1-14 = valid channel)
-   */
-  int getChannel() const { return _channel; }
-
-  /**
-   * Sets the channel for ESP-NOW communication
-   *
-   * @param ch The channel to set (0 = AUTO, 1-14 = valid channel)
-   */
-  void setChannel(int ch) { _channel = ch; }
+  void sendPacket(mesh::Packet *packet) override;
 };
 
 #endif
