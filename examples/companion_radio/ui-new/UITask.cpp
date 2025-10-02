@@ -75,6 +75,9 @@ class HomeScreen : public UIScreen {
     RADIO,
     BLUETOOTH,
     ADVERT,
+#if ENV_INCLUDE_GPS == 1
+    GPS,
+#endif
 #if UI_SENSORS_PAGE == 1
     SENSORS,
 #endif
@@ -170,7 +173,7 @@ public:
 
     // curr page indicator
     int y = 14;
-    int x = display.width() / 2 - 25;
+    int x = display.width() / 2 - 5 * (HomePage::Count-1);
     for (uint8_t i = 0; i < HomePage::Count; i++, x += 10) {
       if (i == _page) {
         display.fillRect(x-1, y-1, 3, 3);
@@ -250,6 +253,34 @@ public:
       display.setColor(DisplayDriver::GREEN);
       display.drawXbm((display.width() - 32) / 2, 18, advert_icon, 32, 32);
       display.drawTextCentered(display.width() / 2, 64 - 11, "advert: " PRESS_LABEL);
+#if ENV_INCLUDE_GPS == 1
+    } else if (_page == HomePage::GPS) {
+      LocationProvider* nmea = sensors.getLocationProvider();
+      int y = 18;
+      display.drawTextLeftAlign(0, y, _task->getGPSState() ? "gps on" : "gps off");
+      if (nmea == NULL) {
+        y = y + 12;
+        display.drawTextLeftAlign(0, y, "Can't access GPS");
+      } else {
+        char buf[50];
+        strcpy(buf, nmea->isValid()?"fix":"no fix");
+        display.drawTextRightAlign(display.width()-1, y, buf);
+        y = y + 12;
+        display.drawTextLeftAlign(0, y, "sat");
+        sprintf(buf, "%d", nmea->satellitesCount());
+        display.drawTextRightAlign(display.width()-1, y, buf);
+        y = y + 12;
+        display.drawTextLeftAlign(0, y, "pos");
+        sprintf(buf, "%.4f %.4f", 
+          nmea->getLatitude()/1000000., nmea->getLongitude()/1000000.);
+        display.drawTextRightAlign(display.width()-1, y, buf);
+        y = y + 12;
+        display.drawTextLeftAlign(0, y, "alt");
+        sprintf(buf, "%.2f", nmea->getAltitude()/1000.);
+        display.drawTextRightAlign(display.width()-1, y, buf);
+        y = y + 12;
+      }
+#endif
 #if UI_SENSORS_PAGE == 1
     } else if (_page == HomePage::SENSORS) {
       int y = 18;
@@ -364,6 +395,12 @@ public:
       }
       return true;
     }
+#if ENV_INCLUDE_GPS == 1
+    if (c == KEY_ENTER && _page == HomePage::GPS) {
+      _task->toggleGPS();
+      return true;
+    }
+#endif
 #if UI_SENSORS_PAGE == 1
     if (c == KEY_ENTER && _page == HomePage::SENSORS) {
       _task->toggleGPS();
@@ -771,6 +808,18 @@ char UITask::handleTripleClick(char c) {
   toggleBuzzer();
   c = 0;
   return c;
+}
+
+bool UITask::getGPSState() {
+  if (_sensors != NULL) {
+    int num = _sensors->getNumSettings();
+    for (int i = 0; i < num; i++) {
+      if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
+        return !strcmp(_sensors->getSettingValue(i), "1");
+      }
+    }
+  } 
+  return false;
 }
 
 void UITask::toggleGPS() {
