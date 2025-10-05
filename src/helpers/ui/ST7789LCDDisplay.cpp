@@ -39,7 +39,7 @@ bool ST7789LCDDisplay::begin() {
 
     display.fillScreen(ST77XX_BLACK);
     display.setTextColor(ST77XX_WHITE);
-    display.setTextSize(2); 
+    display.setTextSize(2 * DISPLAY_SCALE_X); 
     display.cp437(true); // Use full 256 char 'Code Page 437' font
   
     _isOn = true;
@@ -70,12 +70,12 @@ void ST7789LCDDisplay::clear() {
 void ST7789LCDDisplay::startFrame(Color bkg) {
   display.fillScreen(ST77XX_BLACK);
   display.setTextColor(ST77XX_WHITE);
-  display.setTextSize(1); // This one affects size of Please wait... message
+  display.setTextSize(1 * DISPLAY_SCALE_X); // This one affects size of Please wait... message
   display.cp437(true); // Use full 256 char 'Code Page 437' font
 }
 
 void ST7789LCDDisplay::setTextSize(int sz) {
-  display.setTextSize(sz);
+  display.setTextSize(sz * DISPLAY_SCALE_X);
 }
 
 void ST7789LCDDisplay::setColor(Color c) {
@@ -125,7 +125,22 @@ void ST7789LCDDisplay::drawRect(int x, int y, int w, int h) {
 }
 
 void ST7789LCDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
-  display.drawBitmap(x * DISPLAY_SCALE_X, y * DISPLAY_SCALE_Y, bits, w, h, _color);
+  uint8_t byteWidth = (w + 7) / 8;
+
+  for (int j = 0; j < h; j++) {
+    for (int i = 0; i < w; i++) {
+      uint8_t byte = bits[j * byteWidth + i / 8];
+      bool pixelOn = byte & (0x80 >> (i & 7));
+
+      if (pixelOn) {
+        for (int dy = 0; dy < DISPLAY_SCALE_X; dy++) {
+          for (int dx = 0; dx < DISPLAY_SCALE_X; dx++) {
+            display.drawPixel(x * DISPLAY_SCALE_X + i * DISPLAY_SCALE_X + dx, y * DISPLAY_SCALE_Y + j * DISPLAY_SCALE_X + dy, _color);
+          }
+        }
+      }
+    }
+  }
 }
 
 uint16_t ST7789LCDDisplay::getTextWidth(const char* str) {
