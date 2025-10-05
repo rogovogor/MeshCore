@@ -274,6 +274,16 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         mesh::Utils::toHex(&reply[2], _callbacks->getSelfId().pub_key, PUB_KEY_SIZE);
       } else if (memcmp(config, "role", 4) == 0) {
         sprintf(reply, "> %s", _callbacks->getRole());
+      } else if (memcmp(config, "bridge.type", 11) == 0) {
+        sprintf(reply, "> %s",
+#ifdef WITH_RS232_BRIDGE
+                "rs232"
+#elif WITH_ESPNOW_BRIDGE
+                "espnow"
+#else
+                "none"
+#endif
+        );
 #ifdef WITH_BRIDGE
       } else if (memcmp(config, "bridge.enabled", 14) == 0) {
         sprintf(reply, "> %s", _prefs->bridge_enabled ? "on" : "off");
