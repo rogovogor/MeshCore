@@ -50,6 +50,10 @@ public:
   virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
   virtual void clearStats() = 0;
   virtual void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) = 0;
+  virtual void gpsGetStatus(char * reply) {}
+  virtual void gpsStart() {}
+  virtual void gpsStop() {}
+  virtual void gpsSyncTime() {}
 };
 
 class CommonCLI {

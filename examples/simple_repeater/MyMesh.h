@@ -176,6 +176,12 @@ public:
   void formatNeighborsReply(char *reply) override;
   void removeNeighbor(const uint8_t* pubkey, int key_len) override;
 
+  // Gps mgmt cli callbacks
+  void gpsGetStatus(char * reply) override;
+  void gpsStart() override;
+  void gpsStop() override;
+  void gpsSyncTime() override;
+
   mesh::LocalIdentity& getSelfId() override { return self_id; }
 
   void saveIdentity(const mesh::LocalIdentity& new_id) override;

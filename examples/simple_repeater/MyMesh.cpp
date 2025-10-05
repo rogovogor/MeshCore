@@ -758,6 +758,44 @@ void MyMesh::removeNeighbor(const uint8_t *pubkey, int key_len) {
 #endif
 }
 
+void MyMesh::gpsGetStatus(char * reply) {
+  LocationProvider * l = sensors.getLocationProvider();
+  if (l != NULL) {
+    bool status = l->isActive();
+    bool sync = l->isValid();
+    int sats = l->satellitesCount();
+    if (status) {
+      sprintf(reply, "on, %s, %d sats", sync?"fix":"no fix", sats);
+    } else {
+      strcpy(reply, "off");
+    }
+  } else {
+    strcpy(reply, "Can't find GPS");
+  }
+}
+
+void MyMesh::gpsStart() {
+  LocationProvider * l = sensors.getLocationProvider();
+  if (l != NULL) {
+    l->begin();
+    l->reset();
+  }
+}
+ 
+void MyMesh::gpsStop() {
+  LocationProvider * l = sensors.getLocationProvider();
+  if (l != NULL) {
+    l->stop();
+  }
+}
+
+void MyMesh::gpsSyncTime() {
+  LocationProvider * l = sensors.getLocationProvider();
+  if (l != NULL) {
+    l->syncTime();
+  }
+}
+
 void MyMesh::saveIdentity(const mesh::LocalIdentity &new_id) {
   self_id = new_id;
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)

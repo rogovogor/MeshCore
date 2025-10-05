@@ -401,6 +401,19 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       sprintf(reply, "%s (Build: %s)", _callbacks->getFirmwareVer(), _callbacks->getBuildDate());
     } else if (memcmp(command, "board", 5) == 0) {
       sprintf(reply, "%s", _board->getManufacturerName());
+#if ENV_INCLUDE_GPS == 1
+    } else if (memcmp(command, "gps on", 6) == 0) {
+      _callbacks->gpsStart();
+      strcpy(reply, "ok");
+    } else if (memcmp(command, "gps off", 7) == 0) {
+      _callbacks->gpsStop();
+      strcpy(reply, "ok");
+    } else if (memcmp(command, "gps sync", 8) == 0) {
+      _callbacks->gpsSyncTime();
+      strcpy(reply, "Waiting fix ...");
+    } else if (memcmp(command, "gps", 3) == 0) {
+      _callbacks->gpsGetStatus(reply);
+#endif
     } else if (memcmp(command, "log start", 9) == 0) {
       _callbacks->setLoggingOn(true);
       strcpy(reply, "   logging on");
