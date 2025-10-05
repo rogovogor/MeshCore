@@ -78,7 +78,7 @@ public :
         }        
     }
 
-    bool isActive() override {
+    bool isEnabled() override {
         // directly read the enable pin if present as gps can be
         // activated/deactivated outside of here ...
         if (_pin_en != -1) {

@@ -21,5 +21,5 @@ public:
     virtual void begin() = 0;
     virtual void stop() = 0;
     virtual void loop() = 0;
-    virtual bool isActive() = 0;
+    virtual bool isEnabled() = 0;
 };

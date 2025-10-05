@@ -761,11 +761,15 @@ void MyMesh::removeNeighbor(const uint8_t *pubkey, int key_len) {
 void MyMesh::gpsGetStatus(char * reply) {
   LocationProvider * l = sensors.getLocationProvider();
   if (l != NULL) {
-    bool status = l->isActive();
-    bool sync = l->isValid();
+    bool enabled = l->isEnabled(); // is EN pin on ?
+    bool active = gpsGetState();   // is enabled at SensorManager level ?
+    bool fix = l->isValid();       // has fix ?
     int sats = l->satellitesCount();
-    if (status) {
-      sprintf(reply, "on, %s, %d sats", sync?"fix":"no fix", sats);
+    if (enabled) {
+      sprintf(reply, "on, %s, %s, %d sats",
+        active?"active":"deactivated", 
+        fix?"fix":"no fix", 
+        sats);
     } else {
       strcpy(reply, "off");
     }
@@ -774,19 +778,33 @@ void MyMesh::gpsGetStatus(char * reply) {
   }
 }
 
-void MyMesh::gpsStart() {
-  LocationProvider * l = sensors.getLocationProvider();
-  if (l != NULL) {
-    l->begin();
-    l->reset();
+bool MyMesh::gpsGetState() {
+  int num = sensors.getNumSettings();
+  for (int i = 0; i < num; i++) {
+    if (strcmp(sensors.getSettingName(i), "gps") == 0) {
+      return !strcmp(sensors.getSettingValue(i), "1");
+    }
   }
+  return false;
+}
+
+void MyMesh::gpsSetState(bool value) {
+  // toggle GPS on/off
+  int num = sensors.getNumSettings();
+  for (int i = 0; i < num; i++) {
+    if (strcmp(sensors.getSettingName(i), "gps") == 0) {
+      sensors.setSettingValue("gps", value?"1":"0");
+      break;
+    }
+  }
+}
+
+void MyMesh::gpsStart() {
+  gpsSetState(true);
 }
  
 void MyMesh::gpsStop() {
-  LocationProvider * l = sensors.getLocationProvider();
-  if (l != NULL) {
-    l->stop();
-  }
+  gpsSetState(false);
 }
 
 void MyMesh::gpsSyncTime() {
