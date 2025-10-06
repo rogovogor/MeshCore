@@ -2,7 +2,8 @@
 
 #include <Arduino.h>
 #include <Mesh.h>
-#include <helpers/CommonCLI.h>
+#include <RTClib.h>
+#include <target.h>
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   #include <InternalFileSystem.h>
@@ -11,16 +12,6 @@
 #elif defined(ESP32)
   #include <SPIFFS.h>
 #endif
-
-#include <helpers/ArduinoHelpers.h>
-#include <helpers/StaticPoolPacketManager.h>
-#include <helpers/SimpleMeshTables.h>
-#include <helpers/IdentityStore.h>
-#include <helpers/AdvertDataHelpers.h>
-#include <helpers/TxtDataHelpers.h>
-#include <helpers/ClientACL.h>
-#include <RTClib.h>
-#include <target.h>
 
 #ifdef WITH_RS232_BRIDGE
 #include "helpers/bridges/RS232Bridge.h"
@@ -31,6 +22,15 @@
 #include "helpers/bridges/ESPNowBridge.h"
 #define WITH_BRIDGE
 #endif
+
+#include <helpers/AdvertDataHelpers.h>
+#include <helpers/ArduinoHelpers.h>
+#include <helpers/ClientACL.h>
+#include <helpers/CommonCLI.h>
+#include <helpers/IdentityStore.h>
+#include <helpers/SimpleMeshTables.h>
+#include <helpers/StaticPoolPacketManager.h>
+#include <helpers/TxtDataHelpers.h>
 
 #ifdef WITH_BRIDGE
 extern AbstractBridge* bridge;
@@ -182,4 +182,24 @@ public:
   void clearStats() override;
   void handleCommand(uint32_t sender_timestamp, char* command, char* reply);
   void loop();
+
+#if defined(WITH_BRIDGE)
+  void setBridgeState(bool enable) override {
+    if (enable == bridge.isRunning()) return;
+    if (enable)
+    {
+      bridge.begin();
+    }
+    else 
+    {
+      bridge.end();
+    }
+  }
+
+  void restartBridge() override {
+    if (!bridge.isRunning()) return;
+    bridge.end();
+    bridge.begin();
+  }
+#endif
 };
