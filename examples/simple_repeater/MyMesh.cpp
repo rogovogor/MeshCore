@@ -664,12 +664,6 @@ void MyMesh::begin(FILESYSTEM *fs) {
 #endif
 }
 
-#if ENV_INCLUDE_GPS == 1
-void MyMesh::applyGpsPrefs() {
-  sensors.setSettingByKey("gps", _prefs.gps_enabled?"1":"0");
-}
-#endif
-
 void MyMesh::applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) {
   set_radio_at = futureMillis(2000); // give CLI reply some time to be sent back, before applying temp radio params
   pending_freq = freq;
