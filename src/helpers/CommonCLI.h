@@ -4,29 +4,40 @@
 #include <helpers/IdentityStore.h>
 #include <target.h>
 
-struct NodePrefs {  // persisted to file
-    float airtime_factor;
-    char node_name[32];
-    double node_lat, node_lon;
-    char password[16];
-    float freq;
-    uint8_t tx_power_dbm;
-    uint8_t disable_fwd;
-    uint8_t advert_interval;   // minutes / 2
-    uint8_t flood_advert_interval;   // hours
-    float rx_delay_base;
-    float tx_delay_factor;
-    char guest_password[16];
-    float direct_tx_delay_factor;
-    uint32_t guard;
-    uint8_t sf;
-    uint8_t cr;
-    uint8_t allow_read_only;
-    uint8_t multi_acks;
-    float bw;
-    uint8_t flood_max;
-    uint8_t interference_threshold;
-    uint8_t agc_reset_interval;   // secs / 4
+#if defined(WITH_RS232_BRIDGE) || defined(WITH_ESPNOW_BRIDGE)
+#define WITH_BRIDGE
+#endif
+
+struct NodePrefs { // persisted to file
+  float airtime_factor;
+  char node_name[32];
+  double node_lat, node_lon;
+  char password[16];
+  float freq;
+  uint8_t tx_power_dbm;
+  uint8_t disable_fwd;
+  uint8_t advert_interval;       // minutes / 2
+  uint8_t flood_advert_interval; // hours
+  float rx_delay_base;
+  float tx_delay_factor;
+  char guest_password[16];
+  float direct_tx_delay_factor;
+  uint32_t guard;
+  uint8_t sf;
+  uint8_t cr;
+  uint8_t allow_read_only;
+  uint8_t multi_acks;
+  float bw;
+  uint8_t flood_max;
+  uint8_t interference_threshold;
+  uint8_t agc_reset_interval; // secs / 4
+  // Bridge settings
+  uint8_t bridge_enabled; // boolean
+  uint16_t bridge_delay;  // milliseconds (default 500 ms)
+  uint8_t bridge_pkt_src; // 0 = logTx, 1 = logRx (default logTx)
+  uint32_t bridge_baud;   // 9600, 19200, 38400, 57600, 115200 (default 115200)
+  uint8_t bridge_channel; // 1-14 (ESP-NOW only)
+  char bridge_secret[16]; // for XOR encryption of bridge packets (ESP-NOW only)
 };
 
 class CommonCLICallbacks {
@@ -51,6 +62,14 @@ public:
   virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
   virtual void clearStats() = 0;
   virtual void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) = 0;
+
+  virtual void setBridgeState(bool enable) {
+    // no op by default
+  };
+
+  virtual void restartBridge() {
+    // no op by default
+  };
 };
 
 class CommonCLI {
