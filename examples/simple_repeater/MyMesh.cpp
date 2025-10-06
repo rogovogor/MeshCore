@@ -631,7 +631,12 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.bridge_pkt_src = 0;    // logTx
   _prefs.bridge_baud = 115200;  // baud rate
   _prefs.bridge_channel = 1;    // channel 1
+
   StrHelper::strncpy(_prefs.bridge_secret, "LVSITANOS", sizeof(_prefs.bridge_secret));
+
+  // GPS defaults
+  _prefs.gps_enabled = 0;
+  _prefs.gps_interval = 0;
 }
 
 void MyMesh::begin(FILESYSTEM *fs) {
@@ -653,7 +658,17 @@ void MyMesh::begin(FILESYSTEM *fs) {
 
   updateAdvertTimer();
   updateFloodAdvertTimer();
+
+#if ENV_INCLUDE_GPS == 1
+  applyGpsPrefs();
+#endif
 }
+
+#if ENV_INCLUDE_GPS == 1
+void MyMesh::applyGpsPrefs() {
+  sensors.setSettingByKey("gps", _prefs.gps_enabled?"1":"0");
+}
+#endif
 
 void MyMesh::applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) {
   set_radio_at = futureMillis(2000); // give CLI reply some time to be sent back, before applying temp radio params

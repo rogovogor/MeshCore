@@ -159,6 +159,10 @@ public:
     _cli.savePrefs(_fs);
   }
 
+#if ENV_INCLUDE_GPS == 1
+  void applyGpsPrefs();
+#endif
+
   void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override;
   bool formatFileSystem() override;
   void sendSelfAdvertisement(int delay_millis) override;

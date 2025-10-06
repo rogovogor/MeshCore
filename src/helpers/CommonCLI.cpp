@@ -62,8 +62,12 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)&_prefs->bridge_delay, sizeof(_prefs->bridge_delay));                     // 128
     file.read((uint8_t *)&_prefs->bridge_pkt_src, sizeof(_prefs->bridge_pkt_src));                 // 130
     file.read((uint8_t *)&_prefs->bridge_baud, sizeof(_prefs->bridge_baud));                       // 131
-    file.read((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 132
-    file.read((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 133
+    file.read((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 135
+    file.read((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 136
+    file.read(pad, 4);                                                                             // 152
+    file.read((uint8_t *)&_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
+    file.read((uint8_t *)&_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
+    // 161
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -83,6 +87,8 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     _prefs->bridge_pkt_src = constrain(_prefs->bridge_pkt_src, 0, 1);
     _prefs->bridge_baud = constrain(_prefs->bridge_baud, 9600, 115200);
     _prefs->bridge_channel = constrain(_prefs->bridge_channel, 0, 14);
+
+    _prefs->gps_enabled = constrain(_prefs->gps_enabled, 0, 1);
 
     file.close();
   }
@@ -131,8 +137,12 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)&_prefs->bridge_delay, sizeof(_prefs->bridge_delay));                     // 128
     file.write((uint8_t *)&_prefs->bridge_pkt_src, sizeof(_prefs->bridge_pkt_src));                 // 130
     file.write((uint8_t *)&_prefs->bridge_baud, sizeof(_prefs->bridge_baud));                       // 131
-    file.write((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 132
-    file.write((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 133
+    file.write((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 135
+    file.write((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 136
+    file.write(pad, 4);                                                                             // 152
+    file.write((uint8_t *)&_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
+    file.write((uint8_t *)&_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
+    // 161
 
     file.close();
   }
@@ -145,27 +155,6 @@ void CommonCLI::savePrefs() {
     _prefs->advert_interval = 0;  // turn it off, now that device has been manually configured
   }
   _callbacks->savePrefs();
-}
-
-const char* CommonCLI::sensorGetCustomVar(const char* key) {
-  int num = sensors.getNumSettings();
-  for (int i = 0; i < num; i++) {
-    if (strcmp(sensors.getSettingName(i), key) == 0) {
-      return sensors.getSettingValue(i);
-    }
-  }
-  return NULL;
-}
-
-bool CommonCLI::sensorSetCustomVar(const char* key, const char* value) {
-  int num = sensors.getNumSettings();
-  for (int i = 0; i < num; i++) {
-    if (strcmp(sensors.getSettingName(i), key) == 0) {
-      sensors.setSettingValue(key, value);
-      return true;
-    }
-  }
-  return false;
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
@@ -527,7 +516,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       sprintf(reply, "%s", _board->getManufacturerName());
     } else if (memcmp(command, "sensor get ", 11) == 0) {
       const char* key = command + 11;
-      const char* val = sensorGetCustomVar(key);
+      const char* val = sensors.getSettingByKey(key);
       if (val != NULL) {
         strcpy(reply, val);
       } else {
@@ -538,7 +527,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       const char* value = strchr(args,' ') + 1;
       char key [value-args+1];
       strncpy(key, args, value-args-1);
-      if (sensorSetCustomVar(key, value)) {
+      if (sensors.setSettingByKey(key, value)) {
         strcpy(reply, "ok");
       } else {
         strcpy(reply, "can't find custom var");
@@ -570,13 +559,17 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       }
 #if ENV_INCLUDE_GPS == 1
     } else if (memcmp(command, "gps on", 6) == 0) {
-      if (sensorSetCustomVar("gps", "1")) {
+      if (sensors.setSettingByKey("gps", "1")) {
+        _prefs->gps_enabled = 1;
+        savePrefs();
         strcpy(reply, "ok");
       } else {
         strcpy(reply, "gps toggle not found");
       }
     } else if (memcmp(command, "gps off", 7) == 0) {
-      if (sensorSetCustomVar("gps", "0")) {
+      if (sensors.setSettingByKey("gps", "0")) {
+        _prefs->gps_enabled = 0;
+        savePrefs();
         strcpy(reply, "ok");
       } else {
         strcpy(reply, "gps toggle not found");
@@ -592,7 +585,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         bool enabled = l->isEnabled(); // is EN pin on ?
         bool fix = l->isValid();       // has fix ?
         int sats = l->satellitesCount();
-        bool active = !strcmp(sensorGetCustomVar("gps"), "1");
+        bool active = !strcmp(sensors.getSettingByKey("gps"), "1");
         if (enabled) {
           sprintf(reply, "on, %s, %s, %d sats",
             active?"active":"deactivated", 
