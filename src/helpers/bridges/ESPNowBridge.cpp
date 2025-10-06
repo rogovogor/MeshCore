@@ -27,20 +27,20 @@ ESPNowBridge::ESPNowBridge(NodePrefs *prefs, mesh::PacketManager *mgr, mesh::RTC
 }
 
 void ESPNowBridge::begin() {
-  Serial.printf("%s: ESPNOW BRIDGE: Initializing...\n", getLogDateTime());
+  BRIDGE_DEBUG_PRINTLN("Initializing...\n");
 
   // Initialize WiFi in station mode
   WiFi.mode(WIFI_STA);
   
   // Set wifi channel
   if (esp_wifi_set_channel(_prefs->bridge_channel, WIFI_SECOND_CHAN_NONE) != ESP_OK) {
-    Serial.printf("%s: ESPNOW BRIDGE: Error setting WIFI channel to %d\n", getLogDateTime(), _prefs->bridge_channel);
+    BRIDGE_DEBUG_PRINTLN("Error setting WIFI channel to %d\n", _prefs->bridge_channel);
     return;
   }
 
   // Initialize ESP-NOW
   if (esp_now_init() != ESP_OK) {
-    Serial.printf("%s: ESPNOW BRIDGE: Error initializing ESP-NOW\n", getLogDateTime());
+    BRIDGE_DEBUG_PRINTLN("Error initializing ESP-NOW\n");
     return;
   }
 
@@ -56,7 +56,7 @@ void ESPNowBridge::begin() {
   peerInfo.encrypt = false;
 
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.printf("%s: ESPNOW BRIDGE: Failed to add broadcast peer\n", getLogDateTime());
+    BRIDGE_DEBUG_PRINTLN("Failed to add broadcast peer\n");
     return;
   }
 
@@ -65,12 +65,12 @@ void ESPNowBridge::begin() {
 }
 
 void ESPNowBridge::end() {
-  Serial.printf("%s: ESPNOW BRIDGE: Stopping...\n", getLogDateTime());
+  BRIDGE_DEBUG_PRINTLN("Stopping...\n");
 
   // Remove broadcast peer
   uint8_t broadcastAddress[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
   if (esp_now_del_peer(broadcastAddress) != ESP_OK) {
-    Serial.printf("%s: ESPNOW BRIDGE: Error removing broadcast peer\n", getLogDateTime());
+    BRIDGE_DEBUG_PRINTLN("Error removing broadcast peer\n");
   }
 
   // Unregister callbacks
@@ -79,7 +79,7 @@ void ESPNowBridge::end() {
 
   // Deinitialize ESP-NOW
   if (esp_now_deinit() != ESP_OK) {
-    Serial.printf("%s: ESPNOW BRIDGE: Error deinitializing ESP-NOW\n", getLogDateTime());
+    BRIDGE_DEBUG_PRINTLN("Error deinitializing ESP-NOW\n");
   }
 
   // Turn off WiFi
@@ -103,26 +103,20 @@ void ESPNowBridge::xorCrypt(uint8_t *data, size_t len) {
 void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t len) {
   // Ignore packets that are too small to contain header + checksum
   if (len < (BRIDGE_MAGIC_SIZE + BRIDGE_CHECKSUM_SIZE)) {
-#if MESH_PACKET_LOGGING
-    Serial.printf("%s: ESPNOW BRIDGE: RX packet too small, len=%d\n", getLogDateTime(), len);
-#endif
+    BRIDGE_DEBUG_PRINTLN("RX packet too small, len=%d\n", len);
     return;
   }
 
   // Validate total packet size
   if (len > MAX_ESPNOW_PACKET_SIZE) {
-#if MESH_PACKET_LOGGING
-    Serial.printf("%s: ESPNOW BRIDGE: RX packet too large, len=%d\n", getLogDateTime(), len);
-#endif
+    BRIDGE_DEBUG_PRINTLN("RX packet too large, len=%d\n", len);
     return;
   }
 
   // Check packet header magic
   uint16_t received_magic = (data[0] << 8) | data[1];
   if (received_magic != BRIDGE_PACKET_MAGIC) {
-#if MESH_PACKET_LOGGING
-    Serial.printf("%s: ESPNOW BRIDGE: RX invalid magic 0x%04X\n", getLogDateTime(), received_magic);
-#endif
+    BRIDGE_DEBUG_PRINTLN("RX invalid magic 0x%04X\n", received_magic);
     return;
   }
 
@@ -140,16 +134,11 @@ void ESPNowBridge::onDataRecv(const uint8_t *mac, const uint8_t *data, int32_t l
 
   if (!validateChecksum(decrypted + BRIDGE_CHECKSUM_SIZE, payloadLen, received_checksum)) {
     // Failed to decrypt - likely from a different network
-#if MESH_PACKET_LOGGING
-    Serial.printf("%s: ESPNOW BRIDGE: RX checksum mismatch, rcv=0x%04X\n", getLogDateTime(),
-                  received_checksum);
-#endif
+    BRIDGE_DEBUG_PRINTLN("RX checksum mismatch, rcv=0x%04X\n", received_checksum);
     return;
   }
 
-#if MESH_PACKET_LOGGING
-  Serial.printf("%s: ESPNOW BRIDGE: RX, payload_len=%d\n", getLogDateTime(), payloadLen);
-#endif
+  BRIDGE_DEBUG_PRINTLN("RX, payload_len=%d\n", payloadLen);
 
   // Create mesh packet
   mesh::Packet *pkt = _instance->_mgr->allocNew();
@@ -174,9 +163,7 @@ void ESPNowBridge::sendPacket(mesh::Packet *packet) {
 
   // First validate the packet pointer
   if (!packet) {
-#if MESH_PACKET_LOGGING
-    Serial.printf("%s: ESPNOW BRIDGE: TX invalid packet pointer\n", getLogDateTime());
-#endif
+    BRIDGE_DEBUG_PRINTLN("TX invalid packet pointer\n");
     return;
   }
 
@@ -187,10 +174,8 @@ void ESPNowBridge::sendPacket(mesh::Packet *packet) {
 
     // Check if packet fits within our maximum payload size
     if (meshPacketLen > MAX_PAYLOAD_SIZE) {
-#if MESH_PACKET_LOGGING
-      Serial.printf("%s: ESPNOW BRIDGE: TX packet too large (payload=%d, max=%d)\n", getLogDateTime(),
-                    meshPacketLen, MAX_PAYLOAD_SIZE);
-#endif
+      BRIDGE_DEBUG_PRINTLN("TX packet too large (payload=%d, max=%d)\n", meshPacketLen,
+                           MAX_PAYLOAD_SIZE);
       return;
     }
 
@@ -219,13 +204,11 @@ void ESPNowBridge::sendPacket(mesh::Packet *packet) {
     uint8_t broadcastAddress[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     esp_err_t result = esp_now_send(broadcastAddress, buffer, totalPacketSize);
 
-#if MESH_PACKET_LOGGING
     if (result == ESP_OK) {
-      Serial.printf("%s: ESPNOW BRIDGE: TX, len=%d\n", getLogDateTime(), meshPacketLen);
+      BRIDGE_DEBUG_PRINTLN("TX, len=%d\n", meshPacketLen);
     } else {
-      Serial.printf("%s: ESPNOW BRIDGE: TX FAILED!\n", getLogDateTime());
+      BRIDGE_DEBUG_PRINTLN("TX FAILED!\n");
     }
-#endif
   }
 }
 

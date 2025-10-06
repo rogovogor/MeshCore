@@ -21,7 +21,7 @@ public:
    *
    * @return true if the bridge is initialized and running, false otherwise.
    */
-  virtual bool getState() const = 0;
+  virtual bool isRunning() const = 0;
 
   /**
    * @brief A method to be called on every main loop iteration.

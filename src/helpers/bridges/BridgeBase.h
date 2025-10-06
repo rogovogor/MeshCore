@@ -27,7 +27,7 @@ public:
    *
    * @return true if the bridge is initialized and running, false otherwise.
    */
-  bool getState() const override;
+  bool isRunning() const override;
 
   /**
    * @brief Common magic number used by all bridge implementations for packet identification

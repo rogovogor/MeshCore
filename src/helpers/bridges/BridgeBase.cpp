@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-bool BridgeBase::getState() const {
+bool BridgeBase::isRunning() const {
   return _initialized;
 }
 
@@ -34,7 +34,7 @@ bool BridgeBase::validateChecksum(const uint8_t *data, size_t len, uint16_t rece
 void BridgeBase::handleReceivedPacket(mesh::Packet *packet) {
   // Guard against uninitialized state
   if (_initialized == false) {
-    Serial.printf("%s: BRIDGE: RX packet received before initialization\n", getLogDateTime());
+    BRIDGE_DEBUG_PRINTLN("RX packet received before initialization\n");
     _mgr->free(packet);
     return;
   }

@@ -185,12 +185,19 @@ public:
 
 #if defined(WITH_BRIDGE)
   void setBridgeState(bool enable) override {
-    if (enable == bridge.getState()) return;
-    enable ? bridge.begin() : bridge.end();
+    if (enable == bridge.isRunning()) return;
+    if (enable)
+    {
+      bridge.begin();
+    }
+    else 
+    {
+      bridge.end();
+    }
   }
 
   void restartBridge() override {
-    if (!bridge.getState()) return;
+    if (!bridge.isRunning()) return;
     bridge.end();
     bridge.begin();
   }
