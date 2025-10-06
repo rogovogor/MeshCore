@@ -439,7 +439,32 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         strcpy(reply, "ok");
       } else {
         strcpy(reply, "can't find custom var");
-      } 
+      }
+    } else if (memcmp(command, "sensor list", 11) == 0) {
+      char* dp = reply;
+      int start = 0;
+      int end = sensors.getNumSettings();
+      if (strlen(command) > 11) {
+        start = _atoi(command+12);
+      }
+      if (start >= end) {
+        strcpy(reply, "no custom var");
+      } else {
+        sprintf(dp, "%d vars\n", end);
+        dp = strchr(dp, 0);
+        int i;
+        for (i = start; i < end && (dp-reply < 134); i++) {
+          sprintf(dp, "%s=%s\n", 
+            sensors.getSettingName(i),
+            sensors.getSettingValue(i));
+          dp = strchr(dp, 0);
+        }
+        if (i < end) {
+          sprintf(dp, "... next:%d", i);
+        } else {
+          *(dp-1) = 0; // remove last CR
+        }
+      }
 #if ENV_INCLUDE_GPS == 1
     } else if (memcmp(command, "gps on", 6) == 0) {
       if (sensorSetCustomVar("gps", "1")) {
