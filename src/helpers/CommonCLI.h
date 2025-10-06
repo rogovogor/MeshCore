@@ -2,6 +2,7 @@
 
 #include "Mesh.h"
 #include <helpers/IdentityStore.h>
+#include <target.h>
 
 struct NodePrefs {  // persisted to file
     float airtime_factor;
@@ -50,10 +51,6 @@ public:
   virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
   virtual void clearStats() = 0;
   virtual void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) = 0;
-  virtual void gpsGetStatus(char * reply) {}
-  virtual void gpsStart() {}
-  virtual void gpsStop() {}
-  virtual void gpsSyncTime() {}
 };
 
 class CommonCLI {
@@ -66,6 +63,9 @@ class CommonCLI {
   mesh::RTCClock* getRTCClock() { return _rtc; }
   void savePrefs();
   void loadPrefsInt(FILESYSTEM* _fs, const char* filename);
+
+  const char* sensorGetCustomVar(const char* key);
+  bool sensorSetCustomVar(const char* key, const char* value);
 
 public:
   CommonCLI(mesh::MainBoard& board, mesh::RTCClock& rtc, NodePrefs* prefs, CommonCLICallbacks* callbacks)

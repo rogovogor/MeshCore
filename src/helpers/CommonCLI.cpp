@@ -128,6 +128,27 @@ void CommonCLI::savePrefs() {
   _callbacks->savePrefs();
 }
 
+const char* CommonCLI::sensorGetCustomVar(const char* key) {
+  int num = sensors.getNumSettings();
+  for (int i = 0; i < num; i++) {
+    if (strcmp(sensors.getSettingName(i), key) == 0) {
+      return sensors.getSettingValue(i);
+    }
+  }
+  return NULL;
+}
+
+bool CommonCLI::sensorSetCustomVar(const char* key, const char* value) {
+  int num = sensors.getNumSettings();
+  for (int i = 0; i < num; i++) {
+    if (strcmp(sensors.getSettingName(i), key) == 0) {
+      sensors.setSettingValue(key, value);
+      return true;
+    }
+  }
+  return false;
+}
+
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
     if (memcmp(command, "reboot", 6) == 0) {
       _board->reboot();  // doesn't return
@@ -401,18 +422,60 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       sprintf(reply, "%s (Build: %s)", _callbacks->getFirmwareVer(), _callbacks->getBuildDate());
     } else if (memcmp(command, "board", 5) == 0) {
       sprintf(reply, "%s", _board->getManufacturerName());
+    } else if (memcmp(command, "sensor get ", 11) == 0) {
+      const char* key = command + 11;
+      const char* val = sensorGetCustomVar(key);
+      if (val != NULL) {
+        strcpy(reply, val);
+      } else {
+        strcpy(reply, "can't find custom var");
+      }
+    } else if (memcmp(command, "sensor set ", 11) == 0) {
+      const char* args = &command[11];
+      const char* value = strchr(args,' ') + 1;
+      char key [value-args+1];
+      strncpy(key, args, value-args-1);
+      if (sensorSetCustomVar(key, value)) {
+        strcpy(reply, "ok");
+      } else {
+        strcpy(reply, "can't find custom var");
+      } 
 #if ENV_INCLUDE_GPS == 1
     } else if (memcmp(command, "gps on", 6) == 0) {
-      _callbacks->gpsStart();
-      strcpy(reply, "ok");
+      if (sensorSetCustomVar("gps", "1")) {
+        strcpy(reply, "ok");
+      } else {
+        strcpy(reply, "gps toggle not found");
+      }
     } else if (memcmp(command, "gps off", 7) == 0) {
-      _callbacks->gpsStop();
-      strcpy(reply, "ok");
+      if (sensorSetCustomVar("gps", "0")) {
+        strcpy(reply, "ok");
+      } else {
+        strcpy(reply, "gps toggle not found");
+      }
     } else if (memcmp(command, "gps sync", 8) == 0) {
-      _callbacks->gpsSyncTime();
-      strcpy(reply, "Waiting fix ...");
+      LocationProvider * l = sensors.getLocationProvider();
+      if (l != NULL) {
+        l->syncTime();
+      }
     } else if (memcmp(command, "gps", 3) == 0) {
-      _callbacks->gpsGetStatus(reply);
+      LocationProvider * l = sensors.getLocationProvider();
+      if (l != NULL) {
+        bool enabled = l->isEnabled(); // is EN pin on ?
+        bool fix = l->isValid();       // has fix ?
+        int sats = l->satellitesCount();
+        bool active = !strcmp(sensorGetCustomVar("gps"), "1");
+        if (enabled) {
+          sprintf(reply, "on, %s, %s, %d sats",
+            active?"active":"deactivated", 
+            fix?"fix":"no fix", 
+            sats);
+        } else {
+          strcpy(reply, "off");
+        }
+      } else {
+        strcpy(reply, "Can't find GPS");
+      }
 #endif
     } else if (memcmp(command, "log start", 9) == 0) {
       _callbacks->setLoggingOn(true);

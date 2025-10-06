@@ -758,62 +758,6 @@ void MyMesh::removeNeighbor(const uint8_t *pubkey, int key_len) {
 #endif
 }
 
-void MyMesh::gpsGetStatus(char * reply) {
-  LocationProvider * l = sensors.getLocationProvider();
-  if (l != NULL) {
-    bool enabled = l->isEnabled(); // is EN pin on ?
-    bool active = gpsGetState();   // is enabled at SensorManager level ?
-    bool fix = l->isValid();       // has fix ?
-    int sats = l->satellitesCount();
-    if (enabled) {
-      sprintf(reply, "on, %s, %s, %d sats",
-        active?"active":"deactivated", 
-        fix?"fix":"no fix", 
-        sats);
-    } else {
-      strcpy(reply, "off");
-    }
-  } else {
-    strcpy(reply, "Can't find GPS");
-  }
-}
-
-bool MyMesh::gpsGetState() {
-  int num = sensors.getNumSettings();
-  for (int i = 0; i < num; i++) {
-    if (strcmp(sensors.getSettingName(i), "gps") == 0) {
-      return !strcmp(sensors.getSettingValue(i), "1");
-    }
-  }
-  return false;
-}
-
-void MyMesh::gpsSetState(bool value) {
-  // toggle GPS on/off
-  int num = sensors.getNumSettings();
-  for (int i = 0; i < num; i++) {
-    if (strcmp(sensors.getSettingName(i), "gps") == 0) {
-      sensors.setSettingValue("gps", value?"1":"0");
-      break;
-    }
-  }
-}
-
-void MyMesh::gpsStart() {
-  gpsSetState(true);
-}
- 
-void MyMesh::gpsStop() {
-  gpsSetState(false);
-}
-
-void MyMesh::gpsSyncTime() {
-  LocationProvider * l = sensors.getLocationProvider();
-  if (l != NULL) {
-    l->syncTime();
-  }
-}
-
 void MyMesh::saveIdentity(const mesh::LocalIdentity &new_id) {
   self_id = new_id;
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)

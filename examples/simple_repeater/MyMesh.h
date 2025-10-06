@@ -142,9 +142,6 @@ protected:
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override;
   bool onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
 
-  bool gpsGetState();
-  void gpsSetState(bool value);
-
 public:
   MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables);
 
@@ -178,12 +175,6 @@ public:
   void setTxPower(uint8_t power_dbm) override;
   void formatNeighborsReply(char *reply) override;
   void removeNeighbor(const uint8_t* pubkey, int key_len) override;
-
-  // Gps mgmt cli callbacks
-  void gpsGetStatus(char * reply) override;
-  void gpsStart() override;
-  void gpsStop() override;
-  void gpsSyncTime() override;
 
   mesh::LocalIdentity& getSelfId() override { return self_id; }
 
