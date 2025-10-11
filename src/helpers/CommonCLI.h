@@ -8,6 +8,10 @@
 #define WITH_BRIDGE
 #endif
 
+#define ADVERT_LOC_NONE       0
+#define ADVERT_LOC_SHARE      1
+#define ADVERT_LOC_PREFS      2
+
 struct NodePrefs { // persisted to file
   float airtime_factor;
   char node_name[32];
@@ -41,6 +45,7 @@ struct NodePrefs { // persisted to file
   // Gps settings
   uint8_t gps_enabled;
   uint32_t gps_interval; // in seconds
+  uint8_t advert_loc_policy;
 };
 
 class CommonCLICallbacks {

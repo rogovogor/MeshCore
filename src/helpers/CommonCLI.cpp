@@ -67,7 +67,10 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read(pad, 4);                                                                             // 152
     file.read((uint8_t *)&_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
     file.read((uint8_t *)&_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
-    // 161
+    if (file.read((uint8_t *)&_prefs->advert_loc_policy, sizeof (_prefs->advert_loc_policy)) == -1) {
+      _prefs->advert_loc_policy = ADVERT_LOC_PREFS; // default value
+    }                                                                                               // 161
+    // 162
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -89,6 +92,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     _prefs->bridge_channel = constrain(_prefs->bridge_channel, 0, 14);
 
     _prefs->gps_enabled = constrain(_prefs->gps_enabled, 0, 1);
+    _prefs->advert_loc_policy = constrain(_prefs->advert_loc_policy, 0, 2);
 
     file.close();
   }
@@ -142,7 +146,8 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write(pad, 4);                                                                             // 152
     file.write((uint8_t *)&_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
     file.write((uint8_t *)&_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
-    // 161
+    file.write((uint8_t *)&_prefs->advert_loc_policy, sizeof(_prefs->advert_loc_policy));           // 161
+    // 162
 
     file.close();
   }
@@ -585,6 +590,36 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       _prefs->node_lon = sensors.node_lon;
       savePrefs();
       strcpy(reply, "ok");
+    } else if (memcmp(command, "gps advert", 10) == 0) {
+      if (strlen(command) == 10) {
+        switch (_prefs->advert_loc_policy) {
+          case ADVERT_LOC_NONE:
+            strcpy(reply, "> none");
+            break;
+          case ADVERT_LOC_PREFS:
+            strcpy(reply, "> prefs");
+            break;
+          case ADVERT_LOC_SHARE:
+            strcpy(reply, "> share");
+            break;
+          default:
+            strcpy(reply, "error");
+        }
+      } else if (memcmp(command+11, "none", 4) == 0) {
+        _prefs->advert_loc_policy = ADVERT_LOC_NONE;
+        savePrefs();
+        strcpy(reply, "ok");
+      } else if (memcmp(command+11, "share", 5) == 0) {
+        _prefs->advert_loc_policy = ADVERT_LOC_SHARE;
+        savePrefs();
+        strcpy(reply, "ok");
+      } else if (memcmp(command+11, "prefs", 4) == 0) {
+        _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
+        savePrefs();
+        strcpy(reply, "ok");
+      } else {
+        strcpy(reply, "error");
+      }
     } else if (memcmp(command, "gps", 3) == 0) {
       LocationProvider * l = sensors.getLocationProvider();
       if (l != NULL) {
