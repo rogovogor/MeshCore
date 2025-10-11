@@ -518,15 +518,16 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       const char* key = command + 11;
       const char* val = sensors.getSettingByKey(key);
       if (val != NULL) {
-        strcpy(reply, val);
+        sprintf(reply, "> %s", val);
       } else {
-        strcpy(reply, "can't find custom var");
+        strcpy(reply, "null");
       }
     } else if (memcmp(command, "sensor set ", 11) == 0) {
-      const char* args = &command[11];
-      const char* value = strchr(args,' ') + 1;
-      char key [value-args+1];
-      strncpy(key, args, value-args-1);
+      strcpy(tmp, &command[11]);
+      const char *parts[2]; 
+      int num = mesh::Utils::parseTextParts(tmp, parts, 2, ' ');
+      const char *key = (num > 0) ? parts[0] : "";
+      const char *value = (num > 1) ? parts[1] : "null";
       if (sensors.setSettingByKey(key, value)) {
         strcpy(reply, "ok");
       } else {
