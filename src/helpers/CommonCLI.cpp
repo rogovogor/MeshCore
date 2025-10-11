@@ -580,6 +580,11 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       if (l != NULL) {
         l->syncTime();
       }
+    } else if (memcmp(command, "gps setloc", 10) == 0) {
+      _prefs->node_lat = sensors.node_lat;
+      _prefs->node_lon = sensors.node_lon;
+      savePrefs();
+      strcpy(reply, "ok");
     } else if (memcmp(command, "gps", 3) == 0) {
       LocationProvider * l = sensors.getLocationProvider();
       if (l != NULL) {
