@@ -289,8 +289,16 @@ mesh::Packet *MyMesh::createSelfAdvert() {
   uint8_t app_data[MAX_ADVERT_DATA_SIZE];
   uint8_t app_data_len;
   {
-    AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
-    app_data_len = builder.encodeTo(app_data);
+    if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
+        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name);
+        app_data_len = builder.encodeTo(app_data);
+    } else if (_prefs.advert_loc_policy == ADVERT_LOC_SHARE) {
+        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, sensors.node_lat, sensors.node_lon);
+        app_data_len = builder.encodeTo(app_data);
+    } else {
+        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
+        app_data_len = builder.encodeTo(app_data);
+    }
   }
 
   return createAdvert(self_id, app_data, app_data_len);
@@ -631,7 +639,12 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.bridge_pkt_src = 0;    // logTx
   _prefs.bridge_baud = 115200;  // baud rate
   _prefs.bridge_channel = 1;    // channel 1
+
   StrHelper::strncpy(_prefs.bridge_secret, "LVSITANOS", sizeof(_prefs.bridge_secret));
+
+  // GPS defaults
+  _prefs.gps_enabled = 0;
+  _prefs.gps_interval = 0;
 }
 
 void MyMesh::begin(FILESYSTEM *fs) {
@@ -653,6 +666,10 @@ void MyMesh::begin(FILESYSTEM *fs) {
 
   updateAdvertTimer();
   updateFloodAdvertTimer();
+
+#if ENV_INCLUDE_GPS == 1
+  applyGpsPrefs();
+#endif
 }
 
 void MyMesh::applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) {
