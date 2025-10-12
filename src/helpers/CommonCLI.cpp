@@ -67,9 +67,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read(pad, 4);                                                                             // 152
     file.read((uint8_t *)&_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
     file.read((uint8_t *)&_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
-    if (file.read((uint8_t *)&_prefs->advert_loc_policy, sizeof (_prefs->advert_loc_policy)) == -1) {
-      _prefs->advert_loc_policy = ADVERT_LOC_PREFS; // default value
-    }                                                                                               // 161
+    file.read((uint8_t *)&_prefs->advert_loc_policy, sizeof (_prefs->advert_loc_policy));          // 161
     // 162
 
     // sanitise bad pref values

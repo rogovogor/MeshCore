@@ -242,13 +242,13 @@ mesh::Packet* SensorMesh::createSelfAdvert() {
   uint8_t app_data_len;
   {
     if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name);
+        AdvertDataBuilder builder(ADV_TYPE_SENSOR, _prefs.node_name);
         app_data_len = builder.encodeTo(app_data);
     } else if (_prefs.advert_loc_policy == ADVERT_LOC_SHARE) {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, sensors.node_lat, sensors.node_lon);
+        AdvertDataBuilder builder(ADV_TYPE_SENSOR, _prefs.node_name, sensors.node_lat, sensors.node_lon);
         app_data_len = builder.encodeTo(app_data);
     } else {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
+        AdvertDataBuilder builder(ADV_TYPE_SENSOR, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
         app_data_len = builder.encodeTo(app_data);
     }
   }
@@ -690,6 +690,11 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   _prefs.disable_fwd = true;
   _prefs.flood_max = 64;
   _prefs.interference_threshold = 0;  // disabled
+
+  // GPS defaults
+  _prefs.gps_enabled = 0;
+  _prefs.gps_interval = 0;
+  _prefs.advert_loc_policy = ADVERT_LOC_PREFS;
 }
 
 void SensorMesh::begin(FILESYSTEM* fs) {

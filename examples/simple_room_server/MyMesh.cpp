@@ -117,13 +117,13 @@ mesh::Packet *MyMesh::createSelfAdvert() {
   uint8_t app_data_len;
   {
     if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name);
+        AdvertDataBuilder builder(ADV_TYPE_ROOM, _prefs.node_name);
         app_data_len = builder.encodeTo(app_data);
     } else if (_prefs.advert_loc_policy == ADVERT_LOC_SHARE) {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, sensors.node_lat, sensors.node_lon);
+        AdvertDataBuilder builder(ADV_TYPE_ROOM, _prefs.node_name, sensors.node_lat, sensors.node_lon);
         app_data_len = builder.encodeTo(app_data);
     } else {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
+        AdvertDataBuilder builder(ADV_TYPE_ROOM, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
         app_data_len = builder.encodeTo(app_data);
     }
   }
@@ -619,6 +619,11 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
 #ifdef ROOM_PASSWORD
   StrHelper::strncpy(_prefs.guest_password, ROOM_PASSWORD, sizeof(_prefs.guest_password));
 #endif
+
+  // GPS defaults
+  _prefs.gps_enabled = 0;
+  _prefs.gps_interval = 0;
+  _prefs.advert_loc_policy = ADVERT_LOC_PREFS;
 
   next_post_idx = 0;
   next_client_idx = 0;
