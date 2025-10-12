@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "CommonCLI.h"
 #include "TxtDataHelpers.h"
+#include "AdvertDataHelpers.h"
 #include <RTClib.h>
 
 // Believe it or not, this std C function is busted on some platforms!
@@ -158,6 +159,19 @@ void CommonCLI::savePrefs() {
     _prefs->advert_interval = 0;  // turn it off, now that device has been manually configured
   }
   _callbacks->savePrefs();
+}
+
+uint8_t CommonCLI::buildAdvertData(uint8_t node_type, uint8_t* app_data) {
+  if (_prefs->advert_loc_policy == ADVERT_LOC_NONE) {
+    AdvertDataBuilder builder(node_type, _prefs->node_name);
+    return builder.encodeTo(app_data);
+  } else if (_prefs->advert_loc_policy == ADVERT_LOC_SHARE) {
+    AdvertDataBuilder builder(node_type, _prefs->node_name, sensors.node_lat, sensors.node_lon);
+    return builder.encodeTo(app_data);
+  } else {
+    AdvertDataBuilder builder(node_type, _prefs->node_name, _prefs->node_lat, _prefs->node_lon);
+    return builder.encodeTo(app_data);
+  }
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {

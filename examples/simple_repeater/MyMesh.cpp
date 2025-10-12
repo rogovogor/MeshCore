@@ -287,19 +287,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
 
 mesh::Packet *MyMesh::createSelfAdvert() {
   uint8_t app_data[MAX_ADVERT_DATA_SIZE];
-  uint8_t app_data_len;
-  {
-    if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name);
-        app_data_len = builder.encodeTo(app_data);
-    } else if (_prefs.advert_loc_policy == ADVERT_LOC_SHARE) {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, sensors.node_lat, sensors.node_lon);
-        app_data_len = builder.encodeTo(app_data);
-    } else {
-        AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
-        app_data_len = builder.encodeTo(app_data);
-    }
-  }
+  uint8_t app_data_len = _cli.buildAdvertData(ADV_TYPE_REPEATER, app_data);
 
   return createAdvert(self_id, app_data, app_data_len);
 }
