@@ -96,7 +96,6 @@ static bool serialGPSFlag = false;
 #define TELEM_RAK12500_ADDRESS   0x42     //RAK12500 Ublox GPS via i2c
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 static SFE_UBLOX_GNSS ublox_GNSS;
-#endif
 
 class RAK12500LocationProvider : public LocationProvider {
   long _lat = 0;
@@ -132,6 +131,7 @@ public:
 };
 
 static RAK12500LocationProvider RAK12500_provider;
+#endif
 
 bool EnvironmentSensorManager::begin() {
   #if ENV_INCLUDE_GPS
