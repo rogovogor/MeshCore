@@ -20,7 +20,11 @@
   #define UI_RECENT_LIST_SIZE 4
 #endif
 
-#define PRESS_LABEL "long press"
+#if UI_HAS_JOYSTICK
+  #define PRESS_LABEL "press Enter"
+#else
+  #define PRESS_LABEL "long press"
+#endif
 
 #include "icons.h"
 
@@ -360,7 +364,7 @@ public:
         display.drawTextCentered(display.width() / 2, 34, "hibernating...");
       } else {
         display.drawXbm((display.width() - 32) / 2, 18, power_icon, 32, 32);
-        display.drawTextCentered(display.width() / 2, 64 - 11, "hibernate: " PRESS_LABEL);
+        display.drawTextCentered(display.width() / 2, 64 - 11, "hibernate:" PRESS_LABEL);
       }
     }
     return 5000;   // next render after 5000 ms
@@ -660,19 +664,13 @@ bool UITask::isButtonPressed() const {
 
 void UITask::loop() {
   char c = 0;
-#if defined(PIN_USER_BTN)
+#if UI_HAS_JOYSTICK
   int ev = user_btn.check();
   if (ev == BUTTON_EVENT_CLICK) {
-    c = checkDisplayOn(KEY_NEXT);
+    c = checkDisplayOn(KEY_ENTER);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
-    c = handleLongPress(KEY_ENTER);
-  } else if (ev == BUTTON_EVENT_DOUBLE_CLICK) {
-    c = handleDoubleClick(KEY_PREV);
-  } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
-    c = handleTripleClick(KEY_SELECT);
+    c = handleLongPress(KEY_ENTER);  // REVISIT: could be mapped to different key code
   }
-#endif
-#if defined(WIO_TRACKER_L1)
   ev = joystick_left.check();
   if (ev == BUTTON_EVENT_CLICK) {
     c = checkDisplayOn(KEY_LEFT);
@@ -684,6 +682,17 @@ void UITask::loop() {
     c = checkDisplayOn(KEY_RIGHT);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
     c = handleLongPress(KEY_RIGHT);
+  }
+#elif defined(PIN_USER_BTN)
+  int ev = user_btn.check();
+  if (ev == BUTTON_EVENT_CLICK) {
+    c = checkDisplayOn(KEY_NEXT);
+  } else if (ev == BUTTON_EVENT_LONG_PRESS) {
+    c = handleLongPress(KEY_ENTER);
+  } else if (ev == BUTTON_EVENT_DOUBLE_CLICK) {
+    c = handleDoubleClick(KEY_PREV);
+  } else if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
+    c = handleTripleClick(KEY_SELECT);
   }
 #endif
 #if defined(PIN_USER_BTN_ANA)

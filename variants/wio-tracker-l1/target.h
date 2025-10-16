@@ -27,6 +27,7 @@ extern EnvironmentSensorManager sensors;
   extern MomentaryButton user_btn;
   extern MomentaryButton joystick_left;
   extern MomentaryButton joystick_right;
+  extern MomentaryButton back_btn;
 #endif
 
 bool radio_init();
