@@ -1,6 +1,7 @@
 #pragma once
 
 #include <RadioLib.h>
+#include "MeshCore.h"
 
 #define LR1110_IRQ_HAS_PREAMBLE                     0b0000000100  //  4     4     valid LoRa header received
 #define LR1110_IRQ_HEADER_VALID                     0b0000010000  //  4     4     valid LoRa header received
@@ -24,10 +25,10 @@ class CustomLR1110 : public LR1110 {
       if (len == 0) {
         uint32_t irq = getIrqStatus();
         if (irq & RADIOLIB_LR11X0_IRQ_HEADER_ERR) {
-          Serial.println(F("got possible bug packet"));
+          MESH_DEBUG_PRINTLN("LR1110: got header err, assuming shift");
           this->shiftCount += 4; // uint8 will loop around to 0 at 256, perfect as rx buffer is 256 bytes
         } else {
-          Serial.println(F("got zero-length packet without header err irq"));
+          MESH_DEBUG_PRINTLN("LR1110: got zero-length packet without header err irq");
         }
       }
       return len;
