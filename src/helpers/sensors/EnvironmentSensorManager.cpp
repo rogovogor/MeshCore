@@ -8,8 +8,9 @@
 
 #ifdef ENV_INCLUDE_BME680
 #ifndef TELEM_BME680_ADDRESS
-#define TELEM_BME680_ADDRESS 0x76 // BME680 environmental sensor I2C address
+#define TELEM_BME680_ADDRESS 0x76
 #endif
+#define TELEM_BME680_SEALEVELPRESSURE_HPA (1013.25)
 #include <Adafruit_BME680.h>
 static Adafruit_BME680 BME680;
 #endif
@@ -439,6 +440,7 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
         telemetry.addTemperature(TELEM_CHANNEL_SELF, BME680.temperature);
         telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, BME680.humidity);
         telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BME680.pressure / 100);
+        telemetry.addAltitude(TELEM_CHANNEL_SELF, 44330.0 * (1.0 - pow((BME680.pressure / 100) / TELEM_BME680_SEALEVELPRESSURE_HPA, 0.1903)));
         telemetry.addAnalogInput(next_available_channel, BME680.gas_resistance);
         next_available_channel++;
       }
@@ -680,3 +682,4 @@ void EnvironmentSensorManager::loop() {
   }
   #endif
 }
+#endif
