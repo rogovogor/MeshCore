@@ -6,6 +6,15 @@
 #define TELEM_WIRE &Wire  // Use default I2C bus for Environment Sensors
 #endif
 
+#ifdef ENV_INCLUDE_BME680
+#ifndef TELEM_BME680_ADDRESS
+#define TELEM_BME680_ADDRESS 0x76
+#endif
+#define TELEM_BME680_SEALEVELPRESSURE_HPA (1013.25)
+#include <Adafruit_BME680.h>
+static Adafruit_BME680 BME680;
+#endif
+
 #if ENV_INCLUDE_AHTX0
 #define TELEM_AHTX_ADDRESS      0x38      // AHT10, AHT20 temperature and humidity sensor I2C address
 #include <Adafruit_AHTX0.h>
@@ -286,6 +295,16 @@ bool EnvironmentSensorManager::begin() {
   }
   #endif
 
+  #if ENV_INCLUDE_BME680
+  if (BME680.begin(TELEM_BME680_ADDRESS, TELEM_WIRE)) {
+    MESH_DEBUG_PRINTLN("Found BME680 at address: %02X", TELEM_BME680_ADDRESS);
+    BME680_initialized = true;
+  } else {
+    BME680_initialized = false;
+    MESH_DEBUG_PRINTLN("BME680 was not found at I2C address %02X", TELEM_BME680_ADDRESS);
+  }
+  #endif
+
   return true;
 }
 
@@ -411,6 +430,19 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
         telemetry.addDistance(TELEM_CHANNEL_SELF, measure.RangeMilliMeter / 1000.0f); // convert mm to m
       } else {
         telemetry.addDistance(TELEM_CHANNEL_SELF, 0.0f); // no valid measurement
+      }
+    }
+    #endif
+
+    #if ENV_INCLUDE_BME680
+    if (BME680_initialized) {
+      if (BME680.performReading()) {
+        telemetry.addTemperature(TELEM_CHANNEL_SELF, BME680.temperature);
+        telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, BME680.humidity);
+        telemetry.addBarometricPressure(TELEM_CHANNEL_SELF, BME680.pressure / 100);
+        telemetry.addAltitude(TELEM_CHANNEL_SELF, 44330.0 * (1.0 - pow((BME680.pressure / 100) / TELEM_BME680_SEALEVELPRESSURE_HPA, 0.1903)));
+        telemetry.addAnalogInput(next_available_channel, BME680.gas_resistance);
+        next_available_channel++;
       }
     }
     #endif
@@ -623,6 +655,7 @@ void EnvironmentSensorManager::stop_gps() {
 void EnvironmentSensorManager::loop() {
   static long next_gps_update = 0;
 
+  #if ENV_INCLUDE_GPS
   _location->loop();
 
   if (millis() > next_gps_update) {
@@ -647,5 +680,6 @@ void EnvironmentSensorManager::loop() {
     }
     next_gps_update = millis() + 1000;
   }
+  #endif
 }
 #endif
