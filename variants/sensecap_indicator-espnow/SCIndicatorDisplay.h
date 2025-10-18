@@ -124,6 +124,5 @@ public:
 class SCIndicatorDisplay : public LGFXDisplay {
   LGFX disp;
 public:
-  SCIndicatorDisplay() : LGFXDisplay(480, 480)
-                         { display=&disp; }
+  SCIndicatorDisplay() : LGFXDisplay(480, 480, disp) {}
 };

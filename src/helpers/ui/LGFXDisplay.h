@@ -1,9 +1,3 @@
-
-/*
- * Base class for LovyanGFX supported display (works on ESP32 mainly)
- * You can extend this class to support your display, providing your own LGFX
- */
-
 #pragma once
 
 #include <helpers/ui/DisplayDriver.h>
@@ -20,11 +14,12 @@ protected:
   LGFX_Device* display;
   LGFX_Sprite buffer;
 
-  bool _isOn;
+  bool _isOn = false;
   int _color = TFT_WHITE;
 
 public:
-  LGFXDisplay(int w, int h):DisplayDriver(w/UI_ZOOM, h/UI_ZOOM) {_isOn = false;}
+  LGFXDisplay(int w, int h, LGFX_Device &disp)
+    : DisplayDriver(w/UI_ZOOM, h/UI_ZOOM), display(&disp) {}
   bool begin();
   bool isOn() override { return _isOn; }
   void turnOn() override;
