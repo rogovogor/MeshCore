@@ -24,45 +24,6 @@ void T114Board::begin() {
 
   pinMode(PIN_VBAT_READ, INPUT);
 
-  // Enable SoftDevice low-power mode
-  sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
-
-  // Enable DC/DC converter for better efficiency (REG1 stage)
-  NRF_POWER->DCDCEN = 1;
-
-  // Power down unused communication peripherals
-  // UART1 - Not used on T114
-  NRF_UARTE1->ENABLE = 0;
-
-  // SPIM2/SPIS2 - Not used (SPI is on SPIM0)
-  NRF_SPIM2->ENABLE = 0;
-  NRF_SPIS2->ENABLE = 0;
-
-  // TWI1 (I2C1) - Not used (I2C is on TWI0)
-  NRF_TWIM1->ENABLE = 0;
-  NRF_TWIS1->ENABLE = 0;
-
-  // PWM modules - Not used for standard T114 functions
-  NRF_PWM1->ENABLE = 0;
-  NRF_PWM2->ENABLE = 0;
-  NRF_PWM3->ENABLE = 0;
-
-  // PDM (Digital Microphone Interface) - Not used
-  NRF_PDM->ENABLE = 0;
-
-  // I2S - Not used
-  NRF_I2S->ENABLE = 0;
-
-  // QSPI - Not used (no external flash)
-  NRF_QSPI->ENABLE = 0;
-
-  // Disable unused analog peripherals
-  // SAADC channels - only keep what's needed for battery monitoring
-  NRF_SAADC->ENABLE = 0; // Re-enable only when needed for measurements
-
-  // COMP - Comparator not used
-  NRF_COMP->ENABLE = 0;
-
 #if defined(PIN_BOARD_SDA) && defined(PIN_BOARD_SCL)
   Wire.setPins(PIN_BOARD_SDA, PIN_BOARD_SCL);
 #endif

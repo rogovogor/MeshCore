@@ -27,9 +27,6 @@ public:
 
   uint16_t getBattMilliVolts() override {
     int adcvalue = 0;
-
-    NRF_SAADC->ENABLE = 1;
-
     analogReadResolution(12);
     analogReference(AR_INTERNAL_3_0);
     pinMode(PIN_BAT_CTL, OUTPUT);          // battery adc can be read only ctrl pin 6 set to high
@@ -38,8 +35,6 @@ public:
     delay(10);
     adcvalue = analogRead(PIN_VBAT_READ);
     digitalWrite(6, 0);
-
-    NRF_SAADC->ENABLE = 0;
 
     return (uint16_t)((float)adcvalue * MV_LSB * 4.9);
   }
