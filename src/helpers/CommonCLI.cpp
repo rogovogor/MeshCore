@@ -77,8 +77,8 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     _prefs->direct_tx_delay_factor = constrain(_prefs->direct_tx_delay_factor, 0, 2.0f);
     _prefs->airtime_factor = constrain(_prefs->airtime_factor, 0, 9.0f);
     _prefs->freq = constrain(_prefs->freq, 400.0f, 2500.0f);
-    _prefs->bw = constrain(_prefs->bw, 62.5f, 500.0f);
-    _prefs->sf = constrain(_prefs->sf, 7, 12);
+    _prefs->bw = constrain(_prefs->bw, 7.8f, 500.0f);
+    _prefs->sf = constrain(_prefs->sf, 5, 12);
     _prefs->cr = constrain(_prefs->cr, 5, 8);
     _prefs->tx_power_dbm = constrain(_prefs->tx_power_dbm, 1, 30);
     _prefs->multi_acks = constrain(_prefs->multi_acks, 0, 1);
