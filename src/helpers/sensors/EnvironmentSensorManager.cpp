@@ -312,12 +312,9 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
   #if ENV_INCLUDE_BMP085
-  // first arg is MODE
-  // 0: ULTRALOWPOWER
-  // 1: STANDARD
-  // 2: HIGHRES
-  // 3: ULTRAHIGHRES
-  if (BMP085.begin(1, TELEM_WIRE)) {
+  // First argument is  MODE (aka oversampling)
+  // choose ULTRALOWPOWER
+  if (BMP085.begin(0, TELEM_WIRE)) {
     MESH_DEBUG_PRINTLN("Found sensor BMP085");
     BMP085_initialized = true;
   } else {
