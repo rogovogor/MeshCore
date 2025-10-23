@@ -30,6 +30,7 @@ public:
   bool begin() override;
   bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;
   void loop() override;
+  LocationProvider* getLocationProvider() override { return gps_detected ? _location : NULL; }
   int getNumSettings() const override;
   const char* getSettingName(int i) const override;
   const char* getSettingValue(int i) const override;
