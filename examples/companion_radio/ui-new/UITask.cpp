@@ -2,8 +2,9 @@
 #include <helpers/TxtDataHelpers.h>
 #include "../MyMesh.h"
 #include "target.h"
-#include <WiFi.h>
-
+#ifdef WIFI_SSID
+  #include <WiFi.h>
+#endif
 
 #ifndef AUTO_OFF_MILLIS
   #define AUTO_OFF_MILLIS     15000   // 15 seconds
@@ -132,8 +133,6 @@ class HomeScreen : public UIScreen {
   int sensors_scroll_offset = 0;
   int next_sensors_refresh = 0;
   
-  char ipStr[20];
-
   void refresh_sensors() {
     if (millis() > next_sensors_refresh) {
       sensors_lpp.reset();
@@ -198,9 +197,9 @@ public:
 
       #ifdef WIFI_SSID
         IPAddress ip = WiFi.localIP();
-        snprintf(ipStr, sizeof(ipStr), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+        snprintf(tmp, sizeof(tmp), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
         display.setTextSize(1);
-        display.drawTextCentered(display.width() / 2, 54, ipStr); 
+        display.drawTextCentered(display.width() / 2, 54, tmp); 
       #endif
       if (_task->hasConnection()) {
         display.setColor(DisplayDriver::GREEN);
