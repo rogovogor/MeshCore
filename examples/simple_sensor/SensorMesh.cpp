@@ -769,6 +769,19 @@ void SensorMesh::setTxPower(uint8_t power_dbm) {
   radio_set_tx_power(power_dbm);
 }
 
+void SensorMesh::formatStatsReply(char *reply) {
+  StatsFormatHelper::formatCoreStats(reply, board, *_ms, _err_flags, _mgr);
+}
+
+void SensorMesh::formatRadioStatsReply(char *reply) {
+  StatsFormatHelper::formatRadioStats(reply, _radio, radio_driver, getTotalAirTime(), getReceiveAirTime());
+}
+
+void SensorMesh::formatPacketStatsReply(char *reply) {
+  StatsFormatHelper::formatPacketStats(reply, radio_driver, getNumSentFlood(), getNumSentDirect(), 
+                                       getNumRecvFlood(), getNumRecvDirect());
+}
+
 float SensorMesh::getTelemValue(uint8_t channel, uint8_t type) {
   auto buf = telemetry.getBuffer();
   uint8_t size = telemetry.getSize();
