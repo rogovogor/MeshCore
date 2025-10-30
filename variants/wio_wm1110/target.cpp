@@ -1,23 +1,6 @@
 #include <Arduino.h>
 #include "target.h"
 #include <helpers/ArduinoHelpers.h>
-#include <helpers/sensors/LocationProvider.h>
-
-class WM1110LocationProvider : public LocationProvider {
-public:
-  long getLatitude() override { return 0; }
-  long getLongitude() override { return 0; }
-  long getAltitude() override { return 0; }
-  long satellitesCount() override { return 0; }
-  bool isValid() override { return false; }
-  long getTimestamp() override { return 0; }
-  void sendSentence(const char* sentence) override {}
-  void reset() override {}
-  void begin() override {}
-  void stop() override {}
-  void loop() override {}
-  bool isEnabled() override { return false; }
-};
 
 WioWM1110Board board;
 
@@ -26,8 +9,7 @@ RADIO_CLASS radio = new Module(P_LORA_NSS, P_LORA_DIO_1, P_LORA_RESET, P_LORA_BU
 WRAPPER_CLASS radio_driver(radio, board);
 
 VolatileRTCClock rtc_clock;
-WM1110LocationProvider location_provider;
-EnvironmentSensorManager sensors(location_provider);
+EnvironmentSensorManager sensors;
 
 #ifndef LORA_CR
   #define LORA_CR      5
