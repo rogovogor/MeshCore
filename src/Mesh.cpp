@@ -645,4 +645,17 @@ void Mesh::sendZeroHop(Packet* packet, uint32_t delay_millis) {
   sendPacket(packet, 0, delay_millis);
 }
 
+void Mesh::sendZeroHop(Packet* packet, uint16_t* transport_codes, uint32_t delay_millis) {
+  packet->header &= ~PH_ROUTE_MASK;
+  packet->header |= ROUTE_TYPE_TRANSPORT_DIRECT;
+  packet->transport_codes[0] = transport_codes[0];
+  packet->transport_codes[1] = transport_codes[1];
+
+  packet->path_len = 0;  // path_len of zero means Zero Hop
+
+  _tables->hasSeen(packet); // mark this packet as already sent in case it is rebroadcast back to us
+
+  sendPacket(packet, 0, delay_millis);
+}
+
 }

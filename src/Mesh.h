@@ -196,6 +196,12 @@ public:
   */
   void sendZeroHop(Packet* packet, uint32_t delay_millis=0);
 
+  /**
+   * \brief  send a locally-generated Packet to just neigbor nodes (zero hops), with specific transort codes
+   * \param transport_codes   array of 2 codes to attach to packet
+  */
+  void sendZeroHop(Packet* packet, uint16_t* transport_codes, uint32_t delay_millis=0);
+
 };
 
 }

@@ -448,12 +448,19 @@ void MyMesh::getPeerSharedSecret(uint8_t *dest_secret, int peer_idx) {
   }
 }
 
+static bool isShare(const mesh::Packet *packet) {
+  if (packet->hasTransportCodes()) {
+    return packet->transport_codes[0] == 0 && packet->transport_codes[1] == 0;  // codes { 0, 0 } means 'send to nowhere'
+  }
+  return false;
+}
+
 void MyMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32_t timestamp,
                           const uint8_t *app_data, size_t app_data_len) {
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len); // chain to super impl
 
-  // if this a zero hop advert, add it to neighbours
-  if (packet->path_len == 0) {
+  // if this a zero hop advert (and not via 'Share'), add it to neighbours
+  if (packet->path_len == 0 && !isShare(packet)) {
     AdvertDataParser parser(app_data, app_data_len);
     if (parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) { // just keep neigbouring Repeaters
       putNeighbour(id, timestamp, packet->getSNR());

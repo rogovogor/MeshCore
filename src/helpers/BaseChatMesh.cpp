@@ -68,9 +68,16 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
   }
 
   // save a copy of raw advert packet (to support "Share..." function)
-  int plen = packet->writeTo(temp_buf);
+  int plen;
+  {
+    uint8_t save = packet->header;
+    packet->header &= ~PH_ROUTE_MASK;
+    packet->header |= ROUTE_TYPE_FLOOD;   // make sure transport codes are NOT saved
+    plen = packet->writeTo(temp_buf);
+    packet->header = save;
+  }
   putBlobByKey(id.pub_key, PUB_KEY_SIZE, temp_buf, plen);
-  
+
   bool is_new = false;
   if (from == NULL) {
     if (!isAutoAddEnabled()) {
@@ -405,7 +412,9 @@ bool BaseChatMesh::shareContactZeroHop(const ContactInfo& contact) {
   if (packet == NULL) return false;  // no Packets available
 
   packet->readFrom(temp_buf, plen);  // restore Packet from 'blob'
-  sendZeroHop(packet);
+  uint16_t codes[2];
+  codes[0] = codes[1] = 0;   // { 0, 0 } means 'send this nowhere'
+  sendZeroHop(packet, codes);
   return true;  // success
 }
 
