@@ -201,9 +201,9 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
       if (i + 2 >= pkt->payload_len) {
         MESH_DEBUG_PRINTLN("%s Mesh::onRecvPacket(): incomplete data packet", getLogDateTime());
       } else if (!_tables->hasSeen(pkt)) {
-        // scan channels DB, for all matching hashes of 'channel_hash' (max 2 matches supported ATM)
-        GroupChannel channels[2];
-        int num = searchChannelsByHash(&channel_hash, channels, 2);
+        // scan channels DB, for all matching hashes of 'channel_hash' (max 4 matches supported ATM)
+        GroupChannel channels[4];
+        int num = searchChannelsByHash(&channel_hash, channels, 4);
         // for each matching channel, try to decrypt data
         for (int j = 0; j < num; j++) {
           // decrypt, checking MAC is valid
