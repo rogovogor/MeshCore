@@ -706,8 +706,8 @@ void MyMesh::begin(bool has_display) {
   _prefs.rx_delay_base = constrain(_prefs.rx_delay_base, 0, 20.0f);
   _prefs.airtime_factor = constrain(_prefs.airtime_factor, 0, 9.0f);
   _prefs.freq = constrain(_prefs.freq, 400.0f, 2500.0f);
-  _prefs.bw = constrain(_prefs.bw, 62.5f, 500.0f);
-  _prefs.sf = constrain(_prefs.sf, 7, 12);
+  _prefs.bw = constrain(_prefs.bw, 7.8f, 500.0f);
+  _prefs.sf = constrain(_prefs.sf, 5, 12);
   _prefs.cr = constrain(_prefs.cr, 5, 8);
   _prefs.tx_power_dbm = constrain(_prefs.tx_power_dbm, 1, MAX_LORA_TX_POWER);
 
