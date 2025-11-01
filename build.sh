@@ -15,8 +15,8 @@ Commands:
   build-room-server-firmwares: Build all chat room server firmwares for all build targets.
 
 Examples:
-Build firmware for the "RAK_4631_Repeater" device target
-$ sh build.sh build-firmware RAK_4631_Repeater
+Build firmware for the "RAK_4631_repeater" device target
+$ sh build.sh build-firmware RAK_4631_repeater
 
 Build all firmwares for device targets containing the string "RAK_4631"
 $ sh build.sh build-matching-firmwares <build-match-spec>
