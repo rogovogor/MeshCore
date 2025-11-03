@@ -610,7 +610,7 @@ bool MyMesh::onPeerPathRecv(mesh::Packet *packet, int sender_idx, const uint8_t 
 MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondClock &ms, mesh::RNG &rng,
                mesh::RTCClock &rtc, mesh::MeshTables &tables)
     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4), region_map(key_store)
+      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4), region_map(key_store), temp_map(key_store)
 #if defined(WITH_RS232_BRIDGE)
       , bridge(&_prefs, WITH_RS232_BRIDGE, _mgr, &rtc)
 #endif
@@ -624,6 +624,7 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   dirty_contacts_expiry = 0;
   set_radio_at = revert_radio_at = 0;
   _logging = false;
+  region_load_active = false;
 
 #if MAX_NEIGHBOURS
   memset(neighbours, 0, sizeof(neighbours));
@@ -846,9 +847,46 @@ void MyMesh::clearStats() {
   ((SimpleMeshTables *)getTables())->resetStats();
 }
 
+static bool is_name_char(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= 'z') || c == '-' || c == '.' || c == '_' || c == '#';
+}
+
 void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
-  while (*command == ' ')
-    command++; // skip leading spaces
+  if (region_load_active) {
+    if (*command == 0) {  // empty line, signal to terminate 'load' operation
+      region_map = temp_map;  // copy over the temp instance as new current map
+      region_load_active = false;
+
+      sprintf(reply, "OK - loaded %d regions", region_map.getCount());
+    } else {
+      char *np = command;
+      while (*np == ' ') np++;   // skip indent
+      int indent = np - command;
+
+      char *ep = np;
+      while (is_name_char(*ep)) ep++;
+      if (*ep) { *ep++ = 0; }  // set null terminator for end of name
+
+      while (*ep && *ep != 'F') ep++;  // look for (optional flags)
+
+      if (indent > 0 && indent < 8) {
+        auto parent = load_stack[indent - 1];
+        if (parent) {
+          auto old = region_map.findByName(np);
+          auto nw = temp_map.putRegion(np, parent->id, old ? old->id : 0);  // carry-over the current ID (if name already exists)
+          if (nw) {
+            nw->flags = old ? old->flags : (*ep == 'F' ? REGION_ALLOW_FLOOD : 0);   // carry-over flags from curr
+
+            load_stack[indent] = nw;  // keep pointers to parent regions, to resolve parent_id's
+          }
+        }
+      }
+      reply[0] = 0;
+    }
+    return;
+  }
+
+  while (*command == ' ') command++; // skip leading spaces
 
   if (strlen(command) > 4 && command[2] == '|') { // optional prefix (for companion radio CLI)
     memcpy(reply, command, 3);                    // reflect the prefix back
@@ -890,6 +928,45 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       Serial.printf("\n");
     }
     reply[0] = 0;
+  } else if (memcmp(command, "region", 6) == 0) {
+    reply[0] = 0;
+
+    const char* parts[4];
+    int n = mesh::Utils::parseTextParts(command, parts, 4, ' ');
+    if (n == 1 && sender_timestamp == 0) {
+      region_map.exportTo(Serial);
+    } else if (n >= 2 && strcmp(parts[1], "load") == 0) {
+      temp_map.resetFrom(region_map);   // rebuild regions in a temp instance
+      memset(load_stack, 0, sizeof(load_stack));
+      load_stack[0] = &temp_map.getWildcard();
+      region_load_active = true;
+    } else if (n >= 2 && strcmp(parts[1], "save") == 0) {
+      bool success = region_map.save(_fs);
+      strcpy(reply, success ? "OK" : "Err - save failed");
+    } else if (n >= 3 && strcmp(parts[1], "allow") == 0) {
+      auto region = n >= 4 ? region_map.findByNamePrefix(parts[3]) : &region_map.getWildcard();
+      if (region) {
+        strcpy(reply, "OK");
+        if (strcmp(parts[2], "F") == 0) {
+          region->flags = REGION_ALLOW_FLOOD;
+        } else if (strcmp(parts[2], "0") == 0) {
+          region->flags = 0;
+        } else {
+          sprintf(reply, "Err - invalid flag: %s", parts[2]);
+        }
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else if (n >= 3 && strcmp(parts[1], "get") == 0) {
+      auto region = region_map.findByNamePrefix(parts[2]);
+      if (region) {
+        sprintf(reply, " %s %s", region->name, region->flags == REGION_ALLOW_FLOOD ? "F" : "");
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else {
+      strcpy(reply, "Err - ??");
+    }
   } else{
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
   }

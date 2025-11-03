@@ -89,7 +89,9 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   uint8_t reply_data[MAX_PACKET_PAYLOAD];
   ClientACL  acl;
   TransportKeyStore key_store;
-  RegionMap region_map;
+  RegionMap region_map, temp_map;
+  RegionEntry* load_stack[8];
+  bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
