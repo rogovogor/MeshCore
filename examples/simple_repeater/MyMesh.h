@@ -32,6 +32,7 @@
 #include <helpers/StaticPoolPacketManager.h>
 #include <helpers/StatsFormatHelper.h>
 #include <helpers/TxtDataHelpers.h>
+#include <helpers/RegionMap.h>
 
 #ifdef WITH_BRIDGE
 extern AbstractBridge* bridge;
@@ -87,6 +88,8 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   CommonCLI _cli;
   uint8_t reply_data[MAX_PACKET_PAYLOAD];
   ClientACL  acl;
+  TransportKeyStore key_store;
+  RegionMap region_map;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
@@ -143,6 +146,8 @@ protected:
     sensors.setSettingByKey("gps", _prefs.gps_enabled?"1":"0");
   }
 #endif
+
+  mesh::DispatcherAction onRecvPacket(mesh::Packet* pkt) override;
 
   void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override;
   int searchPeersByHash(const uint8_t* hash) override;

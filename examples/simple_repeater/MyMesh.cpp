@@ -404,6 +404,23 @@ uint32_t MyMesh::getDirectRetransmitDelay(const mesh::Packet *packet) {
   return getRNG()->nextInt(0, 5*t + 1);
 }
 
+mesh::DispatcherAction MyMesh::onRecvPacket(mesh::Packet* pkt) {
+  if (pkt->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD) {
+    auto region = region_map.findMatch(pkt, REGION_ALLOW_FLOOD);
+    if (region == NULL) {
+      MESH_DEBUG_PRINTLN("onRecvPacket: unknown transport code for FLOOD packet");
+      return ACTION_RELEASE;
+    }
+  } else if (pkt->getRouteType() == ROUTE_TYPE_FLOOD) {
+    if ((region_map.getWildcard().flags & REGION_ALLOW_FLOOD) == 0) {
+      MESH_DEBUG_PRINTLN("onRecvPacket: wildcard FLOOD packet not allowed");
+      return ACTION_RELEASE;
+    }
+  }
+  // otherwise do normal processing
+  return mesh::Mesh::onRecvPacket(pkt);
+}
+
 void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const mesh::Identity &sender,
                             uint8_t *data, size_t len) {
   if (packet->getPayloadType() == PAYLOAD_TYPE_ANON_REQ) { // received an initial request by a possible admin
@@ -593,7 +610,7 @@ bool MyMesh::onPeerPathRecv(mesh::Packet *packet, int sender_idx, const uint8_t 
 MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondClock &ms, mesh::RNG &rng,
                mesh::RTCClock &rtc, mesh::MeshTables &tables)
     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
+      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4), region_map(key_store)
 #if defined(WITH_RS232_BRIDGE)
       , bridge(&_prefs, WITH_RS232_BRIDGE, _mgr, &rtc)
 #endif
@@ -652,8 +669,9 @@ void MyMesh::begin(FILESYSTEM *fs) {
   _fs = fs;
   // load persisted prefs
   _cli.loadPrefs(_fs);
-
   acl.load(_fs);
+  // TODO: key_store.begin();
+  region_map.load(_fs);
 
 #if defined(WITH_BRIDGE)
   if (_prefs.bridge_enabled) {
