@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include "target.h"
-#include "XiaoS3WIOBoard.h"
 
 XiaoS3WIOBoard board;
 
