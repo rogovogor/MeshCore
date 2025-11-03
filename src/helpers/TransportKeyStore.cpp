@@ -12,7 +12,32 @@ uint16_t TransportKey::calcTransportCode(const mesh::Packet* packet) const {
   return code;
 }
 
-int TransportKeyStore::loadKeysFor(const char* name, uint16_t id, TransportKey keys[], int max_num) {
+void TransportKeyStore::putCache(uint16_t id, const TransportKey& key) {
+  if (num_cache < MAX_TKS_ENTRIES) {
+    cache_ids[num_cache] = id;
+    cache_keys[num_cache] = key;
+    num_cache++;
+  } else {
+    // TODO: evict oldest cache entry
+  }
+}
+
+void TransportKeyStore::getAutoKeyFor(uint16_t id, const char* name, TransportKey& dest) {
+  for (int i = 0; i < num_cache; i++) {  // first, check cache
+    if (cache_ids[i] == id) {   // cache hit!
+      dest = cache_keys[i];
+      return;
+    }
+  }
+  // calc key for publicly-known hashtag region name
+  SHA256 sha;
+  sha.update(name, strlen(name));
+  sha.finalize(&dest.key, sizeof(dest.key));
+
+  putCache(id, dest);
+}
+
+int TransportKeyStore::loadKeysFor(uint16_t id, TransportKey keys[], int max_num) {
   int n = 0;
   for (int i = 0; i < num_cache && n < max_num; i++) {  // first, check cache
     if (cache_ids[i] == id) {
@@ -21,24 +46,35 @@ int TransportKeyStore::loadKeysFor(const char* name, uint16_t id, TransportKey k
   }
   if (n > 0) return n;   // cache hit!
 
-  if (*name == '#') {   // is a publicly-known hashtag region
-    SHA256 sha;
-    sha.update(name, strlen(name));
-    sha.finalize(&keys[0], sizeof(keys[0].key));
-    n = 1;
-  } else {
-    // TODO:  retrieve from difficult-to-copy keystore
-  }
+  // TODO:  retrieve from difficult-to-copy keystore
 
   // store in cache (if room)
   for (int i = 0; i < n; i++) {
-    if (num_cache < MAX_TKS_ENTRIES) {
-      cache_ids[num_cache] = id;
-      cache_keys[num_cache] = keys[i];
-      num_cache++;
-    } else {
-      // TODO: evict oldest cache entry
-    }
+    putCache(id, keys[i]);
   }
   return n;
+}
+
+bool TransportKeyStore::saveKeysFor(uint16_t id, const TransportKey keys[], int num) {
+  invalidateCache();
+
+  // TODO: update hardware keystore
+
+  return false;  // failed
+}
+
+bool TransportKeyStore::removeKeys(uint16_t id) {
+  invalidateCache();
+
+  // TODO: remove from hardware keystore
+
+  return false;  // failed
+}
+
+bool TransportKeyStore::clear() {
+  invalidateCache();
+
+  // TODO: clear hardware keystore
+
+  return false;  // failed
 }

@@ -33,7 +33,11 @@ public:
   void load(FILESYSTEM* _fs);
   void save(FILESYSTEM* _fs);
 
+  RegionEntry* putRegion(const char* name, uint16_t parent_id);
   RegionEntry* findMatch(mesh::Packet* packet, uint8_t mask);
-  const RegionEntry& getWildcard() const { return wildcard; }
-  const RegionEntry* findName(const char* name) const;
+  RegionEntry& getWildcard() { return wildcard; }
+  RegionEntry* findByName(const char* name);
+  RegionEntry* findById(uint16_t id);
+  bool removeRegion(const RegionEntry& region);
+  bool clear();
 };

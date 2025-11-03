@@ -17,7 +17,14 @@ class TransportKeyStore {
   TransportKey cache_keys[MAX_TKS_ENTRIES];
   int num_cache;
 
+  void putCache(uint16_t id, const TransportKey& key);
+  void invalidateCache() { num_cache = 0; }
+
 public:
   TransportKeyStore() { num_cache = 0; }
-  int loadKeysFor(const char* name, uint16_t id, TransportKey keys[], int max_num);
+  void getAutoKeyFor(uint16_t id, const char* name, TransportKey& dest);
+  int loadKeysFor(uint16_t id, TransportKey keys[], int max_num);
+  bool saveKeysFor(uint16_t id, const TransportKey keys[], int num);
+  bool removeKeys(uint16_t id);
+  bool clear();
 };
