@@ -596,12 +596,9 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   setCurrScreen(msg_preview);
 
   if (_display != NULL) {
-    // Only turn on display if it's off AND not connected to phone via BLE
-    // If connected to phone, user will see messages there, so don't wake the OLED
     if (!_display->isOn() && !hasConnection()) {
       _display->turnOn();
     }
-    // Always extend auto-off timer and trigger refresh if display is on
     if (_display->isOn()) {
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
     _next_refresh = 100;  // trigger refresh
