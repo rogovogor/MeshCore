@@ -12,6 +12,13 @@ uint16_t TransportKey::calcTransportCode(const mesh::Packet* packet) const {
   return code;
 }
 
+bool TransportKey::isNull() const {
+  for (int i = 0; i < sizeof(key); i++) {
+    if (key[i]) return false;
+  }
+  return true;  // key is all zeroes
+}
+
 void TransportKeyStore::putCache(uint16_t id, const TransportKey& key) {
   if (num_cache < MAX_TKS_ENTRIES) {
     cache_ids[num_cache] = id;

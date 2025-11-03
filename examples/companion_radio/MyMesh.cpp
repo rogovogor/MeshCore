@@ -378,6 +378,29 @@ void MyMesh::queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packe
 #endif
 }
 
+void MyMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis) {
+  // TODO: dynamic send_scope, depending on recipient and current 'home' Region
+  if (send_scope.isNull()) {
+    sendFlood(pkt, delay_millis);
+  } else {
+    uint16_t codes[2];
+    codes[0] = send_scope.calcTransportCode(pkt);
+    codes[1] = 0;  // REVISIT: set to 'home' Region, for sender/return region?
+    sendFlood(pkt, codes, delay_millis);
+  }
+}
+void MyMesh::sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t delay_millis) {
+  // TODO: have per-channel send_scope
+  if (send_scope.isNull()) {
+    sendFlood(pkt, delay_millis);
+  } else {
+    uint16_t codes[2];
+    codes[0] = send_scope.calcTransportCode(pkt);
+    codes[1] = 0;  // REVISIT: set to 'home' Region, for sender/return region?
+    sendFlood(pkt, codes, delay_millis);
+  }
+}
+
 void MyMesh::onMessageRecv(const ContactInfo &from, mesh::Packet *pkt, uint32_t sender_timestamp,
                            const char *text) {
   markConnectionActive(from); // in case this is from a server, and we have a connection
@@ -663,6 +686,7 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   sign_data = NULL;
   dirty_contacts_expiry = 0;
   memset(advert_paths, 0, sizeof(advert_paths));
+  memset(send_scope.key, 0, sizeof(send_scope.key));
 
   // defaults
   memset(&_prefs, 0, sizeof(_prefs));

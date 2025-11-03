@@ -187,6 +187,12 @@ public:
   void sendFlood(Packet* packet, uint32_t delay_millis=0);
 
   /**
+   * \brief  send a locally-generated Packet with flood routing
+   * \param transport_codes   array of 2 codes to attach to packet
+  */
+  void sendFlood(Packet* packet, uint16_t* transport_codes, uint32_t delay_millis=0);
+
+  /**
    * \brief  send a locally-generated Packet with Direct routing
   */
   void sendDirect(Packet* packet, const uint8_t* path, uint8_t path_len, uint32_t delay_millis=0);

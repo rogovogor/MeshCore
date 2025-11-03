@@ -8,6 +8,7 @@ struct TransportKey {
   uint8_t key[16];
 
   uint16_t calcTransportCode(const mesh::Packet* packet) const;
+  bool isNull() const;
 };
 
 #define MAX_TKS_ENTRIES   16

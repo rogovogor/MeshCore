@@ -68,6 +68,7 @@
 #endif
 
 #include <helpers/BaseChatMesh.h>
+#include <helpers/TransportKeyStore.h>
 
 /* -------------------------------------------------------------------------------------- */
 
@@ -106,6 +107,9 @@ protected:
   int getInterferenceThreshold() const override;
   int calcRxDelay(float score, uint32_t air_time) const override;
   uint8_t getExtraAckTransmitCount() const override;
+
+  void sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis=0) override;
+  void sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t delay_millis=0) override;
 
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
   bool isAutoAddEnabled() const override;
@@ -190,6 +194,8 @@ private:
   uint8_t *sign_data;
   uint32_t sign_data_len;
   unsigned long dirty_contacts_expiry;
+
+  TransportKey send_scope;
 
   uint8_t cmd_frame[MAX_FRAME_SIZE + 1];
   uint8_t out_frame[MAX_FRAME_SIZE + 1];
