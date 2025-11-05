@@ -68,6 +68,14 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
     return ACTION_RELEASE;
   }
 
+  if (pkt->isRouteDirect() && pkt->getPayloadType() == PAYLOAD_TYPE_CONTROL && (pkt->payload[0] & 0x80) != 0) {
+    if (pkt->path_len == 0) {
+      onControlDataRecv(pkt);
+    }
+    // just zero-hop control packets allowed (for this subset of payloads)
+    return ACTION_RELEASE;
+  }
+
   if (pkt->isRouteDirect() && pkt->path_len >= PATH_HASH_SIZE) {
     if (self_id.isHashMatch(pkt->path) && allowPacketForward(pkt)) {
       if (pkt->getPayloadType() == PAYLOAD_TYPE_MULTIPART) {
@@ -585,6 +593,22 @@ Packet* Mesh::createTrace(uint32_t tag, uint32_t auth_code, uint8_t flags) {
   memcpy(&packet->payload[4], &auth_code, 4);
   packet->payload[8] = flags;
   packet->payload_len = 9;  // NOTE: path will be appended to payload[] later
+
+  return packet;
+}
+
+Packet* Mesh::createControlData(const uint8_t* data, size_t len) {
+  if (len > sizeof(Packet::payload)) return NULL;  // invalid arg
+
+  Packet* packet = obtainNewPacket();
+  if (packet == NULL) {
+    MESH_DEBUG_PRINTLN("%s Mesh::createControlData(): error, packet pool empty", getLogDateTime());
+    return NULL;
+  }
+  packet->header = (PAYLOAD_TYPE_CONTROL << PH_TYPE_SHIFT);  // ROUTE_TYPE_* set later
+
+  memcpy(packet->payload, data, len);
+  packet->payload_len = len;
 
   return packet;
 }

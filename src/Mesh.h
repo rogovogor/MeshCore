@@ -134,6 +134,11 @@ protected:
   virtual void onPathRecv(Packet* packet, Identity& sender, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) { }
 
   /**
+   * \brief  A control packet has been received.
+  */
+  virtual void onControlDataRecv(Packet* packet) { }
+
+  /**
    * \brief  A packet with PAYLOAD_TYPE_RAW_CUSTOM has been received.
   */
   virtual void onRawDataRecv(Packet* packet) { }
@@ -185,6 +190,7 @@ public:
   Packet* createPathReturn(const Identity& dest, const uint8_t* secret, const uint8_t* path, uint8_t path_len, uint8_t extra_type, const uint8_t*extra, size_t extra_len);
   Packet* createRawData(const uint8_t* data, size_t len);
   Packet* createTrace(uint32_t tag, uint32_t auth_code, uint8_t flags = 0);
+  Packet* createControlData(const uint8_t* data, size_t len);
 
   /**
    * \brief  send a locally-generated Packet with flood routing
