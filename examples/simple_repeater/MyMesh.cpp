@@ -404,21 +404,21 @@ uint32_t MyMesh::getDirectRetransmitDelay(const mesh::Packet *packet) {
   return getRNG()->nextInt(0, 5*t + 1);
 }
 
-mesh::DispatcherAction MyMesh::onRecvPacket(mesh::Packet* pkt) {
+bool MyMesh::filterRecvFloodPacket(mesh::Packet* pkt) {
   if (pkt->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD) {
-    auto region = region_map.findMatch(pkt, REGION_ALLOW_FLOOD);
+    auto region = region_map.findMatch(pkt, REGION_DENY_FLOOD);
     if (region == NULL) {
       MESH_DEBUG_PRINTLN("onRecvPacket: unknown transport code for FLOOD packet");
-      return ACTION_RELEASE;
+      return true;
     }
   } else if (pkt->getRouteType() == ROUTE_TYPE_FLOOD) {
-    if ((region_map.getWildcard().flags & REGION_ALLOW_FLOOD) == 0) {
+    if (region_map.getWildcard().flags & REGION_DENY_FLOOD) {
       MESH_DEBUG_PRINTLN("onRecvPacket: wildcard FLOOD packet not allowed");
-      return ACTION_RELEASE;
+      return true;
     }
   }
   // otherwise do normal processing
-  return mesh::Mesh::onRecvPacket(pkt);
+  return false;
 }
 
 void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const mesh::Identity &sender,
@@ -867,7 +867,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       while (is_name_char(*ep)) ep++;
       if (*ep) { *ep++ = 0; }  // set null terminator for end of name
 
-      while (*ep && *ep != 'F') ep++;  // look for (optional flags)
+      while (*ep && *ep != 'F') ep++;  // look for (optional) flags
 
       if (indent > 0 && indent < 8) {
         auto parent = load_stack[indent - 1];
@@ -875,7 +875,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
           auto old = region_map.findByName(np);
           auto nw = temp_map.putRegion(np, parent->id, old ? old->id : 0);  // carry-over the current ID (if name already exists)
           if (nw) {
-            nw->flags = old ? old->flags : (*ep == 'F' ? REGION_ALLOW_FLOOD : 0);   // carry-over flags from curr
+            nw->flags = old ? old->flags : (*ep == 'F' ? 0 : REGION_DENY_FLOOD);   // carry-over flags from curr
 
             load_stack[indent] = nw;  // keep pointers to parent regions, to resolve parent_id's
           }
@@ -943,24 +943,26 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
     } else if (n >= 2 && strcmp(parts[1], "save") == 0) {
       bool success = region_map.save(_fs);
       strcpy(reply, success ? "OK" : "Err - save failed");
-    } else if (n >= 3 && strcmp(parts[1], "allow") == 0) {
-      auto region = n >= 4 ? region_map.findByNamePrefix(parts[3]) : &region_map.getWildcard();
+    } else if (n >= 2 && strcmp(parts[1], "allowf") == 0) {
+      auto region = n >= 3 ? region_map.findByNamePrefix(parts[2]) : &region_map.getWildcard();
       if (region) {
+        region->flags &= ~REGION_DENY_FLOOD;
         strcpy(reply, "OK");
-        if (strcmp(parts[2], "F") == 0) {
-          region->flags = REGION_ALLOW_FLOOD;
-        } else if (strcmp(parts[2], "0") == 0) {
-          region->flags = 0;
-        } else {
-          sprintf(reply, "Err - invalid flag: %s", parts[2]);
-        }
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else if (n >= 2 && strcmp(parts[1], "denyf") == 0) {
+      auto region = n >= 3 ? region_map.findByNamePrefix(parts[2]) : &region_map.getWildcard();
+      if (region) {
+        region->flags |= REGION_DENY_FLOOD;
+        strcpy(reply, "OK");
       } else {
         strcpy(reply, "Err - unknown region");
       }
     } else if (n >= 3 && strcmp(parts[1], "get") == 0) {
       auto region = region_map.findByNamePrefix(parts[2]);
       if (region) {
-        sprintf(reply, " %s %s", region->name, region->flags == REGION_ALLOW_FLOOD ? "F" : "");
+        sprintf(reply, " %s %s", region->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
       } else {
         strcpy(reply, "Err - unknown region");
       }

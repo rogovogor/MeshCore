@@ -90,6 +90,8 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
     return ACTION_RELEASE;   // this node is NOT the next hop (OR this packet has already been forwarded), so discard.
   }
 
+  if (pkt->isRouteFlood() && filterRecvFloodPacket(pkt)) return ACTION_RELEASE;
+
   DispatcherAction action = ACTION_RELEASE;
 
   switch (pkt->getPayloadType()) {

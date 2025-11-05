@@ -378,6 +378,12 @@ void MyMesh::queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packe
 #endif
 }
 
+bool MyMesh::filterRecvFloodPacket(mesh::Packet* packet) {
+  // REVISIT: try to determine which Region (from transport_codes[1]) that Sender is indicating for replies/responses
+  //    if unknown, fallback to finding Region from transport_codes[0], the 'scope' used by Sender
+  return false;
+}
+
 void MyMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis) {
   // TODO: dynamic send_scope, depending on recipient and current 'home' Region
   if (send_scope.isNull()) {

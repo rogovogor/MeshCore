@@ -44,6 +44,11 @@ protected:
   DispatcherAction routeRecvPacket(Packet* packet);
 
   /**
+   * \returns  true, if given packet should be NOT be processed.
+   */
+  virtual bool filterRecvFloodPacket(Packet* packet) { return false; }
+
+  /**
    * \brief  Check whether this packet should be forwarded (re-transmitted) or not.
    *     Is sub-classes responsibility to make sure given packet is only transmitted ONCE (by this node)
    */

@@ -149,7 +149,7 @@ protected:
   }
 #endif
 
-  mesh::DispatcherAction onRecvPacket(mesh::Packet* pkt) override;
+  bool filterRecvFloodPacket(mesh::Packet* pkt) override;
 
   void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override;
   int searchPeersByHash(const uint8_t* hash) override;

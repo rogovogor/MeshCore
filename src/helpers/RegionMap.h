@@ -8,7 +8,8 @@
   #define MAX_REGION_ENTRIES  32
 #endif
 
-#define REGION_ALLOW_FLOOD  0x01
+#define REGION_DENY_FLOOD   0x01
+#define REGION_DENY_DIRECT  0x02   // reserved for future
 
 struct RegionEntry {
   uint16_t id;

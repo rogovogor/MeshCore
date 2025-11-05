@@ -5,7 +5,7 @@
 RegionMap::RegionMap(TransportKeyStore& store) : _store(&store) {
   next_id = 1; num_regions = 0;
   wildcard.id = wildcard.parent = 0;
-  wildcard.flags = REGION_ALLOW_FLOOD;  // default behaviour, allow flood
+  wildcard.flags = 0;  // default behaviour, allow flood and direct
   strcpy(wildcard.name, "(*)");
 }
 
@@ -100,7 +100,7 @@ RegionEntry* RegionMap::putRegion(const char* name, uint16_t parent_id, uint16_t
     if (id == 0 && num_regions >= MAX_REGION_ENTRIES) return NULL;  // full!
 
     region = &regions[num_regions++];   // alloc new RegionEntry
-    region->flags = 0;
+    region->flags = REGION_DENY_FLOOD;     // DENY by default
     region->id = id == 0 ? next_id++ : id;
     StrHelper::strncpy(region->name, name, sizeof(region->name));
     region->parent = parent_id;
@@ -111,7 +111,7 @@ RegionEntry* RegionMap::putRegion(const char* name, uint16_t parent_id, uint16_t
 RegionEntry* RegionMap::findMatch(mesh::Packet* packet, uint8_t mask) {
   for (int i = 0; i < num_regions; i++) {
     auto region = &regions[i];
-    if ((region->flags & mask) == mask) {   // does region allow this? (per 'mask' param)
+    if ((region->flags & mask) == 0) {   // does region allow this? (per 'mask' param)
       TransportKey keys[4];
       int num;
       if (region->name[0] == '#') {   // auto hashtag region
@@ -189,10 +189,10 @@ void RegionMap::printChildRegions(int indent, const RegionEntry* parent, Stream&
     out.print(' ');
   }
 
-  if (parent->flags & REGION_ALLOW_FLOOD) {
-    out.printf("%s F\n", parent->name);
-  } else {
+  if (parent->flags & REGION_DENY_FLOOD) {
     out.printf("%s\n", parent->name);
+  } else {
+    out.printf("%s F\n", parent->name);
   }
 
   for (int i = 0; i < num_regions; i++) {
