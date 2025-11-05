@@ -848,7 +848,7 @@ void MyMesh::clearStats() {
 }
 
 static bool is_name_char(char c) {
-  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= 'z') || c == '-' || c == '.' || c == '_' || c == '#';
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '#';
 }
 
 void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
