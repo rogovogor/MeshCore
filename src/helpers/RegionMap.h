@@ -30,6 +30,8 @@ class RegionMap {
 public:
   RegionMap(TransportKeyStore& store);
 
+  static bool is_name_char(char c);
+
   bool load(FILESYSTEM* _fs);
   bool save(FILESYSTEM* _fs);
 

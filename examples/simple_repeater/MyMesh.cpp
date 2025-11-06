@@ -890,10 +890,6 @@ void MyMesh::clearStats() {
   ((SimpleMeshTables *)getTables())->resetStats();
 }
 
-static bool is_name_char(char c) {
-  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '#';
-}
-
 void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
   if (region_load_active) {
     if (*command == 0) {  // empty line, signal to terminate 'load' operation
@@ -907,7 +903,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       int indent = np - command;
 
       char *ep = np;
-      while (is_name_char(*ep)) ep++;
+      while (RegionMap::is_name_char(*ep)) ep++;
       if (*ep) { *ep++ = 0; }  // set null terminator for end of name
 
       while (*ep && *ep != 'F') ep++;  // look for (optional) flags
@@ -1022,6 +1018,29 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
     } else if (n == 2 && strcmp(parts[1], "home") == 0) {
       auto home = region_map.getHomeRegion();
       sprintf(reply, " home is %s", home ? home->name : "*");
+    } else if (n >= 3 && strcmp(parts[1], "put") == 0) {
+      auto parent = n >= 4 ? region_map.findByNamePrefix(parts[3]) : &region_map.getWildcard();
+      if (parent == NULL) {
+        strcpy(reply, "Err - unknown parent");
+      } else {
+        auto region = region_map.putRegion(parts[2], parent->id);
+        if (region == NULL) {
+          strcpy(reply, "Err - unable to put");
+        } else {
+          strcpy(reply, "OK");
+        }
+      }
+    } else if (n >= 3 && strcmp(parts[1], "remove") == 0) {
+      auto region = region_map.findByName(parts[2]);
+      if (region) {
+        if (region_map.removeRegion(*region)) {
+          strcpy(reply, "OK");
+        } else {
+          strcpy(reply, "Err - not empty");
+        }
+      } else {
+        strcpy(reply, "Err - not found");
+      }
     } else {
       strcpy(reply, "Err - ??");
     }

@@ -9,6 +9,10 @@ RegionMap::RegionMap(TransportKeyStore& store) : _store(&store) {
   strcpy(wildcard.name, "*");
 }
 
+bool RegionMap::is_name_char(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '#';
+}
+
 static File openWrite(FILESYSTEM* _fs, const char* filename) {
   #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
     _fs->remove(filename);
@@ -93,6 +97,12 @@ bool RegionMap::save(FILESYSTEM* _fs) {
 }
 
 RegionEntry* RegionMap::putRegion(const char* name, uint16_t parent_id, uint16_t id) {
+  const char* sp = name;  // check for illegal name chars
+  while (*sp) {
+    if (!is_name_char(*sp)) return NULL;   // error
+    sp++;
+  }
+
   auto region = findByName(name);
   if (region) {
     if (region->id == parent_id) return NULL;   // ERROR: invalid parent!
@@ -187,8 +197,9 @@ bool RegionMap::removeRegion(const RegionEntry& region) {
   if (i >= num_regions) return false;  // failed (not found)
 
   num_regions--;    // remove from regions array
-  while (i + 1 < num_regions) {
+  while (i < num_regions) {
     regions[i] = regions[i + 1];
+    i++;
   }
   return true;  // success
 }
