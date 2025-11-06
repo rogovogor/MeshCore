@@ -50,8 +50,8 @@
 #define CMD_SEND_BINARY_REQ           50
 #define CMD_FACTORY_RESET             51
 #define CMD_SEND_PATH_DISCOVERY_REQ   52
-#define CMD_SET_FLOOD_SCOPE           54
-#define CMD_SEND_CONTROL_DATA         55
+#define CMD_SET_FLOOD_SCOPE           54   // v8+
+#define CMD_SEND_CONTROL_DATA         55   // v8+
 
 #define RESP_CODE_OK                  0
 #define RESP_CODE_ERR                 1
@@ -101,7 +101,7 @@
 #define PUSH_CODE_TELEMETRY_RESPONSE    0x8B
 #define PUSH_CODE_BINARY_RESPONSE       0x8C
 #define PUSH_CODE_PATH_DISCOVERY_RESPONSE 0x8D
-#define PUSH_CODE_CONTROL_DATA          0x8E
+#define PUSH_CODE_CONTROL_DATA          0x8E   // v8+
 
 #define ERR_CODE_UNSUPPORTED_CMD        1
 #define ERR_CODE_NOT_FOUND              2
