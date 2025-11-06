@@ -434,9 +434,9 @@ void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const m
 
     data[len] = 0;  // ensure null terminator
     uint8_t reply_len;
-    if (data[0] == 0 || data[0] >= ' ') {   // is password, ie. a login request
+    if (data[4] == 0 || data[4] >= ' ') {   // is password, ie. a login request
       reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
-    //} else if (data[0] == ANON_REQ_TYPE_*) {   // future type codes
+    //} else if (data[4] == ANON_REQ_TYPE_*) {   // future type codes
       // TODO
     } else {
       reply_len = 0;  // unknown request type
