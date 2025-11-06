@@ -51,6 +51,7 @@
 #define CMD_FACTORY_RESET             51
 #define CMD_SEND_PATH_DISCOVERY_REQ   52
 #define CMD_SET_FLOOD_SCOPE           54
+#define CMD_SEND_CONTROL_DATA         55
 
 #define RESP_CODE_OK                  0
 #define RESP_CODE_ERR                 1
@@ -100,6 +101,7 @@
 #define PUSH_CODE_TELEMETRY_RESPONSE    0x8B
 #define PUSH_CODE_BINARY_RESPONSE       0x8C
 #define PUSH_CODE_PATH_DISCOVERY_RESPONSE 0x8D
+#define PUSH_CODE_CONTROL_DATA          0x8E
 
 #define ERR_CODE_UNSUPPORTED_CMD        1
 #define ERR_CODE_NOT_FOUND              2
@@ -624,6 +626,26 @@ bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t i
   }
   // let base class handle received path and data
   return BaseChatMesh::onContactPathRecv(contact, in_path, in_path_len, out_path, out_path_len, extra_type, extra, extra_len);
+}
+
+void MyMesh::onControlDataRecv(mesh::Packet *packet) {
+  if (packet->payload_len + 4 > sizeof(out_frame)) {
+    MESH_DEBUG_PRINTLN("onControlDataRecv(), payload_len too long: %d", packet->payload_len);
+    return;
+  }
+  int i = 0;
+  out_frame[i++] = PUSH_CODE_CONTROL_DATA;
+  out_frame[i++] = (int8_t)(_radio->getLastSNR() * 4);
+  out_frame[i++] = (int8_t)(_radio->getLastRSSI());
+  out_frame[i++] = packet->path_len;
+  memcpy(&out_frame[i], packet->payload, packet->payload_len);
+  i += packet->payload_len;
+
+  if (_serial->isConnected()) {
+    _serial->writeFrame(out_frame, i);
+  } else {
+    MESH_DEBUG_PRINTLN("onControlDataRecv(), data received while app offline");
+  }
 }
 
 void MyMesh::onRawDataRecv(mesh::Packet *packet) {
@@ -1523,6 +1545,14 @@ void MyMesh::handleCmdFrame(size_t len) {
       memset(send_scope.key, 0, sizeof(send_scope.key));  // set scope to null
     }
     writeOKFrame();
+  } else if (cmd_frame[0] == CMD_SEND_CONTROL_DATA && len >= 2 && (cmd_frame[1] & 0x80) != 0) {
+    auto resp = createControlData(&cmd_frame[1], len - 1);
+    if (resp) {
+      sendZeroHop(resp);
+      writeOKFrame();
+    } else {
+      writeErrFrame(ERR_CODE_TABLE_FULL);
+    }
   } else {
     writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
     MESH_DEBUG_PRINTLN("ERROR: unknown command: %02X", cmd_frame[0]);
