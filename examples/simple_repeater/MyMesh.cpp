@@ -306,6 +306,10 @@ File MyMesh::openAppend(const char *fname) {
 bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
   if (packet->isRouteFlood() && packet->path_len >= _prefs.flood_max) return false;
+  if (packet->isRouteFlood() && recv_pkt_region == NULL) {
+    MESH_DEBUG_PRINTLN("allowPacketForward: unknown transport code, or wildcard not allowed for FLOOD packet");
+    return false;
+  }
   return true;
 }
 
@@ -405,19 +409,19 @@ uint32_t MyMesh::getDirectRetransmitDelay(const mesh::Packet *packet) {
 }
 
 bool MyMesh::filterRecvFloodPacket(mesh::Packet* pkt) {
+  // just try to determine region for packet (apply later in allowPacketForward())
   if (pkt->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD) {
-    auto region = region_map.findMatch(pkt, REGION_DENY_FLOOD);
-    if (region == NULL) {
-      MESH_DEBUG_PRINTLN("onRecvPacket: unknown transport code for FLOOD packet");
-      return true;
-    }
+    recv_pkt_region = region_map.findMatch(pkt, REGION_DENY_FLOOD);
   } else if (pkt->getRouteType() == ROUTE_TYPE_FLOOD) {
     if (region_map.getWildcard().flags & REGION_DENY_FLOOD) {
-      MESH_DEBUG_PRINTLN("onRecvPacket: wildcard FLOOD packet not allowed");
-      return true;
+      recv_pkt_region = NULL;
+    } else {
+      recv_pkt_region =  &region_map.getWildcard();
     }
+  } else {
+    recv_pkt_region = NULL;
   }
-  // otherwise do normal processing
+  // do normal processing
   return false;
 }
 
@@ -973,6 +977,8 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       load_stack[0] = &temp_map.getWildcard();
       region_load_active = true;
     } else if (n >= 2 && strcmp(parts[1], "save") == 0) {
+      _prefs.discovery_mod_timestamp = rtc_clock.getCurrentTime();   // this node is now 'modified' (for discovery info)
+      savePrefs();
       bool success = region_map.save(_fs);
       strcpy(reply, success ? "OK" : "Err - save failed");
     } else if (n >= 2 && strcmp(parts[1], "allowf") == 0) {

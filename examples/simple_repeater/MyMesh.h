@@ -91,6 +91,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   TransportKeyStore key_store;
   RegionMap region_map, temp_map;
   RegionEntry* load_stack[8];
+  RegionEntry* recv_pkt_region;
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
