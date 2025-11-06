@@ -3,10 +3,10 @@
 #include <SHA256.h>
 
 RegionMap::RegionMap(TransportKeyStore& store) : _store(&store) {
-  next_id = 1; num_regions = 0;
+  next_id = 1; num_regions = 0; home_id = 0;
   wildcard.id = wildcard.parent = 0;
   wildcard.flags = 0;  // default behaviour, allow flood and direct
-  strcpy(wildcard.name, "(*)");
+  strcpy(wildcard.name, "*");
 }
 
 static File openWrite(FILESYSTEM* _fs, const char* filename) {
@@ -31,9 +31,10 @@ bool RegionMap::load(FILESYSTEM* _fs) {
     if (file) {
       uint8_t pad[128];
 
-      num_regions = 0; next_id = 1;
+      num_regions = 0; next_id = 1; home_id = 0;
 
-      bool success = file.read(pad, 7) == 7;  // reserved header
+      bool success = file.read(pad, 5) == 5;  // reserved header
+      success = success && file.read((uint8_t *) &home_id, sizeof(home_id)) == sizeof(home_id);
       success = success && file.read((uint8_t *) &wildcard.flags, sizeof(wildcard.flags)) == sizeof(wildcard.flags);
       success = success && file.read((uint8_t *) &next_id, sizeof(next_id)) == sizeof(next_id);
 
@@ -68,7 +69,8 @@ bool RegionMap::save(FILESYSTEM* _fs) {
     uint8_t pad[128];
     memset(pad, 0, sizeof(pad));
 
-    bool success = file.write(pad, 7) == 7;  // reserved header
+    bool success = file.write(pad, 5) == 5;  // reserved header
+    success = success && file.write((uint8_t *) &home_id, sizeof(home_id)) == sizeof(home_id);
     success = success && file.write((uint8_t *) &wildcard.flags, sizeof(wildcard.flags)) == sizeof(wildcard.flags);
     success = success && file.write((uint8_t *) &next_id, sizeof(next_id)) == sizeof(next_id);
 
@@ -140,11 +142,15 @@ RegionEntry* RegionMap::findByName(const char* name) {
 }
 
 RegionEntry* RegionMap::findByNamePrefix(const char* prefix) {
+  RegionEntry* partial = NULL;
   for (int i = 0; i < num_regions; i++) {
     auto region = &regions[i];
-    if (memcmp(prefix, region->name, strlen(prefix)) == 0) return region;
+    if (strcmp(prefix, region->name) == 0) return region;  // is a complete match, preference this one
+    if (memcmp(prefix, region->name, strlen(prefix)) == 0) {
+      partial = region;
+    }
   }
-  return NULL;  // not found
+  return partial;
 }
 
 RegionEntry* RegionMap::findById(uint16_t id) {
@@ -155,6 +161,14 @@ RegionEntry* RegionMap::findById(uint16_t id) {
     if (region->id == id) return region;
   }
   return NULL;  // not found
+}
+
+RegionEntry* RegionMap::getHomeRegion() {
+  return findById(home_id);
+}
+
+void RegionMap::setHomeRegion(const RegionEntry* home) {
+  home_id = home ? home->id : 0;
 }
 
 bool RegionMap::removeRegion(const RegionEntry& region) {
@@ -190,9 +204,9 @@ void RegionMap::printChildRegions(int indent, const RegionEntry* parent, Stream&
   }
 
   if (parent->flags & REGION_DENY_FLOOD) {
-    out.printf("%s\n", parent->name);
+    out.printf("%s%s\n", parent->name, parent->id == home_id ? "^" : "");
   } else {
-    out.printf("%s F\n", parent->name);
+    out.printf("%s%s F\n", parent->name, parent->id == home_id ? "^" : "");
   }
 
   for (int i = 0; i < num_regions; i++) {

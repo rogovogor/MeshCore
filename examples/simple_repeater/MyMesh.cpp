@@ -637,7 +637,7 @@ void MyMesh::onControlDataRecv(mesh::Packet* packet) {
       memcpy(&data[6], self_id.pub_key, PUB_KEY_SIZE);
       auto resp = createControlData(data, sizeof(data));
       if (resp) {
-        sendZeroHop(resp, getRetransmitDelay(resp));  // apply random delay, as multiple nodes can respond to this
+        sendZeroHop(resp, getRetransmitDelay(resp)*4);  // apply random delay (widened x4), as multiple nodes can respond to this
       }
     }
   }
@@ -981,16 +981,16 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       savePrefs();
       bool success = region_map.save(_fs);
       strcpy(reply, success ? "OK" : "Err - save failed");
-    } else if (n >= 2 && strcmp(parts[1], "allowf") == 0) {
-      auto region = n >= 3 ? region_map.findByNamePrefix(parts[2]) : &region_map.getWildcard();
+    } else if (n >= 3 && strcmp(parts[1], "allowf") == 0) {
+      auto region = strcmp(parts[2], "*") == 0 ? &region_map.getWildcard() : region_map.findByNamePrefix(parts[2]);
       if (region) {
         region->flags &= ~REGION_DENY_FLOOD;
         strcpy(reply, "OK");
       } else {
         strcpy(reply, "Err - unknown region");
       }
-    } else if (n >= 2 && strcmp(parts[1], "denyf") == 0) {
-      auto region = n >= 3 ? region_map.findByNamePrefix(parts[2]) : &region_map.getWildcard();
+    } else if (n >= 3 && strcmp(parts[1], "denyf") == 0) {
+      auto region = strcmp(parts[2], "*") == 0 ? &region_map.getWildcard() : region_map.findByNamePrefix(parts[2]);
       if (region) {
         region->flags |= REGION_DENY_FLOOD;
         strcpy(reply, "OK");
@@ -1004,6 +1004,17 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       } else {
         strcpy(reply, "Err - unknown region");
       }
+    } else if (n >= 3 && strcmp(parts[1], "home") == 0) {
+      auto home = strcmp(parts[2], "*") == 0 ? &region_map.getWildcard() : region_map.findByNamePrefix(parts[2]);
+      if (home) {
+        region_map.setHomeRegion(home);
+        sprintf(reply, " home is now %s", home->name);
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else if (n == 2 && strcmp(parts[1], "home") == 0) {
+      auto home = region_map.getHomeRegion();
+      sprintf(reply, " home is %s", home ? home->name : "*");
     } else {
       strcpy(reply, "Err - ??");
     }

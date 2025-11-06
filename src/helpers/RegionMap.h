@@ -20,7 +20,7 @@ struct RegionEntry {
 
 class RegionMap {
   TransportKeyStore* _store;
-  uint16_t next_id;
+  uint16_t next_id, home_id;
   uint16_t num_regions;
   RegionEntry regions[MAX_REGION_ENTRIES];
   RegionEntry wildcard;
@@ -39,6 +39,8 @@ public:
   RegionEntry* findByName(const char* name);
   RegionEntry* findByNamePrefix(const char* prefix);
   RegionEntry* findById(uint16_t id);
+  RegionEntry* getHomeRegion();   // NOTE: can be NULL
+  void setHomeRegion(const RegionEntry* home);
   bool removeRegion(const RegionEntry& region);
   bool clear();
   void resetFrom(const RegionMap& src) { num_regions = 0; next_id = src.next_id; }
