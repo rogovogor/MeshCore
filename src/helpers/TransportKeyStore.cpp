@@ -9,6 +9,11 @@ uint16_t TransportKey::calcTransportCode(const mesh::Packet* packet) const {
   sha.update(&type, 1);
   sha.update(packet->payload, packet->payload_len);
   sha.finalizeHMAC(key, sizeof(key), &code, 2);
+  if (code == 0) {     // reserve codes 0000 and FFFF
+    code++;
+  } else if (code == 0xFFFF) {
+    code--;
+  }
   return code;
 }
 

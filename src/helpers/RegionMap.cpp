@@ -144,6 +144,8 @@ RegionEntry* RegionMap::findMatch(mesh::Packet* packet, uint8_t mask) {
 }
 
 RegionEntry* RegionMap::findByName(const char* name) {
+  if (strcmp(name, "*") == 0) return &wildcard;
+
   for (int i = 0; i < num_regions; i++) {
     auto region = &regions[i];
     if (strcmp(name, region->name) == 0) return region;
@@ -152,6 +154,8 @@ RegionEntry* RegionMap::findByName(const char* name) {
 }
 
 RegionEntry* RegionMap::findByNamePrefix(const char* prefix) {
+  if (strcmp(prefix, "*") == 0) return &wildcard;
+
   RegionEntry* partial = NULL;
   for (int i = 0; i < num_regions; i++) {
     auto region = &regions[i];

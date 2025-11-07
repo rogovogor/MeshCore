@@ -19,6 +19,13 @@ void StrHelper::strzcpy(char* dest, const char* src, size_t buf_sz) {
   }
 }
 
+bool StrHelper::isBlank(const char* str) {
+  while (*str) {
+    if (*str++ != ' ') return false;
+  }
+  return true;
+}
+
 #include <Arduino.h>
 
 union int32_Float_t 

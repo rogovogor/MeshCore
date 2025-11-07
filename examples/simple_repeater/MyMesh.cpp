@@ -892,7 +892,7 @@ void MyMesh::clearStats() {
 
 void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
   if (region_load_active) {
-    if (*command == 0) {  // empty line, signal to terminate 'load' operation
+    if (StrHelper::isBlank(command)) {  // empty/blank line, signal to terminate 'load' operation
       region_map = temp_map;  // copy over the temp instance as new current map
       region_load_active = false;
 
@@ -908,7 +908,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
 
       while (*ep && *ep != 'F') ep++;  // look for (optional) flags
 
-      if (indent > 0 && indent < 8) {
+      if (indent > 0 && indent < 8 && strlen(np) > 0) {
         auto parent = load_stack[indent - 1];
         if (parent) {
           auto old = region_map.findByName(np);
@@ -985,7 +985,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       bool success = region_map.save(_fs);
       strcpy(reply, success ? "OK" : "Err - save failed");
     } else if (n >= 3 && strcmp(parts[1], "allowf") == 0) {
-      auto region = strcmp(parts[2], "*") == 0 ? &region_map.getWildcard() : region_map.findByNamePrefix(parts[2]);
+      auto region = region_map.findByNamePrefix(parts[2]);
       if (region) {
         region->flags &= ~REGION_DENY_FLOOD;
         strcpy(reply, "OK");
@@ -993,7 +993,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
         strcpy(reply, "Err - unknown region");
       }
     } else if (n >= 3 && strcmp(parts[1], "denyf") == 0) {
-      auto region = strcmp(parts[2], "*") == 0 ? &region_map.getWildcard() : region_map.findByNamePrefix(parts[2]);
+      auto region = region_map.findByNamePrefix(parts[2]);
       if (region) {
         region->flags |= REGION_DENY_FLOOD;
         strcpy(reply, "OK");
@@ -1003,12 +1003,17 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
     } else if (n >= 3 && strcmp(parts[1], "get") == 0) {
       auto region = region_map.findByNamePrefix(parts[2]);
       if (region) {
-        sprintf(reply, " %s %s", region->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
+        auto parent = region_map.findById(region->parent);
+        if (parent && parent->id != 0) {
+          sprintf(reply, " %s (%s) %s", region->name, parent->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
+        } else {
+          sprintf(reply, " %s %s", region->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
+        }
       } else {
         strcpy(reply, "Err - unknown region");
       }
     } else if (n >= 3 && strcmp(parts[1], "home") == 0) {
-      auto home = strcmp(parts[2], "*") == 0 ? &region_map.getWildcard() : region_map.findByNamePrefix(parts[2]);
+      auto home = region_map.findByNamePrefix(parts[2]);
       if (home) {
         region_map.setHomeRegion(home);
         sprintf(reply, " home is now %s", home->name);
