@@ -3,12 +3,13 @@
 
 
 void ThinknodeM2Board::begin() {
+    pinMode(PIN_VEXT_EN, OUTPUT); 
+    digitalWrite(PIN_VEXT_EN, !PIN_VEXT_EN_ACTIVE); // force power cycle
+    delay(20); // allow power rail to discharge
+    digitalWrite(PIN_VEXT_EN, PIN_VEXT_EN_ACTIVE); // turn backlight back on
+    delay(120); // give display time to bias on cold boot
     ESP32Board::begin();
-    pinMode(PIN_VEXT_EN, OUTPUT); // init display
-    digitalWrite(PIN_VEXT_EN, PIN_VEXT_EN_ACTIVE); // pin needs to be high
-    delay(10); 
-    digitalWrite(PIN_VEXT_EN, PIN_VEXT_EN_ACTIVE); // need to do this twice. do not know why..
-    pinMode(PIN_STATUS_LED, OUTPUT); // init power led    
+    pinMode(PIN_STATUS_LED, OUTPUT); // init power led
   }
 
   void ThinknodeM2Board::enterDeepSleep(uint32_t secs, int pin_wake_btn) {
