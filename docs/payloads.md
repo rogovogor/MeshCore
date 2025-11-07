@@ -199,12 +199,12 @@ The plaintext contained in the ciphertext matches the format described in [plain
 
 ## DISCOVER_REQ (sub_type)
 
-| Field        | Size (bytes)    | Description                                |
-|--------------|-----------------|--------------------------------------------|
-| flags        | 1               | 0x8 (upper 4 bits)                         |
-| type_filter  | 1               | bit for each ADV_TYPE_*                    |
-| tag          | 4               | randomly generate by sender                |
-| since        | 4               | (optional) epoch timestamp (0 by default)  |
+| Field        | Size (bytes)    | Description                                  |
+|--------------|-----------------|----------------------------------------------|
+| flags        | 1               | 0x8 (upper 4 bits), prefix_only (lowest bit) |
+| type_filter  | 1               | bit for each ADV_TYPE_*                      |
+| tag          | 4               | randomly generate by sender                  |
+| since        | 4               | (optional) epoch timestamp (0 by default)    |
 
 ## DISCOVER_RESP (sub_type)
 
@@ -213,7 +213,7 @@ The plaintext contained in the ciphertext matches the format described in [plain
 | flags        | 1               | 0x9 (upper 4 bits), node_type (lower 4)    |
 | snr          | 1               | signed, SNR*4                              |
 | tag          | 4               | reflected back from DISCOVER_REQ           |
-| pubkey       | 32              | node's ID                                  |
+| pubkey       | 8 or 32         | node's ID (or prefix)                      |
 
 
 # Custom packet
