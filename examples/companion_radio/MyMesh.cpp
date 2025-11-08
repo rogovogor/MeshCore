@@ -52,6 +52,9 @@
 #define CMD_SEND_PATH_DISCOVERY_REQ   52
 #define CMD_SET_FLOOD_SCOPE           54   // v8+
 #define CMD_SEND_CONTROL_DATA         55   // v8+
+#define CMD_GET_STATS_CORE            56
+#define CMD_GET_STATS_RADIO           57
+#define CMD_GET_STATS_PACKETS         58
 
 #define RESP_CODE_OK                  0
 #define RESP_CODE_ERR                 1
@@ -77,6 +80,9 @@
 #define RESP_CODE_CUSTOM_VARS         21
 #define RESP_CODE_ADVERT_PATH         22
 #define RESP_CODE_TUNING_PARAMS       23
+#define RESP_CODE_STATS_CORE          24
+#define RESP_CODE_STATS_RADIO         25
+#define RESP_CODE_STATS_PACKETS       26
 
 #define SEND_TIMEOUT_BASE_MILLIS        500
 #define FLOOD_SEND_TIMEOUT_FACTOR       16.0f
@@ -704,7 +710,7 @@ uint32_t MyMesh::calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t
 void MyMesh::onSendTimeout() {}
 
 MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store, AbstractUITask* ui)
-    : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables),
+    : BaseChatMesh(radio, *(_ms_clock = new ArduinoMillis()), rng, rtc, *(_pkt_mgr = new StaticPoolPacketManager(16)), tables),
       _serial(NULL), telemetry(MAX_PACKET_PAYLOAD - 4), _store(&store), _ui(ui) {
   _iter_started = false;
   _cli_rescue = false;
@@ -1529,6 +1535,45 @@ void MyMesh::handleCmdFrame(size_t len) {
     } else {
       writeErrFrame(ERR_CODE_NOT_FOUND);
     }
+  } else if (cmd_frame[0] == CMD_GET_STATS_CORE) {
+    char json_reply[160];
+    formatStatsReply(json_reply);
+    int i = 0;
+    out_frame[i++] = RESP_CODE_STATS_CORE;
+    int json_len = strlen(json_reply);
+    if (i + json_len <= MAX_FRAME_SIZE) {
+      memcpy(&out_frame[i], json_reply, json_len);
+      i += json_len;
+      _serial->writeFrame(out_frame, i);
+    } else {
+      writeErrFrame(ERR_CODE_TABLE_FULL);
+    }
+  } else if (cmd_frame[0] == CMD_GET_STATS_RADIO) {
+    char json_reply[160];
+    formatRadioStatsReply(json_reply);
+    int i = 0;
+    out_frame[i++] = RESP_CODE_STATS_RADIO;
+    int json_len = strlen(json_reply);
+    if (i + json_len <= MAX_FRAME_SIZE) {
+      memcpy(&out_frame[i], json_reply, json_len);
+      i += json_len;
+      _serial->writeFrame(out_frame, i);
+    } else {
+      writeErrFrame(ERR_CODE_TABLE_FULL);
+    }
+  } else if (cmd_frame[0] == CMD_GET_STATS_PACKETS) {
+    char json_reply[160];
+    formatPacketStatsReply(json_reply);
+    int i = 0;
+    out_frame[i++] = RESP_CODE_STATS_PACKETS;
+    int json_len = strlen(json_reply);
+    if (i + json_len <= MAX_FRAME_SIZE) {
+      memcpy(&out_frame[i], json_reply, json_len);
+      i += json_len;
+      _serial->writeFrame(out_frame, i);
+    } else {
+      writeErrFrame(ERR_CODE_TABLE_FULL);
+    }
   } else if (cmd_frame[0] == CMD_FACTORY_RESET && memcmp(&cmd_frame[1], "reset", 5) == 0) {
     bool success = _store->formatFileSystem();
     if (success) {
@@ -1563,6 +1608,21 @@ void MyMesh::enterCLIRescue() {
   _cli_rescue = true;
   cli_command[0] = 0;
   Serial.println("========= CLI Rescue =========");
+}
+
+void MyMesh::formatStatsReply(char *reply) {
+  // Use StatsFormatHelper
+  // Note: err_flags is private in Dispatcher, so we use 0
+  StatsFormatHelper::formatCoreStats(reply, board, *_ms_clock, 0, _pkt_mgr);
+}
+
+void MyMesh::formatRadioStatsReply(char *reply) {
+  StatsFormatHelper::formatRadioStats(reply, _radio, radio_driver, getTotalAirTime(), getReceiveAirTime());
+}
+
+void MyMesh::formatPacketStatsReply(char *reply) {
+  StatsFormatHelper::formatPacketStats(reply, radio_driver, getNumSentFlood(), getNumSentDirect(), 
+                                       getNumRecvFlood(), getNumRecvDirect());
 }
 
 void MyMesh::checkCLIRescueCmd() {
