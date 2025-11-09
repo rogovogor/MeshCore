@@ -1536,44 +1536,46 @@ void MyMesh::handleCmdFrame(size_t len) {
       writeErrFrame(ERR_CODE_NOT_FOUND);
     }
   } else if (cmd_frame[0] == CMD_GET_STATS_CORE) {
-    char json_reply[160];
-    formatStatsReply(json_reply);
     int i = 0;
     out_frame[i++] = RESP_CODE_STATS_CORE;
-    int json_len = strlen(json_reply);
-    if (i + json_len <= MAX_FRAME_SIZE) {
-      memcpy(&out_frame[i], json_reply, json_len);
-      i += json_len;
-      _serial->writeFrame(out_frame, i);
-    } else {
-      writeErrFrame(ERR_CODE_TABLE_FULL);
-    }
+    uint16_t battery_mv = board.getBattMilliVolts();
+    uint32_t uptime_secs = _ms->getMillis() / 1000;
+    uint8_t queue_len = (uint8_t)_mgr->getOutboundCount(0xFFFFFFFF);
+    memcpy(&out_frame[i], &battery_mv, 2); i += 2;
+    memcpy(&out_frame[i], &uptime_secs, 4); i += 4;
+    memcpy(&out_frame[i], &_err_flags, 2); i += 2;
+    out_frame[i++] = queue_len;
+    _serial->writeFrame(out_frame, i);
   } else if (cmd_frame[0] == CMD_GET_STATS_RADIO) {
-    char json_reply[160];
-    formatRadioStatsReply(json_reply);
     int i = 0;
     out_frame[i++] = RESP_CODE_STATS_RADIO;
-    int json_len = strlen(json_reply);
-    if (i + json_len <= MAX_FRAME_SIZE) {
-      memcpy(&out_frame[i], json_reply, json_len);
-      i += json_len;
-      _serial->writeFrame(out_frame, i);
-    } else {
-      writeErrFrame(ERR_CODE_TABLE_FULL);
-    }
+    int16_t noise_floor = (int16_t)_radio->getNoiseFloor();
+    int8_t last_rssi = (int8_t)radio_driver.getLastRSSI();
+    int8_t last_snr = (int8_t)(radio_driver.getLastSNR() * 4); // scaled by 4 for 0.25 dB precision
+    uint32_t tx_air_secs = getTotalAirTime() / 1000;
+    uint32_t rx_air_secs = getReceiveAirTime() / 1000;
+    memcpy(&out_frame[i], &noise_floor, 2); i += 2;
+    out_frame[i++] = last_rssi;
+    out_frame[i++] = last_snr;
+    memcpy(&out_frame[i], &tx_air_secs, 4); i += 4;
+    memcpy(&out_frame[i], &rx_air_secs, 4); i += 4;
+    _serial->writeFrame(out_frame, i);
   } else if (cmd_frame[0] == CMD_GET_STATS_PACKETS) {
-    char json_reply[160];
-    formatPacketStatsReply(json_reply);
     int i = 0;
     out_frame[i++] = RESP_CODE_STATS_PACKETS;
-    int json_len = strlen(json_reply);
-    if (i + json_len <= MAX_FRAME_SIZE) {
-      memcpy(&out_frame[i], json_reply, json_len);
-      i += json_len;
-      _serial->writeFrame(out_frame, i);
-    } else {
-      writeErrFrame(ERR_CODE_TABLE_FULL);
-    }
+    uint32_t recv = radio_driver.getPacketsRecv();
+    uint32_t sent = radio_driver.getPacketsSent();
+    uint32_t n_sent_flood = getNumSentFlood();
+    uint32_t n_sent_direct = getNumSentDirect();
+    uint32_t n_recv_flood = getNumRecvFlood();
+    uint32_t n_recv_direct = getNumRecvDirect();
+    memcpy(&out_frame[i], &recv, 4); i += 4;
+    memcpy(&out_frame[i], &sent, 4); i += 4;
+    memcpy(&out_frame[i], &n_sent_flood, 4); i += 4;
+    memcpy(&out_frame[i], &n_sent_direct, 4); i += 4;
+    memcpy(&out_frame[i], &n_recv_flood, 4); i += 4;
+    memcpy(&out_frame[i], &n_recv_direct, 4); i += 4;
+    _serial->writeFrame(out_frame, i);
   } else if (cmd_frame[0] == CMD_FACTORY_RESET && memcmp(&cmd_frame[1], "reset", 5) == 0) {
     bool success = _store->formatFileSystem();
     if (success) {
