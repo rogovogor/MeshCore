@@ -184,8 +184,6 @@ private:
 private:
   DataStore* _store;
   NodePrefs _prefs;
-  mesh::PacketManager* _pkt_mgr;  // stored for stats access
-  mesh::MillisecondClock* _ms_clock;  // stored for stats access
   uint32_t pending_login;
   uint32_t pending_status;
   uint32_t pending_telemetry, pending_discovery;   // pending _TELEMETRY_REQ

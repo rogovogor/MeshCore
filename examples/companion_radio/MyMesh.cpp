@@ -710,7 +710,7 @@ uint32_t MyMesh::calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t
 void MyMesh::onSendTimeout() {}
 
 MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store, AbstractUITask* ui)
-    : BaseChatMesh(radio, *(_ms_clock = new ArduinoMillis()), rng, rtc, *(_pkt_mgr = new StaticPoolPacketManager(16)), tables),
+    : BaseChatMesh(radio, *new ArduinoMillis(), rng, rtc, *new StaticPoolPacketManager(16), tables),
       _serial(NULL), telemetry(MAX_PACKET_PAYLOAD - 4), _store(&store), _ui(ui) {
   _iter_started = false;
   _cli_rescue = false;
@@ -1612,8 +1612,7 @@ void MyMesh::enterCLIRescue() {
 
 void MyMesh::formatStatsReply(char *reply) {
   // Use StatsFormatHelper
-  // Note: err_flags is private in Dispatcher, so we use 0
-  StatsFormatHelper::formatCoreStats(reply, board, *_ms_clock, 0, _pkt_mgr);
+  StatsFormatHelper::formatCoreStats(reply, board, *_ms, _err_flags, _mgr);
 }
 
 void MyMesh::formatRadioStatsReply(char *reply) {
