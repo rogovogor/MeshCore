@@ -69,7 +69,6 @@
 
 #include <helpers/BaseChatMesh.h>
 #include <helpers/TransportKeyStore.h>
-#include <helpers/StatsFormatHelper.h>
 
 /* -------------------------------------------------------------------------------------- */
 
@@ -170,11 +169,6 @@ private:
 
   void checkCLIRescueCmd();
   void checkSerialInterface();
-
-  // Stats methods
-  void formatStatsReply(char *reply);
-  void formatRadioStatsReply(char *reply);
-  void formatPacketStatsReply(char *reply);
 
   // helpers, short-cuts
   void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
