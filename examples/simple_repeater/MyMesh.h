@@ -30,7 +30,10 @@
 #include <helpers/IdentityStore.h>
 #include <helpers/SimpleMeshTables.h>
 #include <helpers/StaticPoolPacketManager.h>
+#include <helpers/StatsFormatHelper.h>
 #include <helpers/TxtDataHelpers.h>
+#include <helpers/RegionMap.h>
+#include "RateLimiter.h"
 
 #ifdef WITH_BRIDGE
 extern AbstractBridge* bridge;
@@ -78,12 +81,20 @@ struct NeighbourInfo {
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
+  uint32_t last_millis;
+  uint64_t uptime_millis;
   unsigned long next_local_advert, next_flood_advert;
   bool _logging;
   NodePrefs _prefs;
   CommonCLI _cli;
   uint8_t reply_data[MAX_PACKET_PAYLOAD];
   ClientACL  acl;
+  TransportKeyStore key_store;
+  RegionMap region_map, temp_map;
+  RegionEntry* load_stack[8];
+  RegionEntry* recv_pkt_region;
+  RateLimiter discover_limiter;
+  bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
@@ -141,12 +152,15 @@ protected:
   }
 #endif
 
+  bool filterRecvFloodPacket(mesh::Packet* pkt) override;
+
   void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override;
   int searchPeersByHash(const uint8_t* hash) override;
   void getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) override;
   void onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len);
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override;
   bool onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
+  void onControlDataRecv(mesh::Packet* packet) override;
 
 public:
   MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables);
@@ -181,6 +195,9 @@ public:
   void setTxPower(uint8_t power_dbm) override;
   void formatNeighborsReply(char *reply) override;
   void removeNeighbor(const uint8_t* pubkey, int key_len) override;
+  void formatStatsReply(char *reply) override;
+  void formatRadioStatsReply(char *reply) override;
+  void formatPacketStatsReply(char *reply) override;
 
   mesh::LocalIdentity& getSelfId() override { return self_id; }
 

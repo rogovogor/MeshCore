@@ -18,6 +18,7 @@
 #include <helpers/AdvertDataHelpers.h>
 #include <helpers/TxtDataHelpers.h>
 #include <helpers/CommonCLI.h>
+#include <helpers/StatsFormatHelper.h>
 #include <helpers/ClientACL.h>
 #include <RTClib.h>
 #include <target.h>
@@ -88,6 +89,8 @@ struct PostInfo {
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
+  uint32_t last_millis;
+  uint64_t uptime_millis;
   unsigned long next_local_advert, next_flood_advert;
   bool _logging;
   NodePrefs _prefs;
@@ -190,6 +193,9 @@ public:
   void formatNeighborsReply(char *reply) override {
     strcpy(reply, "not supported");
   }
+  void formatStatsReply(char *reply) override;
+  void formatRadioStatsReply(char *reply) override;
+  void formatPacketStatsReply(char *reply) override;
 
   mesh::LocalIdentity& getSelfId() override { return self_id; }
 

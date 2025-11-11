@@ -74,11 +74,10 @@ bool T114SensorManager::begin() {
 
   if (gps_detected) {
     MESH_DEBUG_PRINTLN("GPS detected");
-    digitalWrite(GPS_EN, LOW);  // Power off GPS until the setting is changed
   } else {
     MESH_DEBUG_PRINTLN("No GPS detected");
-    digitalWrite(GPS_EN, LOW);
   }
+  digitalWrite(GPS_EN, LOW);  // Power off GPS until the setting is changed
 
   return true;
 }

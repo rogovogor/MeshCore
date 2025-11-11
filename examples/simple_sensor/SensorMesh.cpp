@@ -449,7 +449,14 @@ void SensorMesh::onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, con
     memcpy(&timestamp, data, 4);
 
     data[len] = 0;  // ensure null terminator
-    uint8_t reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
+    uint8_t reply_len;
+    if (data[4] == 0 || data[4] >= ' ') {   // is password, ie. a login request
+      reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
+    //} else if (data[4] == ANON_REQ_TYPE_*) {   // future type codes
+      // TODO
+    } else {
+      reply_len = 0;  // unknown request type
+    }
 
     if (reply_len == 0) return;   // invalid request
 
@@ -651,7 +658,7 @@ void SensorMesh::onAckRecv(mesh::Packet* packet, uint32_t ack_crc) {
 
 SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
+      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
 {
   next_local_advert = next_flood_advert = 0;
   dirty_contacts_expiry = 0;
@@ -664,6 +671,7 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   _prefs.airtime_factor = 1.0;    // one half
   _prefs.rx_delay_base =   0.0f;  // turn off by default, was 10.0;
   _prefs.tx_delay_factor = 0.5f;   // was 0.25f
+  _prefs.direct_tx_delay_factor = 0.2f; // was zero
   StrHelper::strncpy(_prefs.node_name, ADVERT_NAME, sizeof(_prefs.node_name));
   _prefs.node_lat = ADVERT_LAT;
   _prefs.node_lon = ADVERT_LON;
@@ -767,6 +775,19 @@ void SensorMesh::updateFloodAdvertTimer() {
 
 void SensorMesh::setTxPower(uint8_t power_dbm) {
   radio_set_tx_power(power_dbm);
+}
+
+void SensorMesh::formatStatsReply(char *reply) {
+  StatsFormatHelper::formatCoreStats(reply, board, *_ms, _err_flags, _mgr);
+}
+
+void SensorMesh::formatRadioStatsReply(char *reply) {
+  StatsFormatHelper::formatRadioStats(reply, _radio, radio_driver, getTotalAirTime(), getReceiveAirTime());
+}
+
+void SensorMesh::formatPacketStatsReply(char *reply) {
+  StatsFormatHelper::formatPacketStats(reply, radio_driver, getNumSentFlood(), getNumSentDirect(), 
+                                       getNumRecvFlood(), getNumRecvDirect());
 }
 
 float SensorMesh::getTelemValue(uint8_t channel, uint8_t type) {

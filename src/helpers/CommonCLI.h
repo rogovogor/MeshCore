@@ -2,7 +2,7 @@
 
 #include "Mesh.h"
 #include <helpers/IdentityStore.h>
-#include <target.h>
+#include <helpers/SensorManager.h>
 
 #if defined(WITH_RS232_BRIDGE) || defined(WITH_ESPNOW_BRIDGE)
 #define WITH_BRIDGE
@@ -46,6 +46,7 @@ struct NodePrefs { // persisted to file
   uint8_t gps_enabled;
   uint32_t gps_interval; // in seconds
   uint8_t advert_loc_policy;
+  uint32_t discovery_mod_timestamp;
 };
 
 class CommonCLICallbacks {
@@ -66,6 +67,9 @@ public:
   virtual void removeNeighbor(const uint8_t* pubkey, int key_len) {
     // no op by default
   };
+  virtual void formatStatsReply(char *reply) = 0;
+  virtual void formatRadioStatsReply(char *reply) = 0;
+  virtual void formatPacketStatsReply(char *reply) = 0;
   virtual mesh::LocalIdentity& getSelfId() = 0;
   virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
   virtual void clearStats() = 0;
@@ -85,6 +89,7 @@ class CommonCLI {
   NodePrefs* _prefs;
   CommonCLICallbacks* _callbacks;
   mesh::MainBoard* _board;
+  SensorManager* _sensors;
   char tmp[PRV_KEY_SIZE*2 + 4];
 
   mesh::RTCClock* getRTCClock() { return _rtc; }
@@ -92,8 +97,8 @@ class CommonCLI {
   void loadPrefsInt(FILESYSTEM* _fs, const char* filename);
 
 public:
-  CommonCLI(mesh::MainBoard& board, mesh::RTCClock& rtc, NodePrefs* prefs, CommonCLICallbacks* callbacks)
-      : _board(&board), _rtc(&rtc), _prefs(prefs), _callbacks(callbacks) { }
+  CommonCLI(mesh::MainBoard& board, mesh::RTCClock& rtc, SensorManager& sensors, NodePrefs* prefs, CommonCLICallbacks* callbacks)
+      : _board(&board), _rtc(&rtc), _sensors(&sensors), _prefs(prefs), _callbacks(callbacks) { }
 
   void loadPrefs(FILESYSTEM* _fs);
   void savePrefs(FILESYSTEM* _fs);

@@ -11,8 +11,9 @@
   #include <helpers/ui/SSD1306Display.h>
   #include <helpers/ui/MomentaryButton.h>
 #endif
+#include "XiaoS3WIOBoard.h"
 
-extern ESP32Board board;
+extern XiaoS3WIOBoard board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 extern SensorManager sensors;

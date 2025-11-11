@@ -548,7 +548,7 @@ public:
 
 StdRNG fast_rng;
 SimpleMeshTables tables;
-MyMesh the_mesh(radio_driver, fast_rng, *new VolatileRTCClock(), tables); // TODO: test with 'rtc_clock' in target.cpp
+MyMesh the_mesh(radio_driver, fast_rng, rtc_clock, tables);
 
 void halt() {
   while (1) ;
@@ -587,4 +587,5 @@ void setup() {
 
 void loop() {
   the_mesh.loop();
+  rtc_clock.tick();
 }

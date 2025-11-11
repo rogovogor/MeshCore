@@ -9,6 +9,13 @@
   #define TXT_ACK_DELAY     200
 #endif
 
+void BaseChatMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis) {
+  sendFlood(pkt, delay_millis);
+}
+void BaseChatMesh::sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t delay_millis) {
+  sendFlood(pkt, delay_millis);
+}
+
 mesh::Packet* BaseChatMesh::createSelfAdvert(const char* name) {
   uint8_t app_data[MAX_ADVERT_DATA_SIZE];
   uint8_t app_data_len;
@@ -34,7 +41,7 @@ mesh::Packet* BaseChatMesh::createSelfAdvert(const char* name, double lat, doubl
 void BaseChatMesh::sendAckTo(const ContactInfo& dest, uint32_t ack_hash) {
   if (dest.out_path_len < 0) {
     mesh::Packet* ack = createAck(ack_hash);
-    if (ack) sendFlood(ack, TXT_ACK_DELAY);
+    if (ack) sendFloodScoped(dest, ack, TXT_ACK_DELAY);
   } else {
     uint32_t d = TXT_ACK_DELAY;
     if (getExtraAckTransmitCount() > 0) {
@@ -68,9 +75,16 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
   }
 
   // save a copy of raw advert packet (to support "Share..." function)
-  int plen = packet->writeTo(temp_buf);
+  int plen;
+  {
+    uint8_t save = packet->header;
+    packet->header &= ~PH_ROUTE_MASK;
+    packet->header |= ROUTE_TYPE_FLOOD;   // make sure transport codes are NOT saved
+    plen = packet->writeTo(temp_buf);
+    packet->header = save;
+  }
   putBlobByKey(id.pub_key, PUB_KEY_SIZE, temp_buf, plen);
-  
+
   bool is_new = false;
   if (from == NULL) {
     if (!isAutoAddEnabled()) {
@@ -168,7 +182,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
-        if (path) sendFlood(path, TXT_ACK_DELAY);
+        if (path) sendFloodScoped(from, path, TXT_ACK_DELAY);
       } else {
         sendAckTo(from, ack_hash);
       }
@@ -179,7 +193,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
       if (packet->isRouteFlood()) {
         // let this sender know path TO here, so they can use sendDirect() (NOTE: no ACK as extra)
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len, 0, NULL, 0);
-        if (path) sendFlood(path);
+        if (path) sendFloodScoped(from, path);
       }
     } else if (flags == TXT_TYPE_SIGNED_PLAIN) {
       if (timestamp > from.sync_since) {  // make sure 'sync_since' is up-to-date
@@ -195,7 +209,7 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
-        if (path) sendFlood(path, TXT_ACK_DELAY);
+        if (path) sendFloodScoped(from, path, TXT_ACK_DELAY);
       } else {
         sendAckTo(from, ack_hash);
       }
@@ -211,14 +225,14 @@ void BaseChatMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender
         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the response
         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
                                               PAYLOAD_TYPE_RESPONSE, temp_buf, reply_len);
-        if (path) sendFlood(path, SERVER_RESPONSE_DELAY);
+        if (path) sendFloodScoped(from, path, SERVER_RESPONSE_DELAY);
       } else {
         mesh::Packet* reply = createDatagram(PAYLOAD_TYPE_RESPONSE, from.id, secret, temp_buf, reply_len);
         if (reply) {
           if (from.out_path_len >= 0) {  // we have an out_path, so send DIRECT
             sendDirect(reply, from.out_path, from.out_path_len, SERVER_RESPONSE_DELAY);
           } else {
-            sendFlood(reply, SERVER_RESPONSE_DELAY);
+            sendFloodScoped(from, reply, SERVER_RESPONSE_DELAY);
           }
         }
       }
@@ -339,7 +353,7 @@ int  BaseChatMesh::sendMessage(const ContactInfo& recipient, uint32_t timestamp,
 
   int rc;
   if (recipient.out_path_len < 0) {
-    sendFlood(pkt);
+    sendFloodScoped(recipient, pkt);
     txt_send_timeout = futureMillis(est_timeout = calcFloodTimeoutMillisFor(t));
     rc = MSG_SEND_SENT_FLOOD;
   } else {
@@ -365,7 +379,7 @@ int  BaseChatMesh::sendCommandData(const ContactInfo& recipient, uint32_t timest
   uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
   int rc;
   if (recipient.out_path_len < 0) {
-    sendFlood(pkt);
+    sendFloodScoped(recipient, pkt);
     txt_send_timeout = futureMillis(est_timeout = calcFloodTimeoutMillisFor(t));
     rc = MSG_SEND_SENT_FLOOD;
   } else {
@@ -391,7 +405,7 @@ bool BaseChatMesh::sendGroupMessage(uint32_t timestamp, mesh::GroupChannel& chan
 
   auto pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, channel, temp, 5 + prefix_len + text_len);
   if (pkt) {
-    sendFlood(pkt);
+    sendFloodScoped(channel, pkt);
     return true;
   }
   return false;
@@ -405,7 +419,9 @@ bool BaseChatMesh::shareContactZeroHop(const ContactInfo& contact) {
   if (packet == NULL) return false;  // no Packets available
 
   packet->readFrom(temp_buf, plen);  // restore Packet from 'blob'
-  sendZeroHop(packet);
+  uint16_t codes[2];
+  codes[0] = codes[1] = 0;   // { 0, 0 } means 'send this nowhere'
+  sendZeroHop(packet, codes);
   return true;  // success
 }
 
@@ -451,7 +467,7 @@ int BaseChatMesh::sendLogin(const ContactInfo& recipient, const char* password, 
   if (pkt) {
     uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
     if (recipient.out_path_len < 0) {
-      sendFlood(pkt);
+      sendFloodScoped(recipient, pkt);
       est_timeout = calcFloodTimeoutMillisFor(t);
       return MSG_SEND_SENT_FLOOD;
     } else {
@@ -478,7 +494,7 @@ int  BaseChatMesh::sendRequest(const ContactInfo& recipient, const uint8_t* req_
   if (pkt) {
     uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
     if (recipient.out_path_len < 0) {
-      sendFlood(pkt);
+      sendFloodScoped(recipient, pkt);
       est_timeout = calcFloodTimeoutMillisFor(t);
       return MSG_SEND_SENT_FLOOD;
     } else {
@@ -505,7 +521,7 @@ int  BaseChatMesh::sendRequest(const ContactInfo& recipient, uint8_t req_type, u
   if (pkt) {
     uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
     if (recipient.out_path_len < 0) {
-      sendFlood(pkt);
+      sendFloodScoped(recipient, pkt);
       est_timeout = calcFloodTimeoutMillisFor(t);
       return MSG_SEND_SENT_FLOOD;
     } else {
