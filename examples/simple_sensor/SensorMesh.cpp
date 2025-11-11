@@ -636,14 +636,15 @@ void SensorMesh::onControlDataRecv(mesh::Packet* packet) {
     }
 
     if ((filter & (1 << ADV_TYPE_SENSOR)) != 0 && _prefs.discovery_mod_timestamp >= since) {
+      bool prefix_only = packet->payload[0] & 1;
       uint8_t data[6 + PUB_KEY_SIZE];
       data[0] = CTL_TYPE_NODE_DISCOVER_RESP | ADV_TYPE_SENSOR;   // low 4-bits for node type
       data[1] = packet->_snr;   // let sender know the inbound SNR ( x 4)
       memcpy(&data[2], &tag, 4);     // include tag from request, for client to match to
       memcpy(&data[6], self_id.pub_key, PUB_KEY_SIZE);
-      auto resp = createControlData(data, sizeof(data));
+      auto resp = createControlData(data,  prefix_only ? 6 + 8 : 6 + PUB_KEY_SIZE);
       if (resp) {
-        sendZeroHop(resp, getRetransmitDelay(resp));  // apply random delay, as multiple nodes can respond to this
+        sendZeroHop(resp, getRetransmitDelay(resp)*4);  // apply random delay (widened x4), as multiple nodes can respond to this
       }
     }
   }
