@@ -239,11 +239,7 @@ uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint
 
 mesh::Packet* SensorMesh::createSelfAdvert() {
   uint8_t app_data[MAX_ADVERT_DATA_SIZE];
-  uint8_t app_data_len;
-  {
-    AdvertDataBuilder builder(ADV_TYPE_SENSOR, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
-    app_data_len = builder.encodeTo(app_data);
-  }
+  uint8_t app_data_len = _cli.buildAdvertData(ADV_TYPE_SENSOR, app_data);
 
   return createAdvert(self_id, app_data, app_data_len);
 }
@@ -453,7 +449,14 @@ void SensorMesh::onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, con
     memcpy(&timestamp, data, 4);
 
     data[len] = 0;  // ensure null terminator
-    uint8_t reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
+    uint8_t reply_len;
+    if (data[4] == 0 || data[4] >= ' ') {   // is password, ie. a login request
+      reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
+    //} else if (data[4] == ANON_REQ_TYPE_*) {   // future type codes
+      // TODO
+    } else {
+      reply_len = 0;  // unknown request type
+    }
 
     if (reply_len == 0) return;   // invalid request
 
@@ -614,6 +617,39 @@ bool SensorMesh::handleIncomingMsg(ClientInfo& from, uint32_t timestamp, uint8_t
   return false;
 }
 
+#define CTL_TYPE_NODE_DISCOVER_REQ   0x80
+#define CTL_TYPE_NODE_DISCOVER_RESP  0x90
+
+void SensorMesh::onControlDataRecv(mesh::Packet* packet) {
+  uint8_t type = packet->payload[0] & 0xF0;    // just test upper 4 bits
+  if (type == CTL_TYPE_NODE_DISCOVER_REQ && packet->payload_len >= 6) {
+    // TODO: apply rate limiting to these!
+    int i = 1;
+    uint8_t  filter = packet->payload[i++];
+    uint32_t tag;
+    memcpy(&tag, &packet->payload[i], 4); i += 4;
+    uint32_t since;
+    if (packet->payload_len >= i+4) {   // optional since field
+      memcpy(&since, &packet->payload[i], 4); i += 4;
+    } else {
+      since = 0;
+    }
+
+    if ((filter & (1 << ADV_TYPE_SENSOR)) != 0 && _prefs.discovery_mod_timestamp >= since) {
+      bool prefix_only = packet->payload[0] & 1;
+      uint8_t data[6 + PUB_KEY_SIZE];
+      data[0] = CTL_TYPE_NODE_DISCOVER_RESP | ADV_TYPE_SENSOR;   // low 4-bits for node type
+      data[1] = packet->_snr;   // let sender know the inbound SNR ( x 4)
+      memcpy(&data[2], &tag, 4);     // include tag from request, for client to match to
+      memcpy(&data[6], self_id.pub_key, PUB_KEY_SIZE);
+      auto resp = createControlData(data,  prefix_only ? 6 + 8 : 6 + PUB_KEY_SIZE);
+      if (resp) {
+        sendZeroHop(resp, getRetransmitDelay(resp)*4);  // apply random delay (widened x4), as multiple nodes can respond to this
+      }
+    }
+  }
+}
+
 bool SensorMesh::onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
   int i = matching_peer_indexes[sender_idx];
   if (i < 0 || i >= acl.getNumClients()) {
@@ -655,7 +691,7 @@ void SensorMesh::onAckRecv(mesh::Packet* packet, uint32_t ack_crc) {
 
 SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables)
      : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
+      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
 {
   next_local_advert = next_flood_advert = 0;
   dirty_contacts_expiry = 0;
@@ -668,6 +704,7 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   _prefs.airtime_factor = 1.0;    // one half
   _prefs.rx_delay_base =   0.0f;  // turn off by default, was 10.0;
   _prefs.tx_delay_factor = 0.5f;   // was 0.25f
+  _prefs.direct_tx_delay_factor = 0.2f; // was zero
   StrHelper::strncpy(_prefs.node_name, ADVERT_NAME, sizeof(_prefs.node_name));
   _prefs.node_lat = ADVERT_LAT;
   _prefs.node_lon = ADVERT_LON;
@@ -682,6 +719,11 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   _prefs.disable_fwd = true;
   _prefs.flood_max = 64;
   _prefs.interference_threshold = 0;  // disabled
+
+  // GPS defaults
+  _prefs.gps_enabled = 0;
+  _prefs.gps_interval = 0;
+  _prefs.advert_loc_policy = ADVERT_LOC_PREFS;
 }
 
 void SensorMesh::begin(FILESYSTEM* fs) {
@@ -697,6 +739,10 @@ void SensorMesh::begin(FILESYSTEM* fs) {
 
   updateAdvertTimer();
   updateFloodAdvertTimer();
+
+#if ENV_INCLUDE_GPS == 1
+  applyGpsPrefs();
+#endif
 }
 
 bool SensorMesh::formatFileSystem() {
@@ -762,6 +808,19 @@ void SensorMesh::updateFloodAdvertTimer() {
 
 void SensorMesh::setTxPower(uint8_t power_dbm) {
   radio_set_tx_power(power_dbm);
+}
+
+void SensorMesh::formatStatsReply(char *reply) {
+  StatsFormatHelper::formatCoreStats(reply, board, *_ms, _err_flags, _mgr);
+}
+
+void SensorMesh::formatRadioStatsReply(char *reply) {
+  StatsFormatHelper::formatRadioStats(reply, _radio, radio_driver, getTotalAirTime(), getReceiveAirTime());
+}
+
+void SensorMesh::formatPacketStatsReply(char *reply) {
+  StatsFormatHelper::formatPacketStats(reply, radio_driver, getNumSentFlood(), getNumSentDirect(), 
+                                       getNumRecvFlood(), getNumRecvDirect());
 }
 
 float SensorMesh::getTelemValue(uint8_t channel, uint8_t type) {

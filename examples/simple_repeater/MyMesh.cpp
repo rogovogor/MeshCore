@@ -114,6 +114,7 @@ uint8_t MyMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* secr
     MESH_DEBUG_PRINTLN("Login success!");
     client->last_timestamp = sender_timestamp;
     client->last_activity = getRTCClock()->getCurrentTime();
+    client->permissions &= ~0x03;
     client->permissions |= perms;
     memcpy(client->shared_secret, secret, PUB_KEY_SIZE);
 
@@ -148,7 +149,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
     stats.n_packets_recv = radio_driver.getPacketsRecv();
     stats.n_packets_sent = radio_driver.getPacketsSent();
     stats.total_air_time_secs = getTotalAirTime() / 1000;
-    stats.total_up_time_secs = _ms->getMillis() / 1000;
+    stats.total_up_time_secs = uptime_millis / 1000;
     stats.n_sent_flood = getNumSentFlood();
     stats.n_sent_direct = getNumSentDirect();
     stats.n_recv_flood = getNumRecvFlood();
@@ -169,7 +170,10 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
     telemetry.reset();
     telemetry.addVoltage(TELEM_CHANNEL_SELF, (float)board.getBattMilliVolts() / 1000.0f);
     // query other sensors -- target specific
-    sensors.querySensors((sender->isAdmin() ? 0xFF : 0x00) & perm_mask, telemetry);
+    if ((sender->permissions & PERM_ACL_ROLE_MASK) == PERM_ACL_GUEST) {
+      perm_mask = 0x00;  // just base telemetry allowed
+    }
+    sensors.querySensors(perm_mask, telemetry);
 
     uint8_t tlen = telemetry.getSize();
     memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
@@ -287,11 +291,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
 
 mesh::Packet *MyMesh::createSelfAdvert() {
   uint8_t app_data[MAX_ADVERT_DATA_SIZE];
-  uint8_t app_data_len;
-  {
-    AdvertDataBuilder builder(ADV_TYPE_REPEATER, _prefs.node_name, _prefs.node_lat, _prefs.node_lon);
-    app_data_len = builder.encodeTo(app_data);
-  }
+  uint8_t app_data_len = _cli.buildAdvertData(ADV_TYPE_REPEATER, app_data);
 
   return createAdvert(self_id, app_data, app_data_len);
 }
@@ -309,6 +309,10 @@ File MyMesh::openAppend(const char *fname) {
 bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
   if (packet->isRouteFlood() && packet->path_len >= _prefs.flood_max) return false;
+  if (packet->isRouteFlood() && recv_pkt_region == NULL) {
+    MESH_DEBUG_PRINTLN("allowPacketForward: unknown transport code, or wildcard not allowed for FLOOD packet");
+    return false;
+  }
   return true;
 }
 
@@ -331,6 +335,12 @@ void MyMesh::logRxRaw(float snr, float rssi, const uint8_t raw[], int len) {
 }
 
 void MyMesh::logRx(mesh::Packet *pkt, int len, float score) {
+#ifdef WITH_BRIDGE
+  if (_prefs.bridge_pkt_src == 1) {
+    bridge.sendPacket(pkt);
+  }
+#endif
+
   if (_logging) {
     File f = openAppend(PACKET_LOG_FILE);
     if (f) {
@@ -352,8 +362,11 @@ void MyMesh::logRx(mesh::Packet *pkt, int len, float score) {
 
 void MyMesh::logTx(mesh::Packet *pkt, int len) {
 #ifdef WITH_BRIDGE
-  bridge.onPacketTransmitted(pkt);
+  if (_prefs.bridge_pkt_src == 0) {
+    bridge.sendPacket(pkt);
+  }
 #endif
+
   if (_logging) {
     File f = openAppend(PACKET_LOG_FILE);
     if (f) {
@@ -391,11 +404,28 @@ int MyMesh::calcRxDelay(float score, uint32_t air_time) const {
 
 uint32_t MyMesh::getRetransmitDelay(const mesh::Packet *packet) {
   uint32_t t = (_radio->getEstAirtimeFor(packet->path_len + packet->payload_len + 2) * _prefs.tx_delay_factor);
-  return getRNG()->nextInt(0, 6) * t;
+  return getRNG()->nextInt(0, 5*t + 1);
 }
 uint32_t MyMesh::getDirectRetransmitDelay(const mesh::Packet *packet) {
   uint32_t t = (_radio->getEstAirtimeFor(packet->path_len + packet->payload_len + 2) * _prefs.direct_tx_delay_factor);
-  return getRNG()->nextInt(0, 6) * t;
+  return getRNG()->nextInt(0, 5*t + 1);
+}
+
+bool MyMesh::filterRecvFloodPacket(mesh::Packet* pkt) {
+  // just try to determine region for packet (apply later in allowPacketForward())
+  if (pkt->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD) {
+    recv_pkt_region = region_map.findMatch(pkt, REGION_DENY_FLOOD);
+  } else if (pkt->getRouteType() == ROUTE_TYPE_FLOOD) {
+    if (region_map.getWildcard().flags & REGION_DENY_FLOOD) {
+      recv_pkt_region = NULL;
+    } else {
+      recv_pkt_region =  &region_map.getWildcard();
+    }
+  } else {
+    recv_pkt_region = NULL;
+  }
+  // do normal processing
+  return false;
 }
 
 void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const mesh::Identity &sender,
@@ -406,7 +436,14 @@ void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const m
     memcpy(&timestamp, data, 4);
 
     data[len] = 0;  // ensure null terminator
-    uint8_t reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
+    uint8_t reply_len;
+    if (data[4] == 0 || data[4] >= ' ') {   // is password, ie. a login request
+      reply_len = handleLoginReq(sender, secret, timestamp, &data[4]);
+    //} else if (data[4] == ANON_REQ_TYPE_*) {   // future type codes
+      // TODO
+    } else {
+      reply_len = 0;  // unknown request type
+    }
 
     if (reply_len == 0) return;   // invalid request
 
@@ -442,12 +479,19 @@ void MyMesh::getPeerSharedSecret(uint8_t *dest_secret, int peer_idx) {
   }
 }
 
+static bool isShare(const mesh::Packet *packet) {
+  if (packet->hasTransportCodes()) {
+    return packet->transport_codes[0] == 0 && packet->transport_codes[1] == 0;  // codes { 0, 0 } means 'send to nowhere'
+  }
+  return false;
+}
+
 void MyMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32_t timestamp,
                           const uint8_t *app_data, size_t app_data_len) {
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len); // chain to super impl
 
-  // if this a zero hop advert, add it to neighbours
-  if (packet->path_len == 0) {
+  // if this a zero hop advert (and not via 'Share'), add it to neighbours
+  if (packet->path_len == 0 && !isShare(packet)) {
     AdvertDataParser parser(app_data, app_data_len);
     if (parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) { // just keep neigbouring Repeaters
       putNeighbour(id, timestamp, packet->getSNR());
@@ -577,20 +621,57 @@ bool MyMesh::onPeerPathRecv(mesh::Packet *packet, int sender_idx, const uint8_t 
   return false;
 }
 
+#define CTL_TYPE_NODE_DISCOVER_REQ   0x80
+#define CTL_TYPE_NODE_DISCOVER_RESP  0x90
+
+void MyMesh::onControlDataRecv(mesh::Packet* packet) {
+  uint8_t type = packet->payload[0] & 0xF0;    // just test upper 4 bits
+  if (type == CTL_TYPE_NODE_DISCOVER_REQ && packet->payload_len >= 6 && discover_limiter.allow(rtc_clock.getCurrentTime())) {
+    int i = 1;
+    uint8_t  filter = packet->payload[i++];
+    uint32_t tag;
+    memcpy(&tag, &packet->payload[i], 4); i += 4;
+    uint32_t since;
+    if (packet->payload_len >= i+4) {   // optional since field
+      memcpy(&since, &packet->payload[i], 4); i += 4;
+    } else {
+      since = 0;
+    }
+
+    if ((filter & (1 << ADV_TYPE_REPEATER)) != 0 && _prefs.discovery_mod_timestamp >= since) {
+      bool prefix_only = packet->payload[0] & 1;
+      uint8_t data[6 + PUB_KEY_SIZE];
+      data[0] = CTL_TYPE_NODE_DISCOVER_RESP | ADV_TYPE_REPEATER;   // low 4-bits for node type
+      data[1] = packet->_snr;   // let sender know the inbound SNR ( x 4)
+      memcpy(&data[2], &tag, 4);     // include tag from request, for client to match to
+      memcpy(&data[6], self_id.pub_key, PUB_KEY_SIZE);
+      auto resp = createControlData(data, prefix_only ? 6 + 8 : 6 + PUB_KEY_SIZE);
+      if (resp) {
+        sendZeroHop(resp, getRetransmitDelay(resp)*4);  // apply random delay (widened x4), as multiple nodes can respond to this
+      }
+    }
+  }
+}
+
 MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondClock &ms, mesh::RNG &rng,
                mesh::RTCClock &rtc, mesh::MeshTables &tables)
     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, rtc, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4)
+      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4), region_map(key_store), temp_map(key_store),
+      discover_limiter(4, 120)  // max 4 every 2 minutes
 #if defined(WITH_RS232_BRIDGE)
-      , bridge(WITH_RS232_BRIDGE, _mgr, &rtc)
-#elif defined(WITH_ESPNOW_BRIDGE)
-      , bridge(_mgr, &rtc)
+      , bridge(&_prefs, WITH_RS232_BRIDGE, _mgr, &rtc)
+#endif
+#if defined(WITH_ESPNOW_BRIDGE)
+      , bridge(&_prefs, _mgr, &rtc)
 #endif
 {
+  last_millis = 0;
+  uptime_millis = 0;
   next_local_advert = next_flood_advert = 0;
   dirty_contacts_expiry = 0;
   set_radio_at = revert_radio_at = 0;
   _logging = false;
+  region_load_active = false;
 
 #if MAX_NEIGHBOURS
   memset(neighbours, 0, sizeof(neighbours));
@@ -601,6 +682,7 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.airtime_factor = 1.0;   // one half
   _prefs.rx_delay_base = 0.0f;   // turn off by default, was 10.0;
   _prefs.tx_delay_factor = 0.5f; // was 0.25f
+  _prefs.direct_tx_delay_factor = 0.2f; // was zero
   StrHelper::strncpy(_prefs.node_name, ADVERT_NAME, sizeof(_prefs.node_name));
   _prefs.node_lat = ADVERT_LAT;
   _prefs.node_lon = ADVERT_LON;
@@ -614,6 +696,20 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.flood_advert_interval = 12; // 12 hours
   _prefs.flood_max = 64;
   _prefs.interference_threshold = 0; // disabled
+
+  // bridge defaults
+  _prefs.bridge_enabled = 1;    // enabled
+  _prefs.bridge_delay   = 500;  // milliseconds
+  _prefs.bridge_pkt_src = 0;    // logTx
+  _prefs.bridge_baud = 115200;  // baud rate
+  _prefs.bridge_channel = 1;    // channel 1
+
+  StrHelper::strncpy(_prefs.bridge_secret, "LVSITANOS", sizeof(_prefs.bridge_secret));
+
+  // GPS defaults
+  _prefs.gps_enabled = 0;
+  _prefs.gps_interval = 0;
+  _prefs.advert_loc_policy = ADVERT_LOC_PREFS;
 }
 
 void MyMesh::begin(FILESYSTEM *fs) {
@@ -621,11 +717,14 @@ void MyMesh::begin(FILESYSTEM *fs) {
   _fs = fs;
   // load persisted prefs
   _cli.loadPrefs(_fs);
-
   acl.load(_fs);
+  // TODO: key_store.begin();
+  region_map.load(_fs);
 
-#ifdef WITH_BRIDGE
-  bridge.begin();
+#if defined(WITH_BRIDGE)
+  if (_prefs.bridge_enabled) {
+    bridge.begin();
+  }
 #endif
 
   radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
@@ -633,6 +732,10 @@ void MyMesh::begin(FILESYSTEM *fs) {
 
   updateAdvertTimer();
   updateFloodAdvertTimer();
+
+#if ENV_INCLUDE_GPS == 1
+  applyGpsPrefs();
+#endif
 }
 
 void MyMesh::applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) {
@@ -758,6 +861,19 @@ void MyMesh::removeNeighbor(const uint8_t *pubkey, int key_len) {
 #endif
 }
 
+void MyMesh::formatStatsReply(char *reply) {
+  StatsFormatHelper::formatCoreStats(reply, board, *_ms, _err_flags, _mgr);
+}
+
+void MyMesh::formatRadioStatsReply(char *reply) {
+  StatsFormatHelper::formatRadioStats(reply, _radio, radio_driver, getTotalAirTime(), getReceiveAirTime());
+}
+
+void MyMesh::formatPacketStatsReply(char *reply) {
+  StatsFormatHelper::formatPacketStats(reply, radio_driver, getNumSentFlood(), getNumSentDirect(), 
+                                       getNumRecvFlood(), getNumRecvDirect());
+}
+
 void MyMesh::saveIdentity(const mesh::LocalIdentity &new_id) {
   self_id = new_id;
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -779,8 +895,41 @@ void MyMesh::clearStats() {
 }
 
 void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
-  while (*command == ' ')
-    command++; // skip leading spaces
+  if (region_load_active) {
+    if (StrHelper::isBlank(command)) {  // empty/blank line, signal to terminate 'load' operation
+      region_map = temp_map;  // copy over the temp instance as new current map
+      region_load_active = false;
+
+      sprintf(reply, "OK - loaded %d regions", region_map.getCount());
+    } else {
+      char *np = command;
+      while (*np == ' ') np++;   // skip indent
+      int indent = np - command;
+
+      char *ep = np;
+      while (RegionMap::is_name_char(*ep)) ep++;
+      if (*ep) { *ep++ = 0; }  // set null terminator for end of name
+
+      while (*ep && *ep != 'F') ep++;  // look for (optional) flags
+
+      if (indent > 0 && indent < 8 && strlen(np) > 0) {
+        auto parent = load_stack[indent - 1];
+        if (parent) {
+          auto old = region_map.findByName(np);
+          auto nw = temp_map.putRegion(np, parent->id, old ? old->id : 0);  // carry-over the current ID (if name already exists)
+          if (nw) {
+            nw->flags = old ? old->flags : (*ep == 'F' ? 0 : REGION_DENY_FLOOD);   // carry-over flags from curr
+
+            load_stack[indent] = nw;  // keep pointers to parent regions, to resolve parent_id's
+          }
+        }
+      }
+      reply[0] = 0;
+    }
+    return;
+  }
+
+  while (*command == ' ') command++; // skip leading spaces
 
   if (strlen(command) > 4 && command[2] == '|') { // optional prefix (for companion radio CLI)
     memcpy(reply, command, 3);                    // reflect the prefix back
@@ -822,6 +971,88 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       Serial.printf("\n");
     }
     reply[0] = 0;
+  } else if (memcmp(command, "region", 6) == 0) {
+    reply[0] = 0;
+
+    const char* parts[4];
+    int n = mesh::Utils::parseTextParts(command, parts, 4, ' ');
+    if (n == 1 && sender_timestamp == 0) {
+      region_map.exportTo(Serial);
+    } else if (n >= 2 && strcmp(parts[1], "load") == 0) {
+      temp_map.resetFrom(region_map);   // rebuild regions in a temp instance
+      memset(load_stack, 0, sizeof(load_stack));
+      load_stack[0] = &temp_map.getWildcard();
+      region_load_active = true;
+    } else if (n >= 2 && strcmp(parts[1], "save") == 0) {
+      _prefs.discovery_mod_timestamp = rtc_clock.getCurrentTime();   // this node is now 'modified' (for discovery info)
+      savePrefs();
+      bool success = region_map.save(_fs);
+      strcpy(reply, success ? "OK" : "Err - save failed");
+    } else if (n >= 3 && strcmp(parts[1], "allowf") == 0) {
+      auto region = region_map.findByNamePrefix(parts[2]);
+      if (region) {
+        region->flags &= ~REGION_DENY_FLOOD;
+        strcpy(reply, "OK");
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else if (n >= 3 && strcmp(parts[1], "denyf") == 0) {
+      auto region = region_map.findByNamePrefix(parts[2]);
+      if (region) {
+        region->flags |= REGION_DENY_FLOOD;
+        strcpy(reply, "OK");
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else if (n >= 3 && strcmp(parts[1], "get") == 0) {
+      auto region = region_map.findByNamePrefix(parts[2]);
+      if (region) {
+        auto parent = region_map.findById(region->parent);
+        if (parent && parent->id != 0) {
+          sprintf(reply, " %s (%s) %s", region->name, parent->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
+        } else {
+          sprintf(reply, " %s %s", region->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
+        }
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else if (n >= 3 && strcmp(parts[1], "home") == 0) {
+      auto home = region_map.findByNamePrefix(parts[2]);
+      if (home) {
+        region_map.setHomeRegion(home);
+        sprintf(reply, " home is now %s", home->name);
+      } else {
+        strcpy(reply, "Err - unknown region");
+      }
+    } else if (n == 2 && strcmp(parts[1], "home") == 0) {
+      auto home = region_map.getHomeRegion();
+      sprintf(reply, " home is %s", home ? home->name : "*");
+    } else if (n >= 3 && strcmp(parts[1], "put") == 0) {
+      auto parent = n >= 4 ? region_map.findByNamePrefix(parts[3]) : &region_map.getWildcard();
+      if (parent == NULL) {
+        strcpy(reply, "Err - unknown parent");
+      } else {
+        auto region = region_map.putRegion(parts[2], parent->id);
+        if (region == NULL) {
+          strcpy(reply, "Err - unable to put");
+        } else {
+          strcpy(reply, "OK");
+        }
+      }
+    } else if (n >= 3 && strcmp(parts[1], "remove") == 0) {
+      auto region = region_map.findByName(parts[2]);
+      if (region) {
+        if (region_map.removeRegion(*region)) {
+          strcpy(reply, "OK");
+        } else {
+          strcpy(reply, "Err - not empty");
+        }
+      } else {
+        strcpy(reply, "Err - not found");
+      }
+    } else {
+      strcpy(reply, "Err - ??");
+    }
   } else{
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
   }
@@ -864,4 +1095,9 @@ void MyMesh::loop() {
     acl.save(_fs);
     dirty_contacts_expiry = 0;
   }
+
+  // update uptime
+  uint32_t now = millis();
+  uptime_millis += now - last_millis;
+  last_millis = now;
 }

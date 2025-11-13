@@ -18,6 +18,7 @@
 #include <helpers/AdvertDataHelpers.h>
 #include <helpers/TxtDataHelpers.h>
 #include <helpers/CommonCLI.h>
+#include <helpers/StatsFormatHelper.h>
 #include <helpers/ClientACL.h>
 #include <RTClib.h>
 #include <target.h>
@@ -25,11 +26,11 @@
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "2 Oct 2025"
+  #define FIRMWARE_BUILD_DATE   "13 Nov 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.9.1"
+  #define FIRMWARE_VERSION   "v1.10.0"
 #endif
 
 #ifndef LORA_FREQ
@@ -88,6 +89,8 @@ struct PostInfo {
 
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
+  uint32_t last_millis;
+  uint64_t uptime_millis;
   unsigned long next_local_advert, next_flood_advert;
   bool _logging;
   NodePrefs _prefs;
@@ -149,6 +152,12 @@ protected:
   bool onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
   void onAckRecv(mesh::Packet* packet, uint32_t ack_crc) override;
 
+#if ENV_INCLUDE_GPS == 1
+  void applyGpsPrefs() {
+    sensors.setSettingValue("gps", _prefs.gps_enabled?"1":"0");
+  }
+#endif
+
 public:
   MyMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc, mesh::MeshTables& tables);
 
@@ -184,6 +193,9 @@ public:
   void formatNeighborsReply(char *reply) override {
     strcpy(reply, "not supported");
   }
+  void formatStatsReply(char *reply) override;
+  void formatRadioStatsReply(char *reply) override;
+  void formatPacketStatsReply(char *reply) override;
 
   mesh::LocalIdentity& getSelfId() override { return self_id; }
 
