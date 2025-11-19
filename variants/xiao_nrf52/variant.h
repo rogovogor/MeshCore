@@ -38,7 +38,7 @@ extern "C"
 #define LED_STATE_ON            (1)     // State when LED is litted
 
 // Buttons
-#define PIN_BUTTON1             (PINS_COUNT)
+#define PIN_BUTTON1             (0)
 
 // Digital PINs
 static const uint8_t D0  = 0 ;

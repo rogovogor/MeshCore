@@ -29,6 +29,10 @@ void XiaoNrf52Board::begin() {
   pinMode(VBAT_ENABLE, OUTPUT);
   digitalWrite(VBAT_ENABLE, HIGH);
 
+#ifdef PIN_USER_BTN
+  pinMode(PIN_USER_BTN, INPUT);
+#endif
+
 #if defined(PIN_WIRE_SDA) && defined(PIN_WIRE_SCL)
   Wire.setPins(PIN_WIRE_SDA, PIN_WIRE_SCL);
 #endif
