@@ -269,7 +269,7 @@ void UITask::userLedHandler() {
       state = 0;
       next_change = cur_time + LED_CYCLE_MILLIS - last_increment;
     }
-    digitalWrite(PIN_STATUS_LED, state);
+    digitalWrite(PIN_STATUS_LED, state == LED_STATE_ON);
   }
 #endif
 }
