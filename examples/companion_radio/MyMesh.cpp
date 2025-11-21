@@ -670,6 +670,11 @@ void MyMesh::onRawDataRecv(mesh::Packet *packet) {
 
 void MyMesh::onTraceRecv(mesh::Packet *packet, uint32_t tag, uint32_t auth_code, uint8_t flags,
                          const uint8_t *path_snrs, const uint8_t *path_hashes, uint8_t path_len) {
+  uint8_t path_sz = flags & 0x03;  // NEW v1.11+
+  if (12 + path_len + (path_len >> path_sz) + 1 > sizeof(out_frame)) {
+    MESH_DEBUG_PRINTLN("onTraceRecv(), path_len is too long: %d", (uint32_t)path_len);
+    return;
+  }
   int i = 0;
   out_frame[i++] = PUSH_CODE_TRACE_DATA;
   out_frame[i++] = 0; // reserved
@@ -681,8 +686,9 @@ void MyMesh::onTraceRecv(mesh::Packet *packet, uint32_t tag, uint32_t auth_code,
   i += 4;
   memcpy(&out_frame[i], path_hashes, path_len);
   i += path_len;
-  memcpy(&out_frame[i], path_snrs, path_len);
-  i += path_len;
+
+  memcpy(&out_frame[i], path_snrs, path_len >> path_sz);
+  i += path_len >> path_sz;
   out_frame[i++] = (int8_t)(packet->getSNR() * 4); // extra/final SNR (to this node)
 
   if (_serial->isConnected()) {
@@ -1446,25 +1452,31 @@ void MyMesh::handleCmdFrame(size_t len) {
     } else {
       writeErrFrame(ERR_CODE_BAD_STATE);
     }
-  } else if (cmd_frame[0] == CMD_SEND_TRACE_PATH && len > 10 && len - 10 < MAX_PATH_SIZE) {
-    uint32_t tag, auth;
-    memcpy(&tag, &cmd_frame[1], 4);
-    memcpy(&auth, &cmd_frame[5], 4);
-    auto pkt = createTrace(tag, auth, cmd_frame[9]);
-    if (pkt) {
-      uint8_t path_len = len - 10;
-      sendDirect(pkt, &cmd_frame[10], path_len);
-
-      uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
-      uint32_t est_timeout = calcDirectTimeoutMillisFor(t, path_len);
-
-      out_frame[0] = RESP_CODE_SENT;
-      out_frame[1] = 0;
-      memcpy(&out_frame[2], &tag, 4);
-      memcpy(&out_frame[6], &est_timeout, 4);
-      _serial->writeFrame(out_frame, 10);
+  } else if (cmd_frame[0] == CMD_SEND_TRACE_PATH && len > 10 && len - 10 < MAX_PACKET_PAYLOAD-5) {
+    uint8_t path_len = len - 10;
+    uint8_t flags = cmd_frame[9];
+    uint8_t path_sz = flags & 0x03;  // NEW v1.11+ 
+    if ((path_len >> path_sz) > MAX_PATH_SIZE || (path_len % (1 << path_sz)) != 0) { // make sure is multiple of path_sz
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
     } else {
-      writeErrFrame(ERR_CODE_TABLE_FULL);
+      uint32_t tag, auth;
+      memcpy(&tag, &cmd_frame[1], 4);
+      memcpy(&auth, &cmd_frame[5], 4);
+      auto pkt = createTrace(tag, auth, flags);
+      if (pkt) {
+        sendDirect(pkt, &cmd_frame[10], path_len);
+
+        uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
+        uint32_t est_timeout = calcDirectTimeoutMillisFor(t, path_len);
+
+        out_frame[0] = RESP_CODE_SENT;
+        out_frame[1] = 0;
+        memcpy(&out_frame[2], &tag, 4);
+        memcpy(&out_frame[6], &est_timeout, 4);
+        _serial->writeFrame(out_frame, 10);
+      } else {
+        writeErrFrame(ERR_CODE_TABLE_FULL);
+      }
     }
   } else if (cmd_frame[0] == CMD_SET_DEVICE_PIN && len >= 5) {
 
