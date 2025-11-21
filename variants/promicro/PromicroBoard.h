@@ -43,15 +43,20 @@ public:
     return (adc_mult * raw);
   }
 
-  void setAdcMultiplier(float multiplier) override {
+  bool setAdcMultiplier(float multiplier) override {
     if (multiplier == 0.0f) {
       adc_mult = ADC_MULTIPLIER;}
     else {
       adc_mult = multiplier;
     }
+    return true;
   }
   float getAdcMultiplier() const override {
-    return adc_mult;
+    if (adc_mult == 0.0f) {
+      return ADC_MULTIPLIER;
+    } else {
+      return adc_mult;
+    }
   }
 
   const char* getManufacturerName() const override {

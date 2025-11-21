@@ -335,7 +335,12 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         sprintf(reply, "> %s", _prefs->bridge_secret);
 #endif
       } else if (memcmp(config, "adc.multiplier", 14) == 0) {
-        sprintf(reply, "> %s", StrHelper::ftoa(_prefs->adc_multiplier));
+        float adc_mult = _board->getAdcMultiplier();
+        if (adc_mult == 0.0f) {
+          strcpy(reply, "Error: unsupported by this board");
+        } else {
+          sprintf(reply, "> %.3f", adc_mult);
+        }
       } else {
         sprintf(reply, "??: %s", config);
       }
@@ -530,9 +535,17 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 #endif
       } else if (memcmp(config, "adc.multiplier ", 15) == 0) {
         _prefs->adc_multiplier = atof(&config[15]);
-        _board->setAdcMultiplier(_prefs->adc_multiplier);
-        savePrefs();
-        strcpy(reply, "OK");
+        if (_board->setAdcMultiplier(_prefs->adc_multiplier)) {
+          savePrefs();
+          if (_prefs->adc_multiplier == 0.0f) {
+            strcpy(reply, "OK - using default board multiplier");
+          } else {
+            sprintf(reply, "OK - multiplier set to %.3f", _prefs->adc_multiplier);
+          }
+        } else {
+          _prefs->adc_multiplier = 0.0f;
+          strcpy(reply, "Error: unsupported by this board");
+        };
       } else {
         sprintf(reply, "unknown config: %s", config);
       }
