@@ -200,6 +200,11 @@ void DataStore::loadPrefsInt(const char *filename, NodePrefs& _prefs, double& no
   File file = openRead(_fs, filename);
   if (file) {
     uint8_t pad[8];
+    
+    // Initialize defaults for any missing fields (backward compatibility)
+    memset(&_prefs, 0, sizeof(_prefs));
+    node_lat = 0.0;
+    node_lon = 0.0;
 
     file.read((uint8_t *)&_prefs.airtime_factor, sizeof(float));                           // 0
     file.read((uint8_t *)_prefs.node_name, sizeof(_prefs.node_name));                      // 4
@@ -221,6 +226,7 @@ void DataStore::loadPrefsInt(const char *filename, NodePrefs& _prefs, double& no
     file.read((uint8_t *)&_prefs.multi_acks, sizeof(_prefs.multi_acks));                   // 77
     file.read(pad, 2);                                                                     // 78
     file.read((uint8_t *)&_prefs.ble_pin, sizeof(_prefs.ble_pin));                         // 80
+    file.read((uint8_t *)&_prefs.buzzer_quiet, sizeof(_prefs.buzzer_quiet));               // 84
 
     file.close();
   }
@@ -252,6 +258,7 @@ void DataStore::savePrefs(const NodePrefs& _prefs, double node_lat, double node_
     file.write((uint8_t *)&_prefs.multi_acks, sizeof(_prefs.multi_acks));                   // 77
     file.write(pad, 2);                                                                     // 78
     file.write((uint8_t *)&_prefs.ble_pin, sizeof(_prefs.ble_pin));                         // 80
+    file.write((uint8_t *)&_prefs.buzzer_quiet, sizeof(_prefs.buzzer_quiet));               // 84
 
     file.close();
   }
