@@ -292,10 +292,12 @@ void UITask::shutdown(bool restart){
 
   #endif // PIN_BUZZER
 
-  if (restart)
+  if (restart) {
     _board->reboot();
-  else
+  } else {
+    radio_driver.powerOff();
     _board->powerOff();
+  }
 }
 
 void UITask::loop() {
