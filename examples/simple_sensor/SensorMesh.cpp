@@ -554,7 +554,7 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
   } else if (type == PAYLOAD_TYPE_TXT_MSG && len > 5 && from->isAdmin()) {   // a CLI command
     uint32_t sender_timestamp;
     memcpy(&sender_timestamp, data, 4);  // timestamp (by sender's RTC clock - which could be wrong)
-    uint flags = (data[4] >> 2);   // message attempt number, and other flags
+    uint8_t flags = (data[4] >> 2);   // message attempt number, and other flags
 
     if (sender_timestamp > from->last_timestamp) {  // prevent replay attacks
       if (flags == TXT_TYPE_PLAIN) {
@@ -612,7 +612,7 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
   }
 }
 
-bool SensorMesh::handleIncomingMsg(ClientInfo& from, uint32_t timestamp, uint8_t* data, uint flags, size_t len) {
+bool SensorMesh::handleIncomingMsg(ClientInfo& from, uint32_t timestamp, uint8_t* data, uint8_t flags, size_t len) {
   MESH_DEBUG_PRINT("handleIncomingMsg: unhandled msg from ");
   #ifdef MESH_DEBUG
   mesh::Utils::printHex(Serial, from.id.pub_key, PUB_KEY_SIZE);

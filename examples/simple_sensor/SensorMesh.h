@@ -127,7 +127,7 @@ protected:
   bool onPeerPathRecv(mesh::Packet* packet, int sender_idx, const uint8_t* secret, uint8_t* path, uint8_t path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
   void onControlDataRecv(mesh::Packet* packet) override;
   void onAckRecv(mesh::Packet* packet, uint32_t ack_crc) override;
-  virtual bool handleIncomingMsg(ClientInfo& from, uint32_t timestamp, uint8_t* data, uint flags, size_t len);
+  virtual bool handleIncomingMsg(ClientInfo& from, uint32_t timestamp, uint8_t* data, uint8_t flags, size_t len);
   void sendAckTo(const ClientInfo& dest, uint32_t ack_hash);
 private:
   FILESYSTEM* _fs;
