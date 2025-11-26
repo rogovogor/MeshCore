@@ -618,7 +618,7 @@ void UITask::userLedHandler() {
       led_state = 0;
       next_led_change = cur_time + LED_CYCLE_MILLIS - last_led_increment;
     }
-    digitalWrite(PIN_STATUS_LED, led_state);
+    digitalWrite(PIN_STATUS_LED, led_state == LED_STATE_ON);
   }
 #endif
 }
@@ -650,6 +650,7 @@ void UITask::shutdown(bool restart){
     _board->reboot();
   } else {
     _display->turnOff();
+    radio_driver.powerOff();
     _board->powerOff();
   }
 }

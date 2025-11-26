@@ -21,6 +21,8 @@ static void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
 void RAKWismeshTagBoard::begin() {
   // for future use, sub-classes SHOULD call this from their begin()
   startup_reason = BD_STARTUP_NORMAL;
+  NRF_POWER->DCDCEN = 1;
+
   pinMode(PIN_VBAT_READ, INPUT);
   pinMode(PIN_USER_BTN, INPUT_PULLUP);
 
