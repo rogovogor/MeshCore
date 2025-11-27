@@ -1,7 +1,6 @@
 #include "ThinknodeM5Board.h"
 
 
-
 void ThinknodeM5Board::begin() {
     pinMode(PIN_VEXT_EN, OUTPUT); 
     digitalWrite(PIN_VEXT_EN, !PIN_VEXT_EN_ACTIVE); // force power cycle
@@ -9,7 +8,7 @@ void ThinknodeM5Board::begin() {
     digitalWrite(PIN_VEXT_EN, PIN_VEXT_EN_ACTIVE); // turn backlight back on
     delay(120); // give display time to bias on cold boot
     ESP32Board::begin();
-    pinMode(PIN_STATUS_LED, OUTPUT); // init power led
+  //  pinMode(PIN_STATUS_LED, OUTPUT); // init power led
   }
 
   void ThinknodeM5Board::enterDeepSleep(uint32_t secs, int pin_wake_btn) {

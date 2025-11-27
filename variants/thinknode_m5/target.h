@@ -12,11 +12,14 @@
   #include <helpers/ui/GxEPDDisplay.h>
   #include <helpers/ui/MomentaryButton.h>
 #endif
+#include <Wire.h>
+#include <PCA9557.h>
 
 extern ThinknodeM5Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
 extern SensorManager sensors;
+extern PCA9557 expander;
 
 #ifdef DISPLAY_CLASS
   extern DISPLAY_CLASS display;

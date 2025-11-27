@@ -7,8 +7,8 @@
 #define PIN_VEXT_EN_ACTIVE HIGH
 #define PIN_VEXT_EN 46
 #define PIN_USER_BTN 21
-#define PIN_LED 3
-#define PIN_STATUS_LED 1
+//#define PIN_LED 3
+//#define PIN_STATUS_LED 1
 #define PIN_PWRBTN 14
 
 #define PIN_DISPLAY_MISO               (-1)
@@ -18,4 +18,4 @@
 #define PIN_DISPLAY_DC                 (40)
 #define PIN_DISPLAY_RST                (41)
 #define PIN_DISPLAY_BUSY               (42)
-#define DISP_BACKLIGHT          (5)
+//#define DISP_BACKLIGHT          (5)
