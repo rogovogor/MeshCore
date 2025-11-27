@@ -86,9 +86,5 @@ void HeltecV4Board::begin() {
   }
 
   const char* HeltecV4Board::getManufacturerName() const {
-  #ifdef HELTEC_LORA_V4_TFT
-    return "Heltec V4 TFT";
-  #else
-    return "Heltec V4 OLED";
-  #endif
+    return "Heltec V4";
   }
