@@ -152,6 +152,9 @@ protected:
     pending_login = pending_status = pending_telemetry = pending_discovery = pending_req = 0;
   }
 
+public:
+  void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
+
 private:
   void writeOKFrame();
   void writeErrFrame(uint8_t err_code);
@@ -171,11 +174,9 @@ private:
   void checkSerialInterface();
 
   // helpers, short-cuts
-  void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
   void saveChannels() { _store->saveChannels(this); }
   void saveContacts() { _store->saveContacts(this); }
 
-private:
   DataStore* _store;
   NodePrefs _prefs;
   uint32_t pending_login;
