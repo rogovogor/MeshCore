@@ -9,11 +9,7 @@
 #include <helpers/SensorManager.h>
 #include <helpers/sensors/EnvironmentSensorManager.h>
 #ifdef DISPLAY_CLASS
-#ifdef HELTEC_LORA_V4_OLED
-    #include <helpers/ui/SSD1306Display.h>
-#elif defined(HELTEC_LORA_V4_TFT)
-    #include <helpers/ui/ST7789LCDDisplay.h>
-#endif
+  #include <helpers/ui/SSD1306Display.h>
   #include <helpers/ui/MomentaryButton.h>
 #endif
 
