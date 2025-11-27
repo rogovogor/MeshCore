@@ -5,9 +5,17 @@
   #define DISPLAY_ROTATION 3
 #endif
 
+#ifdef ESP32
+  SPIClass SPI1 = SPIClass(FSPI);
+#endif
+
 bool GxEPDDisplay::begin() {
   display.epd2.selectSPI(SPI1, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+#ifdef ESP32
+  SPI1.begin(PIN_DISPLAY_SCLK, PIN_DISPLAY_MISO, PIN_DISPLAY_MOSI, PIN_DISPLAY_CS);
+#else
   SPI1.begin();
+#endif
   display.init(115200, true, 2, false);
   display.setRotation(DISPLAY_ROTATION);
   setTextSize(1);  // Default to size 1
