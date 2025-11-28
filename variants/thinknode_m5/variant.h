@@ -18,4 +18,5 @@
 #define PIN_DISPLAY_DC                 (40)
 #define PIN_DISPLAY_RST                (41)
 #define PIN_DISPLAY_BUSY               (42)
-//#define DISP_BACKLIGHT          (5)
+#define EXP_PIN_BACKLIGHT              (5)
+#define EXP_PIN_POWER                  (4)

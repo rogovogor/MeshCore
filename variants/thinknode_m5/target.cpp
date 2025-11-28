@@ -15,7 +15,6 @@ WRAPPER_CLASS radio_driver(radio, board);
 ESP32RTCClock fallback_clock;
 AutoDiscoverRTCClock rtc_clock(fallback_clock);
 SensorManager sensors;
-PCA9557 expander (0x18, &Wire1);
 
 #ifdef DISPLAY_CLASS
   DISPLAY_CLASS display;
@@ -27,11 +26,8 @@ bool radio_init() {
   rtc_clock.begin(Wire);
 //  pinMode(21, INPUT);
 //  pinMode(48, OUTPUT);
-  Wire1.begin(48, 47);
-  expander.pinMode(4, OUTPUT); // eink
-  expander.pinMode(5, OUTPUT); // peripherals
-  expander.digitalWrite(4, HIGH);
-  expander.digitalWrite(5, HIGH);
+  pinMode(P_LORA_EN, OUTPUT);
+  digitalWrite(P_LORA_EN, HIGH);
   #if defined(P_LORA_SCLK)
   spi.begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
   return radio.std_init(&spi);

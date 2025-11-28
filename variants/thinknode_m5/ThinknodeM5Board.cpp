@@ -1,14 +1,18 @@
 #include "ThinknodeM5Board.h"
 
+PCA9557 expander (0x18, &Wire1);
 
 void ThinknodeM5Board::begin() {
-    pinMode(PIN_VEXT_EN, OUTPUT); 
-    digitalWrite(PIN_VEXT_EN, !PIN_VEXT_EN_ACTIVE); // force power cycle
-    delay(20); // allow power rail to discharge
-    digitalWrite(PIN_VEXT_EN, PIN_VEXT_EN_ACTIVE); // turn backlight back on
-    delay(120); // give display time to bias on cold boot
+    // Start expander
+    Wire1.begin(48, 47);
+    expander.pinMode(EXP_PIN_POWER, OUTPUT); // eink
+    expander.pinMode(EXP_PIN_BACKLIGHT, OUTPUT); // peripherals
+    expander.pinMode(EXP_PIN_LED, OUTPUT); // peripherals
+    expander.digitalWrite(EXP_PIN_POWER, HIGH);
+    expander.digitalWrite(EXP_PIN_BACKLIGHT, LOW);
+    expander.digitalWrite(EXP_PIN_LED, LOW);
+
     ESP32Board::begin();
-  //  pinMode(PIN_STATUS_LED, OUTPUT); // init power led
   }
 
   void ThinknodeM5Board::enterDeepSleep(uint32_t secs, int pin_wake_btn) {
