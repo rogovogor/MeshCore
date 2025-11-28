@@ -8,6 +8,8 @@
 #include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
+#include <helpers/sensors/EnvironmentSensorManager.h>
+#include <helpers/sensors/LocationProvider.h>
 #ifdef DISPLAY_CLASS
   #include <helpers/ui/GxEPDDisplay.h>
   #include <helpers/ui/MomentaryButton.h>
@@ -16,7 +18,7 @@
 extern ThinknodeM5Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
-extern SensorManager sensors;
+extern EnvironmentSensorManager sensors;
 extern PCA9557 expander;
 
 #ifdef DISPLAY_CLASS

@@ -11,6 +11,11 @@ void ThinknodeM5Board::begin() {
     expander.digitalWrite(EXP_PIN_POWER, HIGH);
     expander.digitalWrite(EXP_PIN_BACKLIGHT, LOW);
     expander.digitalWrite(EXP_PIN_LED, LOW);
+
+#ifdef PIN_GPS_SWITCH
+    pinMode(PIN_GPS_SWITCH, INPUT);
+#endif
+
     ESP32Board::begin();
   }
 

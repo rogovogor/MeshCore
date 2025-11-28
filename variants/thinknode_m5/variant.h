@@ -20,3 +20,9 @@
 #define PIN_DISPLAY_BUSY               (42)
 #define EXP_PIN_BACKLIGHT              (5)
 #define EXP_PIN_POWER                  (4)
+
+#define PIN_GPS_EN                      (11)
+#define PIN_GPS_RESET                   (13)
+#define PIN_GPS_RX                      (20)
+#define PIN_GPS_TX                      (19)
+#define PIN_GPS_SWITCH                  (10)

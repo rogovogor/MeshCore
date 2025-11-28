@@ -12,8 +12,8 @@
 #define USB_PID 0x1001
 
 // Serial
-static const uint8_t TX = GPS_TX;
-static const uint8_t RX = GPS_RX;
+static const uint8_t TX = PIN_GPS_TX;
+static const uint8_t RX = PIN_GPS_RX;
 
 // Default SPI will be mapped to Radio
 static const uint8_t SS = P_LORA_NSS;
