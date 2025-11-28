@@ -1,6 +1,11 @@
 
 #include "GxEPDDisplay.h"
 
+#ifdef EXP_PIN_BACKLIGHT
+  #include <PCA9557.h>
+  extern PCA9557 expander;
+#endif
+
 #ifndef DISPLAY_ROTATION
   #define DISPLAY_ROTATION 3
 #endif
@@ -35,6 +40,8 @@ void GxEPDDisplay::turnOn() {
   if (!_init) begin();
 #if defined(DISP_BACKLIGHT) && !defined(BACKLIGHT_BTN)
   digitalWrite(DISP_BACKLIGHT, HIGH);
+#elif defined(EXP_PIN_BACKLIGHT) && !defined(BACKLIGHT_BTN)
+  expander.digitalWrite(EXP_PIN_BACKLIGHT, HIGH);
 #endif
   _isOn = true;
 }
@@ -42,6 +49,8 @@ void GxEPDDisplay::turnOn() {
 void GxEPDDisplay::turnOff() {
 #if defined(DISP_BACKLIGHT) && !defined(BACKLIGHT_BTN)
   digitalWrite(DISP_BACKLIGHT, LOW);
+#elif defined(EXP_PIN_BACKLIGHT) && !defined(BACKLIGHT_BTN)
+  expander.digitalWrite(EXP_PIN_BACKLIGHT, LOW);
 #endif
   _isOn = false;
 }

@@ -24,8 +24,6 @@ SensorManager sensors;
 bool radio_init() {
   fallback_clock.begin();
   rtc_clock.begin(Wire);
-//  pinMode(21, INPUT);
-//  pinMode(48, OUTPUT);
   pinMode(P_LORA_EN, OUTPUT);
   digitalWrite(P_LORA_EN, HIGH);
   #if defined(P_LORA_SCLK)

@@ -3,7 +3,7 @@
 PCA9557 expander (0x18, &Wire1);
 
 void ThinknodeM5Board::begin() {
-    // Start expander
+    // Start expander and configure pins
     Wire1.begin(48, 47);
     expander.pinMode(EXP_PIN_POWER, OUTPUT); // eink
     expander.pinMode(EXP_PIN_BACKLIGHT, OUTPUT); // peripherals
@@ -11,7 +11,6 @@ void ThinknodeM5Board::begin() {
     expander.digitalWrite(EXP_PIN_POWER, HIGH);
     expander.digitalWrite(EXP_PIN_BACKLIGHT, LOW);
     expander.digitalWrite(EXP_PIN_LED, LOW);
-
     ESP32Board::begin();
   }
 
