@@ -695,9 +695,9 @@ void EnvironmentSensorManager::loop() {
   static long next_gps_update = 0;
 
   #if ENV_INCLUDE_GPS
-  _location->loop();
-
   if (millis() > next_gps_update) {
+    _location->loop();
+
     if(gps_active){
     #ifdef RAK_WISBLOCK_GPS
     if ((i2cGPSFlag || serialGPSFlag) && _location->isValid()) {
@@ -717,7 +717,7 @@ void EnvironmentSensorManager::loop() {
     }
     #endif
     }
-    next_gps_update = millis() + gps_update_interval_sec;
+    next_gps_update = millis() + (gps_update_interval_sec * 1000);
   }
   #endif
 }
