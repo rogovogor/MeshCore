@@ -809,6 +809,9 @@ void MyMesh::begin(bool has_display) {
 
 #if ENV_INCLUDE_GPS == 1
   sensors.setSettingValue("gps", _prefs.gps_enabled ? "1" : "0");
+  char interval_str[12];  // Max: 24 hours = 86400 seconds (5 digits + null)
+  sprintf(interval_str, "%u", _prefs.gps_interval);
+  sensors.setSettingValue("gps_interval", interval_str);
 #endif
 }
 

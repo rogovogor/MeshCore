@@ -521,6 +521,15 @@ bool EnvironmentSensorManager::setSettingValue(const char* name, const char* val
     }
     return true;
   }
+  if (strcmp(name, "gps_interval") == 0) {
+    uint32_t interval_seconds = atoi(value);
+    if (interval_seconds > 0) {
+      gps_update_interval_ms = interval_seconds * 1000;
+    } else {
+      gps_update_interval_ms = 1000;  // Default to 1 second if 0
+    }
+    return true;
+  }
   #endif
   return false;  // not supported
 }
@@ -708,7 +717,7 @@ void EnvironmentSensorManager::loop() {
     }
     #endif
     }
-    next_gps_update = millis() + 1000;
+    next_gps_update = millis() + gps_update_interval_ms;
   }
   #endif
 }
