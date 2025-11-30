@@ -1525,6 +1525,17 @@ void MyMesh::handleCmdFrame(size_t len) {
       *np++ = 0; // modify 'cmd_frame', replace ':' with null
       bool success = sensors.setSettingValue(sp, np);
       if (success) {
+        #if ENV_INCLUDE_GPS == 1
+        // Update node preferences for GPS settings
+        if (strcmp(sp, "gps") == 0) {
+          _prefs.gps_enabled = (np[0] == '1') ? 1 : 0;
+          savePrefs();
+        } else if (strcmp(sp, "gps_interval") == 0) {
+          uint32_t interval_seconds = atoi(np);
+          _prefs.gps_interval = constrain(interval_seconds, 0, 86400);
+          savePrefs();
+        }
+        #endif
         writeOKFrame();
       } else {
         writeErrFrame(ERR_CODE_ILLEGAL_ARG);
