@@ -521,6 +521,15 @@ bool EnvironmentSensorManager::setSettingValue(const char* name, const char* val
     }
     return true;
   }
+  if (strcmp(name, "gps_interval") == 0) {
+    uint32_t interval_seconds = atoi(value);
+    if (interval_seconds > 0) {
+      gps_update_interval_sec = interval_seconds;
+    } else {
+      gps_update_interval_sec = 1;  // Default to 1 second if 0
+    }
+    return true;
+  }
   #endif
   return false;  // not supported
 }
@@ -686,9 +695,9 @@ void EnvironmentSensorManager::loop() {
   static long next_gps_update = 0;
 
   #if ENV_INCLUDE_GPS
-  _location->loop();
-
   if (millis() > next_gps_update) {
+    _location->loop();
+
     if(gps_active){
     #ifdef RAK_WISBLOCK_GPS
     if ((i2cGPSFlag || serialGPSFlag) && _location->isValid()) {
@@ -708,7 +717,7 @@ void EnvironmentSensorManager::loop() {
     }
     #endif
     }
-    next_gps_update = millis() + 1000;
+    next_gps_update = millis() + (gps_update_interval_sec * 1000);
   }
   #endif
 }

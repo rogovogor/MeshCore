@@ -537,6 +537,19 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
 #endif
 
   _node_prefs = node_prefs;
+
+#if ENV_INCLUDE_GPS == 1
+  // Apply GPS preferences from stored prefs
+  if (_sensors != NULL && _node_prefs != NULL) {
+    _sensors->setSettingValue("gps", _node_prefs->gps_enabled ? "1" : "0");
+    if (_node_prefs->gps_interval > 0) {
+      char interval_str[12];  // Max: 24 hours = 86400 seconds (5 digits + null)
+      sprintf(interval_str, "%u", _node_prefs->gps_interval);
+      _sensors->setSettingValue("gps_interval", interval_str);
+    }
+  }
+#endif
+
   if (_display != NULL) {
     _display->turnOn();
   }
@@ -863,13 +876,16 @@ void UITask::toggleGPS() {
       if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
         if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
           _sensors->setSettingValue("gps", "0");
+          _node_prefs->gps_enabled = 0;
           notify(UIEventType::ack);
           showAlert("GPS: Disabled", 800);
         } else {
           _sensors->setSettingValue("gps", "1");
+          _node_prefs->gps_enabled = 1;
           notify(UIEventType::ack);
           showAlert("GPS: Enabled", 800);
         }
+        the_mesh.savePrefs();
         _next_refresh = 0;
         break;
       }
