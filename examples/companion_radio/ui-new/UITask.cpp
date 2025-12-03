@@ -2,6 +2,9 @@
 #include <helpers/TxtDataHelpers.h>
 #include "../MyMesh.h"
 #include "target.h"
+#ifdef WIFI_SSID
+  #include <WiFi.h>
+#endif
 
 #ifndef AUTO_OFF_MILLIS
   #define AUTO_OFF_MILLIS     15000   // 15 seconds
@@ -129,7 +132,7 @@ class HomeScreen : public UIScreen {
   bool sensors_scroll = false;
   int sensors_scroll_offset = 0;
   int next_sensors_refresh = 0;
-
+  
   void refresh_sensors() {
     if (millis() > next_sensors_refresh) {
       sensors_lpp.reset();
@@ -192,10 +195,17 @@ public:
       sprintf(tmp, "MSG: %d", _task->getMsgCount());
       display.drawTextCentered(display.width() / 2, 20, tmp);
 
+      #ifdef WIFI_SSID
+        IPAddress ip = WiFi.localIP();
+        snprintf(tmp, sizeof(tmp), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+        display.setTextSize(1);
+        display.drawTextCentered(display.width() / 2, 54, tmp); 
+      #endif
       if (_task->hasConnection()) {
         display.setColor(DisplayDriver::GREEN);
         display.setTextSize(1);
         display.drawTextCentered(display.width() / 2, 43, "< Connected >");
+
       } else if (the_mesh.getBLEPin() != 0) { // BT pin
         display.setColor(DisplayDriver::RED);
         display.setTextSize(2);
