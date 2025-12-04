@@ -631,9 +631,13 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   setCurrScreen(msg_preview);
 
   if (_display != NULL) {
-    if (!_display->isOn()) _display->turnOn();
+    if (!_display->isOn() && !hasConnection()) {
+      _display->turnOn();
+    }
+    if (_display->isOn()) {
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
     _next_refresh = 100;  // trigger refresh
+    }
   }
 }
 
