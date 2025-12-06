@@ -1238,7 +1238,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     if (_store->saveMainIdentity(identity)) {
       self_id = identity;
       writeOKFrame();
-      // re-load contacts, to recalc shared secrets
+      // re-load contacts, to invalidate ecdh shared_secrets
       resetContacts();
       _store->loadContacts(this);
     } else {
