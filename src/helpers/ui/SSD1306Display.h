@@ -20,6 +20,9 @@ class SSD1306Display : public DisplayDriver {
   bool _isOn;
   uint8_t _color;
   RefCountedDigitalPin* _peripher_power;
+#ifdef OLED_RU
+  uint8_t _size;
+#endif
 
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:
