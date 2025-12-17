@@ -13,19 +13,11 @@
 #define PIN_VBAT_READ     (4)
 #define REAL_VBAT_MV_PER_LSB (VBAT_DIVIDER_COMP * VBAT_MV_PER_LSB)
 
-class TechoBoard : public NRF52Board {
-protected:
-  uint8_t startup_reason;
-
+class TechoBoard : public NRF52BoardOTA {
 public:
-
+  TechoBoard() : NRF52BoardOTA("TECHO_OTA") {}
   void begin();
   uint16_t getBattMilliVolts() override;
-  bool startOTAUpdate(const char* id, char reply[]) override;
-
-  uint8_t getStartupReason() const override {
-    return startup_reason;
-  }
 
   const char* getManufacturerName() const override {
     return "LilyGo T-Echo";
@@ -48,9 +40,5 @@ public:
     digitalWrite(PIN_PWR_EN, LOW);
     #endif
     sd_power_system_off();
-  }
-
-  void reboot() override {
-    NVIC_SystemReset();
   }
 };

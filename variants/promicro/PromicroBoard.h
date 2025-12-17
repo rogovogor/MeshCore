@@ -20,16 +20,14 @@
 #define  PIN_VBAT_READ 17
 #define  ADC_MULTIPLIER   (1.815f) // dependent on voltage divider resistors. TODO: more accurate battery tracking
 
-class PromicroBoard : public NRF52Board {
+class PromicroBoard : public NRF52BoardOTA {
 protected:
-  uint8_t startup_reason;
   uint8_t btn_prev_state;
   float adc_mult = ADC_MULTIPLIER;
 
 public:
+  PromicroBoard() : NRF52BoardOTA("ProMicro_OTA") {}
   void begin();
-
-  uint8_t getStartupReason() const override { return startup_reason; }
 
   #define BATTERY_SAMPLES 8
 
@@ -75,13 +73,7 @@ public:
       return 0;
   }
 
-  void reboot() override {
-    NVIC_SystemReset();
-  }
-  
   void powerOff() override {
     sd_power_system_off();
   }
-
-  bool startOTAUpdate(const char* id, char reply[]) override;
 };

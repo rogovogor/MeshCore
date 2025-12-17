@@ -6,13 +6,10 @@
 
 #ifdef XIAO_NRF52
 
-class IkokaStickNRFBoard : public NRF52Board {
-protected:
-  uint8_t startup_reason;
-
+class IkokaStickNRFBoard : public NRF52BoardOTA {
 public:
+  IkokaStickNRFBoard() : NRF52BoardOTA("XIAO_NRF52_OTA") {}
   void begin();
-  uint8_t getStartupReason() const override { return startup_reason; }
 
 #if defined(P_LORA_TX_LED)
   void onBeforeTransmit() override {
@@ -50,12 +47,6 @@ public:
   const char *getManufacturerName() const override {
     return MANUFACTURER_STRING;
   }
-
-  void reboot() override {
-    NVIC_SystemReset();
-  }
-
-  bool startOTAUpdate(const char *id, char reply[]) override;
 };
 
 #endif
