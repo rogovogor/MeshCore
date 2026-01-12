@@ -77,6 +77,20 @@ ContactInfo* BaseChatMesh::allocateContactSlot() {
   return NULL; // no space, no overwrite or all contacts are all favourites
 }
 
+void BaseChatMesh::populateContactFromAdvert(ContactInfo& ci, const mesh::Identity& id, const AdvertDataParser& parser, uint32_t timestamp) {
+  memset(&ci, 0, sizeof(ci));
+  ci.id = id;
+  ci.out_path_len = -1;  // initially out_path is unknown
+  StrHelper::strncpy(ci.name, parser.getName(), sizeof(ci.name));
+  ci.type = parser.getType();
+  if (parser.hasLatLon()) {
+    ci.gps_lat = parser.getIntLat();
+    ci.gps_lon = parser.getIntLon();
+  }
+  ci.last_advert_timestamp = timestamp;
+  ci.lastmod = getRTCClock()->getCurrentTime();
+}
+
 void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len) {
   AdvertDataParser parser(app_data, app_data_len);
   if (!(parser.isValid() && parser.hasName())) {
@@ -111,17 +125,7 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
   if (from == NULL) {
     if (!shouldAutoAddContactType(parser.getType())) {
       ContactInfo ci;
-      memset(&ci, 0, sizeof(ci));
-      ci.id = id;
-      ci.out_path_len = -1;  // initially out_path is unknown
-      StrHelper::strncpy(ci.name, parser.getName(), sizeof(ci.name));
-      ci.type = parser.getType();
-      if (parser.hasLatLon()) {
-        ci.gps_lat = parser.getIntLat();
-        ci.gps_lon = parser.getIntLon();
-      }
-      ci.last_advert_timestamp = timestamp;
-      ci.lastmod = getRTCClock()->getCurrentTime();
+      populateContactFromAdvert(ci, id, parser, timestamp);
       onDiscoveredContact(ci, true, packet->path_len, packet->path);       // let UI know
       return;
     }
@@ -130,40 +134,26 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
     from = allocateContactSlot();
     if (from == NULL) {
       ContactInfo ci;
-      memset(&ci, 0, sizeof(ci));
-      ci.id = id;
-      ci.out_path_len = -1;  // initially out_path is unknown
-      StrHelper::strncpy(ci.name, parser.getName(), sizeof(ci.name));
-      ci.type = parser.getType();
-      if (parser.hasLatLon()) {
-        ci.gps_lat = parser.getIntLat();
-        ci.gps_lon = parser.getIntLon();
-      }
-      ci.last_advert_timestamp = timestamp;
-      ci.lastmod = getRTCClock()->getCurrentTime();
-      onDiscoveredContact(ci, true, packet->path_len, packet->path);       // let UI know
+      populateContactFromAdvert(ci, id, parser, timestamp);
+      onDiscoveredContact(ci, true, packet->path_len, packet->path);
       onContactsFull();
       MESH_DEBUG_PRINTLN("onAdvertRecv: unable to allocate contact slot for new contact");
       return;
     }
     
-    from->id = id;
-    from->out_path_len = -1;  // initially out_path is unknown
-    from->gps_lat = 0;   // initially unknown GPS loc
-    from->gps_lon = 0;
+    populateContactFromAdvert(*from, id, parser, timestamp);
     from->sync_since = 0;
-    from->shared_secret_valid = false;  // ecdh shared_secret will be calculated later on demand 
-  } 
-
-  // update
-  StrHelper::strncpy(from->name, parser.getName(), sizeof(from->name));
-  from->type = parser.getType();
-  if (parser.hasLatLon()) {
-    from->gps_lat = parser.getIntLat();
-    from->gps_lon = parser.getIntLon();
+    from->shared_secret_valid = false;
   }
-  from->last_advert_timestamp = timestamp;
-  from->lastmod = getRTCClock()->getCurrentTime();
+  // update
+    StrHelper::strncpy(from->name, parser.getName(), sizeof(from->name));
+    from->type = parser.getType();
+    if (parser.hasLatLon()) {
+      from->gps_lat = parser.getIntLat();
+      from->gps_lon = parser.getIntLon();
+    }
+    from->last_advert_timestamp = timestamp;
+    from->lastmod = getRTCClock()->getCurrentTime();
 
   onDiscoveredContact(*from, is_new, packet->path_len, packet->path);       // let UI know
 }

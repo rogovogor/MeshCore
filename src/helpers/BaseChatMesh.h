@@ -89,6 +89,7 @@ protected:
   }
 
   void resetContacts() { num_contacts = 0; }
+  void populateContactFromAdvert(ContactInfo& ci, const mesh::Identity& id, const AdvertDataParser& parser, uint32_t timestamp);
   ContactInfo* allocateContactSlot(); // helper to find slot for new contact
 
   // 'UI' concepts, for sub-classes to implement
