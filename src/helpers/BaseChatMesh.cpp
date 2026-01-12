@@ -55,17 +55,29 @@ void BaseChatMesh::sendAckTo(const ContactInfo& dest, uint32_t ack_hash) {
   }
 }
 
+void BaseChatMesh::bootstrapRTCfromContacts() {
+  uint32_t latest = 0;
+  for (int i = 0; i < num_contacts; i++) {
+    if (contacts[i].lastmod > latest) {
+      latest = contacts[i].lastmod;
+    }
+  }
+  if (latest != 0) {
+    getRTCClock()->setCurrentTime(latest + 1);
+  }
+}
+
 ContactInfo* BaseChatMesh::allocateContactSlot() {
   if (num_contacts < MAX_CONTACTS) {
     return &contacts[num_contacts++];
   } else if (shouldOverwriteWhenFull()) {
-    // Find oldest non-favourite contact by last_advert_timestamp
+    // Find oldest non-favourite contact by oldest lastmod timestamp
     int oldest_idx = -1;
-    uint32_t oldest_timestamp = 0xFFFFFFFF;
+    uint32_t oldest_lastmod = 0xFFFFFFFF;
     for (int i = 0; i < num_contacts; i++) {
       bool is_favourite = (contacts[i].flags & 0x01) != 0;
-      if (!is_favourite && contacts[i].last_advert_timestamp < oldest_timestamp) {
-        oldest_timestamp = contacts[i].last_advert_timestamp;
+      if (!is_favourite && contacts[i].lastmod < oldest_lastmod) {
+        oldest_lastmod = contacts[i].lastmod;
         oldest_idx = i;
       }
     }
@@ -750,9 +762,6 @@ bool BaseChatMesh::addContact(const ContactInfo& contact) {
   ContactInfo* dest = allocateContactSlot();
   if (dest) {
     *dest = contact;
-    if (dest->last_advert_timestamp == 0) {  // ensure non-zero timestamp to prevent contacts added from discover list being considered 'oldest'
-      dest->last_advert_timestamp = getRTCClock()->getCurrentTimeUnique();
-    }
     dest->shared_secret_valid = false; // mark shared_secret as needing calculation
     return true;  // success
   }
