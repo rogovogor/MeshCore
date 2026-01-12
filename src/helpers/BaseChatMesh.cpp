@@ -55,6 +55,28 @@ void BaseChatMesh::sendAckTo(const ContactInfo& dest, uint32_t ack_hash) {
   }
 }
 
+ContactInfo* BaseChatMesh::allocateContactSlot() {
+  if (num_contacts < MAX_CONTACTS) {
+    return &contacts[num_contacts++];
+  } else if (shouldOverwriteWhenFull()) {
+    // Find oldest non-favourite contact by last_advert_timestamp
+    int oldest_idx = -1;
+    uint32_t oldest_timestamp = 0xFFFFFFFF;
+    for (int i = 0; i < num_contacts; i++) {
+      bool is_favourite = (contacts[i].flags & 0x01) != 0;
+      if (!is_favourite && contacts[i].last_advert_timestamp < oldest_timestamp) {
+        oldest_timestamp = contacts[i].last_advert_timestamp;
+        oldest_idx = i;
+      }
+    }
+    if (oldest_idx >= 0) {
+      onContactOverwrite(contacts[oldest_idx].id.pub_key);
+      return &contacts[oldest_idx];
+    }
+  }
+  return NULL; // no space, no overwrite or all contacts are all favourites
+}
+
 void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len) {
   AdvertDataParser parser(app_data, app_data_len);
   if (!(parser.isValid() && parser.hasName())) {
@@ -87,7 +109,7 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
 
   bool is_new = false;
   if (from == NULL) {
-    if (!isAutoAddEnabled()) {
+    if (!shouldAutoAddContactType(parser.getType())) {
       ContactInfo ci;
       memset(&ci, 0, sizeof(ci));
       ci.id = id;
@@ -105,20 +127,33 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
     }
 
     is_new = true;
-    if (num_contacts < MAX_CONTACTS) {
-      from = &contacts[num_contacts++];
-      from->id = id;
-      from->out_path_len = -1;  // initially out_path is unknown
-      from->gps_lat = 0;   // initially unknown GPS loc
-      from->gps_lon = 0;
-      from->sync_since = 0;
-
-      from->shared_secret_valid = false;  // ecdh shared_secret will be calculated later on demand  
-    } else {
-      MESH_DEBUG_PRINTLN("onAdvertRecv: contacts table is full!");
+    from = allocateContactSlot();
+    if (from == NULL) {
+      ContactInfo ci;
+      memset(&ci, 0, sizeof(ci));
+      ci.id = id;
+      ci.out_path_len = -1;  // initially out_path is unknown
+      StrHelper::strncpy(ci.name, parser.getName(), sizeof(ci.name));
+      ci.type = parser.getType();
+      if (parser.hasLatLon()) {
+        ci.gps_lat = parser.getIntLat();
+        ci.gps_lon = parser.getIntLon();
+      }
+      ci.last_advert_timestamp = timestamp;
+      ci.lastmod = getRTCClock()->getCurrentTime();
+      onDiscoveredContact(ci, true, packet->path_len, packet->path);       // let UI know
+      onContactsFull();
+      MESH_DEBUG_PRINTLN("onAdvertRecv: unable to allocate contact slot for new contact");
       return;
     }
-  }
+    
+    from->id = id;
+    from->out_path_len = -1;  // initially out_path is unknown
+    from->gps_lat = 0;   // initially unknown GPS loc
+    from->gps_lon = 0;
+    from->sync_since = 0;
+    from->shared_secret_valid = false;  // ecdh shared_secret will be calculated later on demand 
+  } 
 
   // update
   StrHelper::strncpy(from->name, parser.getName(), sizeof(from->name));
@@ -722,10 +757,12 @@ ContactInfo* BaseChatMesh::lookupContactByPubKey(const uint8_t* pub_key, int pre
 }
 
 bool BaseChatMesh::addContact(const ContactInfo& contact) {
-  if (num_contacts < MAX_CONTACTS) {
-    auto dest = &contacts[num_contacts++];
+  ContactInfo* dest = allocateContactSlot();
+  if (dest) {
     *dest = contact;
-
+    if (dest->last_advert_timestamp == 0) {  // ensure non-zero timestamp to prevent contacts added from discover list being considered 'oldest'
+      dest->last_advert_timestamp = getRTCClock()->getCurrentTimeUnique();
+    }
     dest->shared_secret_valid = false; // mark shared_secret as needing calculation
     return true;  // success
   }
