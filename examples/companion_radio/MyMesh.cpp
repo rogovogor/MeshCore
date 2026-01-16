@@ -358,7 +358,7 @@ void MyMesh::onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path
     memcpy(p->path, path, p->path_len);
   }
 
-  dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
+  if (!is_new) dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY); // only schedule lazy write for contacts that are in contacts[]
 }
 
 static int sort_by_recent(const void *a, const void *b) {
