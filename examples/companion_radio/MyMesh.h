@@ -8,11 +8,11 @@
 #define FIRMWARE_VER_CODE 8
 
 #ifndef FIRMWARE_BUILD_DATE
-#define FIRMWARE_BUILD_DATE "13 Nov 2025"
+#define FIRMWARE_BUILD_DATE "30 Nov 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "v1.10.0"
+#define FIRMWARE_VERSION "v1.11.0"
 #endif
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -114,6 +114,10 @@ protected:
 
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
   bool isAutoAddEnabled() const override;
+  bool shouldAutoAddContactType(uint8_t type) const override;
+  bool shouldOverwriteWhenFull() const override;
+  void onContactsFull() override;
+  void onContactOverwrite(const uint8_t* pub_key) override;
   bool onContactPathRecv(ContactInfo& from, uint8_t* in_path, uint8_t in_path_len, uint8_t* out_path, uint8_t out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) override;
   void onDiscoveredContact(ContactInfo &contact, bool is_new, uint8_t path_len, const uint8_t* path) override;
   void onContactPathUpdated(const ContactInfo &contact) override;
@@ -152,6 +156,9 @@ protected:
     pending_login = pending_status = pending_telemetry = pending_discovery = pending_req = 0;
   }
 
+public:
+  void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
+
 private:
   void writeOKFrame();
   void writeErrFrame(uint8_t err_code);
@@ -171,11 +178,9 @@ private:
   void checkSerialInterface();
 
   // helpers, short-cuts
-  void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
   void saveChannels() { _store->saveChannels(this); }
   void saveContacts() { _store->saveContacts(this); }
 
-private:
   DataStore* _store;
   NodePrefs _prefs;
   uint32_t pending_login;

@@ -68,11 +68,11 @@ struct NeighbourInfo {
 };
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE   "13 Nov 2025"
+  #define FIRMWARE_BUILD_DATE   "30 Nov 2025"
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.10.0"
+  #define FIRMWARE_VERSION   "v1.11.0"
 #endif
 
 #define FIRMWARE_ROLE "repeater"
@@ -88,12 +88,14 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   NodePrefs _prefs;
   CommonCLI _cli;
   uint8_t reply_data[MAX_PACKET_PAYLOAD];
+  uint8_t reply_path[MAX_PATH_SIZE];
+  int8_t  reply_path_len;
   ClientACL  acl;
   TransportKeyStore key_store;
   RegionMap region_map, temp_map;
   RegionEntry* load_stack[8];
   RegionEntry* recv_pkt_region;
-  RateLimiter discover_limiter;
+  RateLimiter discover_limiter, anon_limiter;
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
@@ -113,7 +115,10 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 #endif
 
   void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr);
-  uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data);
+  uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data, bool is_flood);
+  uint8_t handleAnonRegionsReq(const mesh::Identity& sender, uint32_t sender_timestamp, const uint8_t* data);
+  uint8_t handleAnonOwnerReq(const mesh::Identity& sender, uint32_t sender_timestamp, const uint8_t* data);
+  uint8_t handleAnonClockReq(const mesh::Identity& sender, uint32_t sender_timestamp, const uint8_t* data);
   int handleRequest(ClientInfo* sender, uint32_t sender_timestamp, uint8_t* payload, size_t payload_len);
   mesh::Packet* createSelfAdvert();
 
@@ -225,4 +230,7 @@ public:
     bridge.begin();
   }
 #endif
+
+  // To check if there is pending work
+  bool hasPendingWork() const;
 };
