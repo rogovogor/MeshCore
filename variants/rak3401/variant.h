@@ -34,7 +34,8 @@
 #include "WVariant.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif // __cplusplus
 
 // Number of pins defined in PinDescription array
@@ -58,8 +59,8 @@ extern "C" {
 /*
  * Analog pins
  */
-#define PIN_A0 (5)
-#define PIN_A1 (31)
+#define PIN_A0 (5)	//(3)
+#define PIN_A1 (31) //(4)
 #define PIN_A2 (28)
 #define PIN_A3 (29)
 #define PIN_A4 (30)
@@ -67,14 +68,14 @@ extern "C" {
 #define PIN_A6 (0xff)
 #define PIN_A7 (0xff)
 
-static const uint8_t A0 = PIN_A0;
-static const uint8_t A1 = PIN_A1;
-static const uint8_t A2 = PIN_A2;
-static const uint8_t A3 = PIN_A3;
-static const uint8_t A4 = PIN_A4;
-static const uint8_t A5 = PIN_A5;
-static const uint8_t A6 = PIN_A6;
-static const uint8_t A7 = PIN_A7;
+	static const uint8_t A0 = PIN_A0;
+	static const uint8_t A1 = PIN_A1;
+	static const uint8_t A2 = PIN_A2;
+	static const uint8_t A3 = PIN_A3;
+	static const uint8_t A4 = PIN_A4;
+	static const uint8_t A5 = PIN_A5;
+	static const uint8_t A6 = PIN_A6;
+	static const uint8_t A7 = PIN_A7;
 #define ADC_RESOLUTION 14
 
 // Other pins
@@ -92,6 +93,7 @@ static const uint8_t AREF = PIN_AREF;
 /*
  * Serial interfaces
  */
+// TXD1 RXD1 on Base Board
 #define PIN_SERIAL1_RX (15)
 #define PIN_SERIAL1_TX (16)
 
@@ -108,15 +110,14 @@ static const uint8_t AREF = PIN_AREF;
 #define PIN_SPI_MOSI (44)
 #define PIN_SPI_SCK (43)
 
-// SPI1 pins for RAK13302 1W LoRa module
-#define PIN_SPI1_MISO (29) // (0 + 29)
-#define PIN_SPI1_MOSI (30) // (0 + 30)
-#define PIN_SPI1_SCK (3)   // (0 + 3)
+#define PIN_SPI1_MISO (29)
+#define PIN_SPI1_MOSI (30)
+#define PIN_SPI1_SCK (3)
 
-static const uint8_t SS = 42;
-static const uint8_t MOSI = PIN_SPI_MOSI;
-static const uint8_t MISO = PIN_SPI_MISO;
-static const uint8_t SCK = PIN_SPI_SCK;
+	static const uint8_t SS = 42;
+	static const uint8_t MOSI = PIN_SPI_MOSI;
+	static const uint8_t MISO = PIN_SPI_MISO;
+	static const uint8_t SCK = PIN_SPI_SCK;
 
 /*
  * Wire Interfaces
@@ -127,6 +128,7 @@ static const uint8_t SCK = PIN_SPI_SCK;
 #define PIN_WIRE_SCL (WB_I2C1_SCL)
 
 // QSPI Pins
+// QSPI occupied by GPIO's
 #define PIN_QSPI_SCK 3
 #define PIN_QSPI_CS 26
 #define PIN_QSPI_IO0 30
@@ -135,35 +137,25 @@ static const uint8_t SCK = PIN_SPI_SCK;
 #define PIN_QSPI_IO3 2
 
 // On-board QSPI Flash
+// No onboard flash
 #define EXTERNAL_FLASH_DEVICES IS25LP080D
 #define EXTERNAL_FLASH_USE_QSPI
 
-// RAK13302 1W LoRa transceiver module (uses SPI1)
-// LoRa radio module pins for RAK3401 with RAK13302
-#define  P_LORA_DIO_1   10
-#define  P_LORA_NSS     26
-#define  P_LORA_RESET   4
-#define  P_LORA_BUSY    9
-#define  P_LORA_SCLK    PIN_SPI1_SCK  // 3
-#define  P_LORA_MISO    PIN_SPI1_MISO  // 29
-#define  P_LORA_MOSI    PIN_SPI1_MOSI  // 30
-#define  SX126X_POWER_EN  21
+#define P_LORA_SCK PIN_SPI1_SCK
+#define P_LORA_MISO PIN_SPI1_MISO
+#define P_LORA_MOSI PIN_SPI1_MOSI
+#define P_LORA_CS 26
 
-// RAK13302 1W LoRa transceiver module PA control (WisBlock IO slot)
-// The RAK13302 mounts to the IO slot and has an ANT_SW (antenna switch) pin that controls the PA
-// This pin must be controlled during transmission to enable the 1W power amplifier
-//
-// According to RAK13302 datasheet: ANT_SW connects to IO3 on the IO slot
-// RAK19007 base board pin mapping: IO3 = pin 31 (also available as AIN1/A1 for analog input)
-//
-// Default: Pin 31 (IO3) - ANT_SW pin from RAK13302 datasheet
-// Override by defining P_LORA_PA_EN in platformio.ini if needed
-#ifndef P_LORA_PA_EN
-  #define P_LORA_PA_EN  31  // ANT_SW pin from RAK13302 datasheet (IO3, pin 31 on RAK19007)
-#endif
+#define USE_SX1262
+#define SX126X_CS (26)
+#define SX126X_DIO1 (10)
+#define SX126X_BUSY (9)
+#define SX126X_RESET (4)
 
-#define SX126X_DIO2_AS_RF_SWITCH  true
-#define SX126X_DIO3_TCXO_VOLTAGE   1.8
+#define SX126X_POWER_EN (21)
+// DIO2 controlls an antenna switch and the TCXO voltage is controlled by DIO3
+#define SX126X_DIO2_AS_RF_SWITCH
+#define SX126X_DIO3_TCXO_VOLTAGE 1.8
 
 // enables 3.3V periphery like GPS or IO Module
 // Do not toggle this for GPS power savings
@@ -178,8 +170,8 @@ static const uint8_t SCK = PIN_SPI_SCK;
 // Power is on the controllable 3V3_S rail
 #define PIN_GPS_PPS (17) // Pulse per second input from the GPS
 
-#define GPS_RX_PIN PIN_SERIAL1_RX
-#define GPS_TX_PIN PIN_SERIAL1_TX
+#define PIN_GPS_RX PIN_SERIAL1_RX
+#define PIN_GPS_TX PIN_SERIAL1_TX
 
 // Battery
 // The battery sense is hooked to pin A0 (5)

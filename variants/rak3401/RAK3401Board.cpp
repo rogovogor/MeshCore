@@ -20,13 +20,8 @@ void RAK3401Board::begin() {
 
   Wire.begin();
 
-  // Enable 3.3V periphery power rail (GPS, IO Module, etc.)
   pinMode(PIN_3V3_EN, OUTPUT);
   digitalWrite(PIN_3V3_EN, HIGH);
-
-  pinMode(SX126X_POWER_EN, OUTPUT);
-  digitalWrite(SX126X_POWER_EN, HIGH);
-  delay(10);   // give sx1262 some time to power up
 
 #ifdef P_LORA_PA_EN
   // Initialize RAK13302 1W LoRa transceiver module PA control pin
