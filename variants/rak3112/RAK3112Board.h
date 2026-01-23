@@ -13,6 +13,8 @@
 #endif
 #define  PIN_ADC_CTRL_ACTIVE    LOW
 #define  PIN_ADC_CTRL_INACTIVE  HIGH
+#define  ADC_MULTIPLIER   (3 * 1.73 * 1.187 * 1000)
+#define  BATTERY_SAMPLES 8
 
 #include <driver/rtc_io.h>
 
@@ -77,18 +79,15 @@ public:
   }
 
   uint16_t getBattMilliVolts() override {
-    analogReadResolution(10);
-    digitalWrite(PIN_ADC_CTRL, adc_active_state);
+    analogReadResolution(12);
 
     uint32_t raw = 0;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < BATTERY_SAMPLES; i++) {
       raw += analogRead(PIN_VBAT_READ);
     }
-    raw = raw / 8;
+    raw = raw / BATTERY_SAMPLES;
 
-    digitalWrite(PIN_ADC_CTRL, !adc_active_state);
-
-    return (5.42 * (3.3 / 1024.0) * raw) * 1000;
+    return (ADC_MULTIPLIER * raw) / 4096;
   }
 
   const char* getManufacturerName() const override {
