@@ -364,6 +364,33 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         } else {
           sprintf(reply, "> %.3f", adc_mult);
         }
+      // Power management commands
+      } else if (memcmp(config, "pwrmgt.support", 14) == 0) {
+#ifdef NRF52_POWER_MANAGEMENT
+        strcpy(reply, "> supported");
+#else
+        strcpy(reply, "> unsupported");
+#endif
+      } else if (memcmp(config, "pwrmgt.source", 13) == 0) {
+#ifdef NRF52_POWER_MANAGEMENT
+        strcpy(reply, _board->isExternalPowered() ? "> external" : "> battery");
+#else
+        strcpy(reply, "ERROR: Power management not supported");
+#endif
+      } else if (memcmp(config, "pwrmgt.bootreason", 17) == 0) {
+#ifdef NRF52_POWER_MANAGEMENT
+        sprintf(reply, "> Reset: %s; Shutdown: %s",
+          _board->getResetReasonString(_board->getResetReason()),
+          _board->getShutdownReasonString(_board->getShutdownReason()));
+#else
+        strcpy(reply, "ERROR: Power management not supported");
+#endif
+      } else if (memcmp(config, "pwrmgt.bootmv", 13) == 0) {
+#ifdef NRF52_POWER_MANAGEMENT
+        sprintf(reply, "> %u mV", _board->getBootVoltage());
+#else
+        strcpy(reply, "ERROR: Power management not supported");
+#endif
       } else {
         sprintf(reply, "??: %s", config);
       }
