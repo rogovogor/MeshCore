@@ -765,7 +765,6 @@ bool SensorMesh::formatFileSystem() {
 }
 
 void SensorMesh::saveIdentity(const mesh::LocalIdentity& new_id) {
-  self_id = new_id;
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   IdentityStore store(*_fs, "");
 #elif defined(ESP32)
@@ -775,7 +774,7 @@ void SensorMesh::saveIdentity(const mesh::LocalIdentity& new_id) {
 #else
   #error "need to define saveIdentity()"
 #endif
-  store.save("_main", self_id);
+  store.save("_main", new_id);
 }
 
 void SensorMesh::applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) {
