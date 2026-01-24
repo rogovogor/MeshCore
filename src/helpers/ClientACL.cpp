@@ -12,6 +12,7 @@ static File openWrite(FILESYSTEM* _fs, const char* filename) {
 }
 
 void ClientACL::load(FILESYSTEM* _fs) {
+  _fs = fs;
   num_clients = 0;
   if (_fs->exists("/s_contacts")) {
   #if defined(RP2040_PLATFORM)
@@ -50,7 +51,8 @@ void ClientACL::load(FILESYSTEM* _fs) {
   }
 }
 
-void ClientACL::save(FILESYSTEM* _fs, bool (*filter)(ClientInfo*)) {
+void ClientACL::save(FILESYSTEM* fs, bool (*filter)(ClientInfo*)) {
+  _fs = fs;
   File file = openWrite(_fs, "/s_contacts");
   if (file) {
     uint8_t unused[2];
@@ -72,6 +74,16 @@ void ClientACL::save(FILESYSTEM* _fs, bool (*filter)(ClientInfo*)) {
     }
     file.close();
   }
+}
+
+bool ClientACL::clear() {
+  if (!_fs) return false; // no filesystem, nothing to clear
+  if (_fs->exists("/s_contacts")) {
+    _fs->remove("/s_contacts");
+  }
+  memset(clients, 0, sizeof(clients));
+  num_clients = 0;
+  return true;
 }
 
 ClientInfo* ClientACL::getClient(const uint8_t* pubkey, int key_len) {

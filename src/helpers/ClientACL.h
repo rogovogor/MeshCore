@@ -36,6 +36,7 @@ struct ClientInfo {
 #endif
 
 class ClientACL {
+  FILESYSTEM* _fs;
   ClientInfo clients[MAX_CLIENTS];
   int num_clients;
 
@@ -46,6 +47,7 @@ public:
   }
   void load(FILESYSTEM* _fs);
   void save(FILESYSTEM* _fs, bool (*filter)(ClientInfo*)=NULL);
+  bool clear();
 
   ClientInfo* getClient(const uint8_t* pubkey, int key_len);
   ClientInfo* putClient(const mesh::Identity& id, uint8_t init_perms);

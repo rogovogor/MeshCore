@@ -587,7 +587,7 @@ void MyMesh::onAckRecv(mesh::Packet *packet, uint32_t ack_crc) {
 MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondClock &ms, mesh::RNG &rng,
                mesh::RTCClock &rtc, mesh::MeshTables &tables)
     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, rtc, sensors, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4) {
+      _cli(board, rtc, sensors, acl, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4) {
   last_millis = 0;
   uptime_millis = 0;
   next_local_advert = next_flood_advert = 0;
