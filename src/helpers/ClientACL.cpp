@@ -11,7 +11,7 @@ static File openWrite(FILESYSTEM* _fs, const char* filename) {
   #endif
 }
 
-void ClientACL::load(FILESYSTEM* _fs) {
+void ClientACL::load(FILESYSTEM* fs, const mesh::LocalIdentity& self_id) {
   _fs = fs;
   num_clients = 0;
   if (_fs->exists("/s_contacts")) {
@@ -35,11 +35,12 @@ void ClientACL::load(FILESYSTEM* _fs) {
         success = success && (file.read(unused, 2) == 2);
         success = success && (file.read((uint8_t *)&c.out_path_len, 1) == 1);
         success = success && (file.read(c.out_path, 64) == 64);
-        success = success && (file.read(c.shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE);
+        success = success && (file.read(c.shared_secret, PUB_KEY_SIZE) == PUB_KEY_SIZE); // will be recalculated below
 
         if (!success) break; // EOF
 
         c.id = mesh::Identity(pub_key);
+        self_id.calcSharedSecret(c.shared_secret, pub_key);  // recalculate shared secrets in case our private key changed
         if (num_clients < MAX_CLIENTS) {
           clients[num_clients++] = c;
         } else {

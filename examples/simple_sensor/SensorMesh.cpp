@@ -736,7 +736,7 @@ void SensorMesh::begin(FILESYSTEM* fs) {
   // load persisted prefs
   _cli.loadPrefs(_fs);
 
-  acl.load(_fs);
+  acl.load(_fs, self_id);
 
   radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
   radio_set_tx_power(_prefs.tx_power_dbm);

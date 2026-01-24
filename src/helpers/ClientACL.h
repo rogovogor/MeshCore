@@ -45,7 +45,7 @@ public:
     memset(clients, 0, sizeof(clients));
     num_clients = 0;
   }
-  void load(FILESYSTEM* _fs);
+  void load(FILESYSTEM* _fs, const mesh::LocalIdentity& self_id);
   void save(FILESYSTEM* _fs, bool (*filter)(ClientInfo*)=NULL);
   bool clear();
 
