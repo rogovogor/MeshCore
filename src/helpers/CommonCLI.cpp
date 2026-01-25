@@ -443,17 +443,18 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         StrHelper::strncpy(_prefs->guest_password, &config[15], sizeof(_prefs->guest_password));
         savePrefs();
         strcpy(reply, "OK");
-      } else if (sender_timestamp == 0 &&
-                 memcmp(config, "prv.key ", 8) == 0) { // from serial command line only
+      } else if (memcmp(config, "prv.key ", 8) == 0) {
         uint8_t prv_key[PRV_KEY_SIZE];
         bool success = mesh::Utils::fromHex(prv_key, PRV_KEY_SIZE, &config[8]);
-        if (success) {
+        // only allow rekey if key is valid
+        if (success && mesh::LocalIdentity::validatePrivateKey(prv_key)) {
           mesh::LocalIdentity new_id;
           new_id.readFrom(prv_key, PRV_KEY_SIZE);
           _callbacks->saveIdentity(new_id);
-          strcpy(reply, "OK");
+          strcpy(reply, "OK, reboot to apply! New pubkey: ");
+          mesh::Utils::toHex(&reply[33], new_id.pub_key, PUB_KEY_SIZE);
         } else {
-          strcpy(reply, "Error, invalid key");
+          strcpy(reply, "Error, bad key");
         }
       } else if (memcmp(config, "name ", 5) == 0) {
         if (isValidName(&config[5])) {

@@ -1294,16 +1294,20 @@ void MyMesh::handleCmdFrame(size_t len) {
 #endif
   } else if (cmd_frame[0] == CMD_IMPORT_PRIVATE_KEY && len >= 65) {
 #if ENABLE_PRIVATE_KEY_IMPORT
-    mesh::LocalIdentity identity;
-    identity.readFrom(&cmd_frame[1], 64);
-    if (_store->saveMainIdentity(identity)) {
-      self_id = identity;
-      writeOKFrame();
-      // re-load contacts, to invalidate ecdh shared_secrets
-      resetContacts();
-      _store->loadContacts(this);
+    if (!mesh::LocalIdentity::validatePrivateKey(&cmd_frame[1])) {
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG); // invalid key
     } else {
-      writeErrFrame(ERR_CODE_FILE_IO_ERROR);
+        mesh::LocalIdentity identity;
+        identity.readFrom(&cmd_frame[1], 64);
+        if (_store->saveMainIdentity(identity)) {
+          self_id = identity;
+          writeOKFrame();
+          // re-load contacts, to invalidate ecdh shared_secrets
+          resetContacts();
+          _store->loadContacts(this);
+        } else {
+          writeErrFrame(ERR_CODE_FILE_IO_ERROR);
+        }
     }
 #else
     writeDisabledFrame();
