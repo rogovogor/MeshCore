@@ -6,38 +6,26 @@
 
 #define ADC_FACTOR ((1000.0*ADC_MULTIPLIER*AREF_VOLTAGE)/ADC_MAX)
 
-class ThinknodeM3Board : public Nrf52BoardDCDC {
+class ThinkNodeM3Board : public NRF52BoardDCDC {
 protected:
+#if NRF52_POWER_MANAGEMENT
+  void initiateShutdown(uint8_t reason) override;
+#endif
   uint8_t btn_prev_state;
 
 public:
+  ThinkNodeM3Board() : NRF52Board("THINKNODE_M3_OTA") {}
   void begin();
-
-  uint16_t getBattMilliVolts() override {
-    int adcvalue = 0;
-
-    analogReference(AR_INTERNAL_2_4);
-    analogReadResolution(ADC_RESOLUTION);
-    delay(10);
-
-    // ADC range is 0..2400mV and resolution is 12-bit (0..4095)
-    adcvalue = analogRead(PIN_VBAT_READ);
-    // Convert the raw value to compensated mv, taking the resistor-
-    // divider into account (providing the actual LIPO voltage)
-    return (uint16_t)((float)adcvalue * ADC_FACTOR);
-  }
+  uint16_t getBattMilliVolts() override;
 
 #if defined(P_LORA_TX_LED)
-#if !defined(P_LORA_TX_LED_ON)
-#define P_LORA_TX_LED_ON HIGH
-#endif
   void onBeforeTransmit() override {
-    digitalWrite(P_LORA_TX_LED, P_LORA_TX_LED_ON);   // turn TX LED on
+    digitalWrite(P_LORA_TX_LED, HIGH);   // turn TX LED on
   }
   void onAfterTransmit() override {
-    digitalWrite(P_LORA_TX_LED, !P_LORA_TX_LED_ON);   // turn TX LED off
+    digitalWrite(P_LORA_TX_LED, LOW);   // turn TX LED off
   }
-  #endif
+#endif
 
   const char* getManufacturerName() const override {
     return "Elecrow ThinkNode M3";
@@ -54,5 +42,13 @@ public:
     return 0;
   }
 
-  void powerOff() override { sd_power_system_off(); }
+  void powerOff() override {
+    // turn off all leds, sd_power_system_off will not do this for us
+    #ifdef P_LORA_TX_LED
+    digitalWrite(P_LORA_TX_LED, LOW);
+    #endif
+
+    // power off board
+    sd_power_system_off();
+  }
 };
