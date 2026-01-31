@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <Identity.h>
 #include <Utils.h>
+#include <Mesh.h>
+#include <helpers/SensorManager.h>
 
 #define KISS_FEND  0xC0
 #define KISS_FESC  0xDB
@@ -69,18 +71,13 @@
 #define ERR_ENCRYPT_FAILED    0x06
 #define ERR_TX_PENDING        0x07
 
-#define KISS_FIRMWARE_VERSION 2
+#define KISS_FIRMWARE_VERSION 1
 
 typedef void (*SetRadioCallback)(float freq, float bw, uint8_t sf, uint8_t cr);
 typedef void (*SetTxPowerCallback)(uint8_t power);
 typedef void (*SetSyncWordCallback)(uint8_t syncWord);
 typedef float (*GetCurrentRssiCallback)();
-typedef bool (*IsChannelBusyCallback)();
-typedef uint32_t (*GetAirtimeCallback)(uint8_t len);
-typedef int16_t (*GetNoiseFloorCallback)();
 typedef void (*GetStatsCallback)(uint32_t* rx, uint32_t* tx, uint32_t* errors);
-typedef uint16_t (*GetBatteryCallback)();
-typedef uint8_t (*GetSensorsCallback)(uint8_t permissions, uint8_t* buffer, uint8_t max_len);
 
 struct RadioConfig {
   uint32_t freq_hz;
@@ -95,6 +92,9 @@ class KissModem {
   Stream& _serial;
   mesh::LocalIdentity& _identity;
   mesh::RNG& _rng;
+  mesh::Radio& _radio;
+  mesh::MainBoard& _board;
+  SensorManager& _sensors;
   
   uint8_t _rx_buf[KISS_MAX_FRAME_SIZE];
   uint16_t _rx_len;
@@ -109,12 +109,7 @@ class KissModem {
   SetTxPowerCallback _setTxPowerCallback;
   SetSyncWordCallback _setSyncWordCallback;
   GetCurrentRssiCallback _getCurrentRssiCallback;
-  IsChannelBusyCallback _isChannelBusyCallback;
-  GetAirtimeCallback _getAirtimeCallback;
-  GetNoiseFloorCallback _getNoiseFloorCallback;
   GetStatsCallback _getStatsCallback;
-  GetBatteryCallback _getBatteryCallback;
-  GetSensorsCallback _getSensorsCallback;
   
   RadioConfig _config;
 
@@ -148,7 +143,8 @@ class KissModem {
   void handleGetSensors(const uint8_t* data, uint16_t len);
 
 public:
-  KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng);
+  KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng,
+            mesh::Radio& radio, mesh::MainBoard& board, SensorManager& sensors);
   
   void begin();
   void loop();
@@ -157,12 +153,7 @@ public:
   void setTxPowerCallback(SetTxPowerCallback cb) { _setTxPowerCallback = cb; }
   void setSyncWordCallback(SetSyncWordCallback cb) { _setSyncWordCallback = cb; }
   void setGetCurrentRssiCallback(GetCurrentRssiCallback cb) { _getCurrentRssiCallback = cb; }
-  void setIsChannelBusyCallback(IsChannelBusyCallback cb) { _isChannelBusyCallback = cb; }
-  void setGetAirtimeCallback(GetAirtimeCallback cb) { _getAirtimeCallback = cb; }
-  void setGetNoiseFloorCallback(GetNoiseFloorCallback cb) { _getNoiseFloorCallback = cb; }
   void setGetStatsCallback(GetStatsCallback cb) { _getStatsCallback = cb; }
-  void setGetBatteryCallback(GetBatteryCallback cb) { _getBatteryCallback = cb; }
-  void setGetSensorsCallback(GetSensorsCallback cb) { _getSensorsCallback = cb; }
   
   bool getPacketToSend(uint8_t* packet, uint16_t* len);
   void onPacketReceived(int8_t snr, int8_t rssi, const uint8_t* packet, uint16_t len);

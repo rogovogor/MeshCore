@@ -1,7 +1,9 @@
 #include "KissModem.h"
+#include <CayenneLPP.h>
 
-KissModem::KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng)
-  : _serial(serial), _identity(identity), _rng(rng) {
+KissModem::KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng,
+                     mesh::Radio& radio, mesh::MainBoard& board, SensorManager& sensors)
+  : _serial(serial), _identity(identity), _rng(rng), _radio(radio), _board(board), _sensors(sensors) {
   _rx_len = 0;
   _rx_escaped = false;
   _rx_active = false;
@@ -11,12 +13,7 @@ KissModem::KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& r
   _setTxPowerCallback = nullptr;
   _setSyncWordCallback = nullptr;
   _getCurrentRssiCallback = nullptr;
-  _isChannelBusyCallback = nullptr;
-  _getAirtimeCallback = nullptr;
-  _getNoiseFloorCallback = nullptr;
   _getStatsCallback = nullptr;
-  _getBatteryCallback = nullptr;
-  _getSensorsCallback = nullptr;
   _config = {0, 0, 0, 0, 0, 0x12};
 }
 
@@ -406,12 +403,7 @@ void KissModem::handleGetCurrentRssi() {
 }
 
 void KissModem::handleIsChannelBusy() {
-  if (!_isChannelBusyCallback) {
-    writeErrorFrame(ERR_NO_CALLBACK);
-    return;
-  }
-  
-  uint8_t busy = _isChannelBusyCallback() ? 0x01 : 0x00;
+  uint8_t busy = _radio.isReceiving() ? 0x01 : 0x00;
   writeFrame(RESP_CHANNEL_BUSY, &busy, 1);
 }
 
@@ -420,23 +412,14 @@ void KissModem::handleGetAirtime(const uint8_t* data, uint16_t len) {
     writeErrorFrame(ERR_INVALID_LENGTH);
     return;
   }
-  if (!_getAirtimeCallback) {
-    writeErrorFrame(ERR_NO_CALLBACK);
-    return;
-  }
   
   uint8_t packet_len = data[0];
-  uint32_t airtime = _getAirtimeCallback(packet_len);
+  uint32_t airtime = _radio.getEstAirtimeFor(packet_len);
   writeFrame(RESP_AIRTIME, (uint8_t*)&airtime, 4);
 }
 
 void KissModem::handleGetNoiseFloor() {
-  if (!_getNoiseFloorCallback) {
-    writeErrorFrame(ERR_NO_CALLBACK);
-    return;
-  }
-  
-  int16_t noise_floor = _getNoiseFloorCallback();
+  int16_t noise_floor = _radio.getNoiseFloor();
   writeFrame(RESP_NOISE_FLOOR, (uint8_t*)&noise_floor, 2);
 }
 
@@ -456,12 +439,7 @@ void KissModem::handleGetStats() {
 }
 
 void KissModem::handleGetBattery() {
-  if (!_getBatteryCallback) {
-    writeErrorFrame(ERR_NO_CALLBACK);
-    return;
-  }
-  
-  uint16_t mv = _getBatteryCallback();
+  uint16_t mv = _board.getBattMilliVolts();
   writeFrame(RESP_BATTERY, (uint8_t*)&mv, 2);
 }
 
@@ -474,16 +452,11 @@ void KissModem::handleGetSensors(const uint8_t* data, uint16_t len) {
     writeErrorFrame(ERR_INVALID_LENGTH);
     return;
   }
-  if (!_getSensorsCallback) {
-    writeErrorFrame(ERR_NO_CALLBACK);
-    return;
-  }
   
   uint8_t permissions = data[0];
-  uint8_t buf[255];
-  uint8_t result_len = _getSensorsCallback(permissions, buf, 255);
-  if (result_len > 0) {
-    writeFrame(RESP_SENSORS, buf, result_len);
+  CayenneLPP telemetry(255);
+  if (_sensors.querySensors(permissions, telemetry)) {
+    writeFrame(RESP_SENSORS, telemetry.getBuffer(), telemetry.getSize());
   } else {
     writeFrame(RESP_SENSORS, nullptr, 0);
   }
