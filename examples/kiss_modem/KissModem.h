@@ -28,22 +28,38 @@
 #define CMD_GET_TX_POWER      0x0D
 #define CMD_GET_SYNC_WORD     0x0E
 #define CMD_GET_VERSION       0x0F
+#define CMD_GET_CURRENT_RSSI  0x10
+#define CMD_IS_CHANNEL_BUSY   0x11
+#define CMD_GET_AIRTIME       0x12
+#define CMD_GET_NOISE_FLOOR   0x13
+#define CMD_GET_STATS         0x14
+#define CMD_GET_BATTERY       0x15
+#define CMD_PING              0x16
+#define CMD_GET_SENSORS       0x17
 
-#define RESP_IDENTITY         0x11
-#define RESP_RANDOM           0x12
-#define RESP_VERIFY           0x13
-#define RESP_SIGNATURE        0x14
-#define RESP_ENCRYPTED        0x15
-#define RESP_DECRYPTED        0x16
-#define RESP_SHARED_SECRET    0x17
-#define RESP_HASH             0x18
-#define RESP_OK               0x19
-#define RESP_RADIO            0x1A
-#define RESP_TX_POWER         0x1B
-#define RESP_SYNC_WORD        0x1C
-#define RESP_VERSION          0x1D
-#define RESP_ERROR            0x1E
-#define RESP_TX_DONE          0x1F
+#define RESP_IDENTITY         0x21
+#define RESP_RANDOM           0x22
+#define RESP_VERIFY           0x23
+#define RESP_SIGNATURE        0x24
+#define RESP_ENCRYPTED        0x25
+#define RESP_DECRYPTED        0x26
+#define RESP_SHARED_SECRET    0x27
+#define RESP_HASH             0x28
+#define RESP_OK               0x29
+#define RESP_RADIO            0x2A
+#define RESP_TX_POWER         0x2B
+#define RESP_SYNC_WORD        0x2C
+#define RESP_VERSION          0x2D
+#define RESP_ERROR            0x2E
+#define RESP_TX_DONE          0x2F
+#define RESP_CURRENT_RSSI     0x30
+#define RESP_CHANNEL_BUSY     0x31
+#define RESP_AIRTIME          0x32
+#define RESP_NOISE_FLOOR      0x33
+#define RESP_STATS            0x34
+#define RESP_BATTERY          0x35
+#define RESP_PONG             0x36
+#define RESP_SENSORS          0x37
 
 #define ERR_INVALID_LENGTH    0x01
 #define ERR_INVALID_PARAM     0x02
@@ -51,12 +67,20 @@
 #define ERR_MAC_FAILED        0x04
 #define ERR_UNKNOWN_CMD       0x05
 #define ERR_ENCRYPT_FAILED    0x06
+#define ERR_TX_PENDING        0x07
 
-#define KISS_FIRMWARE_VERSION 1
+#define KISS_FIRMWARE_VERSION 2
 
 typedef void (*SetRadioCallback)(float freq, float bw, uint8_t sf, uint8_t cr);
 typedef void (*SetTxPowerCallback)(uint8_t power);
 typedef void (*SetSyncWordCallback)(uint8_t syncWord);
+typedef float (*GetCurrentRssiCallback)();
+typedef bool (*IsChannelBusyCallback)();
+typedef uint32_t (*GetAirtimeCallback)(uint8_t len);
+typedef int16_t (*GetNoiseFloorCallback)();
+typedef void (*GetStatsCallback)(uint32_t* rx, uint32_t* tx, uint32_t* errors);
+typedef uint16_t (*GetBatteryCallback)();
+typedef uint8_t (*GetSensorsCallback)(uint8_t permissions, uint8_t* buffer, uint8_t max_len);
 
 struct RadioConfig {
   uint32_t freq_hz;
@@ -84,6 +108,13 @@ class KissModem {
   SetRadioCallback _setRadioCallback;
   SetTxPowerCallback _setTxPowerCallback;
   SetSyncWordCallback _setSyncWordCallback;
+  GetCurrentRssiCallback _getCurrentRssiCallback;
+  IsChannelBusyCallback _isChannelBusyCallback;
+  GetAirtimeCallback _getAirtimeCallback;
+  GetNoiseFloorCallback _getNoiseFloorCallback;
+  GetStatsCallback _getStatsCallback;
+  GetBatteryCallback _getBatteryCallback;
+  GetSensorsCallback _getSensorsCallback;
   
   RadioConfig _config;
 
@@ -107,6 +138,14 @@ class KissModem {
   void handleGetTxPower();
   void handleGetSyncWord();
   void handleGetVersion();
+  void handleGetCurrentRssi();
+  void handleIsChannelBusy();
+  void handleGetAirtime(const uint8_t* data, uint16_t len);
+  void handleGetNoiseFloor();
+  void handleGetStats();
+  void handleGetBattery();
+  void handlePing();
+  void handleGetSensors(const uint8_t* data, uint16_t len);
 
 public:
   KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng);
@@ -117,6 +156,13 @@ public:
   void setRadioCallback(SetRadioCallback cb) { _setRadioCallback = cb; }
   void setTxPowerCallback(SetTxPowerCallback cb) { _setTxPowerCallback = cb; }
   void setSyncWordCallback(SetSyncWordCallback cb) { _setSyncWordCallback = cb; }
+  void setGetCurrentRssiCallback(GetCurrentRssiCallback cb) { _getCurrentRssiCallback = cb; }
+  void setIsChannelBusyCallback(IsChannelBusyCallback cb) { _isChannelBusyCallback = cb; }
+  void setGetAirtimeCallback(GetAirtimeCallback cb) { _getAirtimeCallback = cb; }
+  void setGetNoiseFloorCallback(GetNoiseFloorCallback cb) { _getNoiseFloorCallback = cb; }
+  void setGetStatsCallback(GetStatsCallback cb) { _getStatsCallback = cb; }
+  void setGetBatteryCallback(GetBatteryCallback cb) { _getBatteryCallback = cb; }
+  void setGetSensorsCallback(GetSensorsCallback cb) { _getSensorsCallback = cb; }
   
   bool getPacketToSend(uint8_t* packet, uint16_t* len);
   void onPacketReceived(int8_t snr, int8_t rssi, const uint8_t* packet, uint16_t len);

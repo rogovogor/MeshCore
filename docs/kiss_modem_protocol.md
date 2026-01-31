@@ -48,27 +48,43 @@ Maximum unescaped frame size: 512 bytes.
 | `CMD_GET_TX_POWER` | `0x0D` | - |
 | `CMD_GET_SYNC_WORD` | `0x0E` | - |
 | `CMD_GET_VERSION` | `0x0F` | - |
+| `CMD_GET_CURRENT_RSSI` | `0x10` | - |
+| `CMD_IS_CHANNEL_BUSY` | `0x11` | - |
+| `CMD_GET_AIRTIME` | `0x12` | Packet length (1) |
+| `CMD_GET_NOISE_FLOOR` | `0x13` | - |
+| `CMD_GET_STATS` | `0x14` | - |
+| `CMD_GET_BATTERY` | `0x15` | - |
+| `CMD_PING` | `0x16` | - |
+| `CMD_GET_SENSORS` | `0x17` | Permissions (1) |
 
 ### Response Commands (Modem → Host)
 
 | Command | Value | Data |
 |---------|-------|------|
 | `CMD_DATA` | `0x00` | SNR (1) + RSSI (1) + Packet |
-| `RESP_IDENTITY` | `0x11` | PubKey (32) |
-| `RESP_RANDOM` | `0x12` | Random bytes (1-64) |
-| `RESP_VERIFY` | `0x13` | Result (1): 0x00=invalid, 0x01=valid |
-| `RESP_SIGNATURE` | `0x14` | Signature (64) |
-| `RESP_ENCRYPTED` | `0x15` | MAC (2) + Ciphertext |
-| `RESP_DECRYPTED` | `0x16` | Plaintext |
-| `RESP_SHARED_SECRET` | `0x17` | Shared secret (32) |
-| `RESP_HASH` | `0x18` | SHA-256 hash (32) |
-| `RESP_OK` | `0x19` | - |
-| `RESP_RADIO` | `0x1A` | Freq (4) + BW (4) + SF (1) + CR (1) |
-| `RESP_TX_POWER` | `0x1B` | Power dBm (1) |
-| `RESP_SYNC_WORD` | `0x1C` | Sync word (1) |
-| `RESP_VERSION` | `0x1D` | Version (1) + Reserved (1) |
-| `RESP_ERROR` | `0x1E` | Error code (1) |
-| `RESP_TX_DONE` | `0x1F` | Result (1): 0x00=failed, 0x01=success |
+| `RESP_IDENTITY` | `0x21` | PubKey (32) |
+| `RESP_RANDOM` | `0x22` | Random bytes (1-64) |
+| `RESP_VERIFY` | `0x23` | Result (1): 0x00=invalid, 0x01=valid |
+| `RESP_SIGNATURE` | `0x24` | Signature (64) |
+| `RESP_ENCRYPTED` | `0x25` | MAC (2) + Ciphertext |
+| `RESP_DECRYPTED` | `0x26` | Plaintext |
+| `RESP_SHARED_SECRET` | `0x27` | Shared secret (32) |
+| `RESP_HASH` | `0x28` | SHA-256 hash (32) |
+| `RESP_OK` | `0x29` | - |
+| `RESP_RADIO` | `0x2A` | Freq (4) + BW (4) + SF (1) + CR (1) |
+| `RESP_TX_POWER` | `0x2B` | Power dBm (1) |
+| `RESP_SYNC_WORD` | `0x2C` | Sync word (1) |
+| `RESP_VERSION` | `0x2D` | Version (1) + Reserved (1) |
+| `RESP_ERROR` | `0x2E` | Error code (1) |
+| `RESP_TX_DONE` | `0x2F` | Result (1): 0x00=failed, 0x01=success |
+| `RESP_CURRENT_RSSI` | `0x30` | RSSI dBm (1, signed) |
+| `RESP_CHANNEL_BUSY` | `0x31` | Result (1): 0x00=clear, 0x01=busy |
+| `RESP_AIRTIME` | `0x32` | Milliseconds (4) |
+| `RESP_NOISE_FLOOR` | `0x33` | dBm (2, signed) |
+| `RESP_STATS` | `0x34` | RX (4) + TX (4) + Errors (4) |
+| `RESP_BATTERY` | `0x35` | Millivolts (2) |
+| `RESP_PONG` | `0x36` | - |
+| `RESP_SENSORS` | `0x37` | CayenneLPP payload |
 
 ## Error Codes
 
@@ -76,10 +92,11 @@ Maximum unescaped frame size: 512 bytes.
 |------|-------|-------------|
 | `ERR_INVALID_LENGTH` | `0x01` | Request data too short |
 | `ERR_INVALID_PARAM` | `0x02` | Invalid parameter value |
-| `ERR_NO_CALLBACK` | `0x03` | Radio callback not set |
+| `ERR_NO_CALLBACK` | `0x03` | Feature not available |
 | `ERR_MAC_FAILED` | `0x04` | MAC verification failed |
 | `ERR_UNKNOWN_CMD` | `0x05` | Unknown command |
 | `ERR_ENCRYPT_FAILED` | `0x06` | Encryption failed |
+| `ERR_TX_PENDING` | `0x07` | TX already pending |
 
 ## Data Formats
 
@@ -102,9 +119,34 @@ All values little-endian.
 | RSSI | 1 byte | Signal strength dBm, signed |
 | Packet | variable | Raw MeshCore packet |
 
+### Stats (RESP_STATS)
+
+All values little-endian.
+
+| Field | Size | Description |
+|-------|------|-------------|
+| RX | 4 bytes | Packets received |
+| TX | 4 bytes | Packets transmitted |
+| Errors | 4 bytes | Receive errors |
+
+### Sensor Permissions (CMD_GET_SENSORS)
+
+| Bit | Value | Description |
+|-----|-------|-------------|
+| 0 | `0x01` | Base (battery) |
+| 1 | `0x02` | Location (GPS) |
+| 2 | `0x04` | Environment (temp, humidity, pressure) |
+
+Use `0x07` for all permissions.
+
+### Sensor Data (RESP_SENSORS)
+
+Data returned in CayenneLPP format. See [CayenneLPP documentation](https://docs.mydevices.com/docs/lorawan/cayenne-lpp) for parsing.
+
 ## Notes
 
 - Modem generates identity on first boot (stored in flash)
 - SNR values multiplied by 4 for 0.25 dB precision
 - Wait for `RESP_TX_DONE` before sending next packet
+- Sending `CMD_DATA` while TX is pending returns `ERR_TX_PENDING`
 - See [packet_structure.md](./packet_structure.md) for packet format
