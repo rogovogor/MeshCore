@@ -52,10 +52,6 @@ void onSetTxPower(uint8_t power) {
   radio_set_tx_power(power);
 }
 
-void onSetSyncWord(uint8_t sync_word) {
-  radio_set_sync_word(sync_word);
-}
-
 float onGetCurrentRssi() {
   return radio_driver.getCurrentRSSI();
 }
@@ -88,7 +84,6 @@ void setup() {
   modem = new KissModem(Serial, identity, rng, radio_driver, board, sensors);
   modem->setRadioCallback(onSetRadio);
   modem->setTxPowerCallback(onSetTxPower);
-  modem->setSyncWordCallback(onSetSyncWord);
   modem->setGetCurrentRssiCallback(onGetCurrentRssi);
   modem->setGetStatsCallback(onGetStats);
   modem->begin();

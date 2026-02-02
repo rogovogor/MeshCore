@@ -11,10 +11,9 @@ KissModem::KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& r
   _pending_tx_len = 0;
   _setRadioCallback = nullptr;
   _setTxPowerCallback = nullptr;
-  _setSyncWordCallback = nullptr;
   _getCurrentRssiCallback = nullptr;
   _getStatsCallback = nullptr;
-  _config = {0, 0, 0, 0, 0, 0x12};
+  _config = {0, 0, 0, 0, 0};
 }
 
 void KissModem::begin() {
@@ -133,17 +132,11 @@ void KissModem::processFrame() {
     case CMD_SET_TX_POWER:
       handleSetTxPower(data, data_len);
       break;
-    case CMD_SET_SYNC_WORD:
-      handleSetSyncWord(data, data_len);
-      break;
     case CMD_GET_RADIO:
       handleGetRadio();
       break;
     case CMD_GET_TX_POWER:
       handleGetTxPower();
-      break;
-    case CMD_GET_SYNC_WORD:
-      handleGetSyncWord();
       break;
     case CMD_GET_VERSION:
       handleGetVersion();
@@ -347,21 +340,6 @@ void KissModem::handleSetTxPower(const uint8_t* data, uint16_t len) {
   writeFrame(RESP_OK, nullptr, 0);
 }
 
-void KissModem::handleSetSyncWord(const uint8_t* data, uint16_t len) {
-  if (len < 1) {
-    writeErrorFrame(ERR_INVALID_LENGTH);
-    return;
-  }
-  if (!_setSyncWordCallback) {
-    writeErrorFrame(ERR_NO_CALLBACK);
-    return;
-  }
-  
-  _config.sync_word = data[0];
-  _setSyncWordCallback(data[0]);
-  writeFrame(RESP_OK, nullptr, 0);
-}
-
 void KissModem::handleGetRadio() {
   uint8_t buf[10];
   memcpy(buf, &_config.freq_hz, 4);
@@ -373,10 +351,6 @@ void KissModem::handleGetRadio() {
 
 void KissModem::handleGetTxPower() {
   writeFrame(RESP_TX_POWER, &_config.tx_power, 1);
-}
-
-void KissModem::handleGetSyncWord() {
-  writeFrame(RESP_SYNC_WORD, &_config.sync_word, 1);
 }
 
 void KissModem::handleGetVersion() {

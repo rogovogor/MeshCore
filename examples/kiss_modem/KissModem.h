@@ -25,10 +25,8 @@
 #define CMD_HASH              0x08
 #define CMD_SET_RADIO         0x09
 #define CMD_SET_TX_POWER      0x0A
-#define CMD_SET_SYNC_WORD     0x0B
 #define CMD_GET_RADIO         0x0C
 #define CMD_GET_TX_POWER      0x0D
-#define CMD_GET_SYNC_WORD     0x0E
 #define CMD_GET_VERSION       0x0F
 #define CMD_GET_CURRENT_RSSI  0x10
 #define CMD_IS_CHANNEL_BUSY   0x11
@@ -50,7 +48,6 @@
 #define RESP_OK               0x29
 #define RESP_RADIO            0x2A
 #define RESP_TX_POWER         0x2B
-#define RESP_SYNC_WORD        0x2C
 #define RESP_VERSION          0x2D
 #define RESP_ERROR            0x2E
 #define RESP_TX_DONE          0x2F
@@ -75,7 +72,6 @@
 
 typedef void (*SetRadioCallback)(float freq, float bw, uint8_t sf, uint8_t cr);
 typedef void (*SetTxPowerCallback)(uint8_t power);
-typedef void (*SetSyncWordCallback)(uint8_t syncWord);
 typedef float (*GetCurrentRssiCallback)();
 typedef void (*GetStatsCallback)(uint32_t* rx, uint32_t* tx, uint32_t* errors);
 
@@ -85,7 +81,6 @@ struct RadioConfig {
   uint8_t sf;
   uint8_t cr;
   uint8_t tx_power;
-  uint8_t sync_word;
 };
 
 class KissModem {
@@ -107,7 +102,6 @@ class KissModem {
 
   SetRadioCallback _setRadioCallback;
   SetTxPowerCallback _setTxPowerCallback;
-  SetSyncWordCallback _setSyncWordCallback;
   GetCurrentRssiCallback _getCurrentRssiCallback;
   GetStatsCallback _getStatsCallback;
   
@@ -128,10 +122,8 @@ class KissModem {
   void handleHash(const uint8_t* data, uint16_t len);
   void handleSetRadio(const uint8_t* data, uint16_t len);
   void handleSetTxPower(const uint8_t* data, uint16_t len);
-  void handleSetSyncWord(const uint8_t* data, uint16_t len);
   void handleGetRadio();
   void handleGetTxPower();
-  void handleGetSyncWord();
   void handleGetVersion();
   void handleGetCurrentRssi();
   void handleIsChannelBusy();
@@ -151,7 +143,6 @@ public:
   
   void setRadioCallback(SetRadioCallback cb) { _setRadioCallback = cb; }
   void setTxPowerCallback(SetTxPowerCallback cb) { _setTxPowerCallback = cb; }
-  void setSyncWordCallback(SetSyncWordCallback cb) { _setSyncWordCallback = cb; }
   void setGetCurrentRssiCallback(GetCurrentRssiCallback cb) { _getCurrentRssiCallback = cb; }
   void setGetStatsCallback(GetStatsCallback cb) { _getStatsCallback = cb; }
   
