@@ -20,10 +20,12 @@ public:
       digitalWrite(_pin, _active);
     }
   }
+
   void release() {
-    _claims--;
     if (_claims == 0) {
       digitalWrite(_pin, !_active);
+    } else {
+      _claims--;
     }
   }
 };
