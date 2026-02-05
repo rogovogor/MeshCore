@@ -28,8 +28,6 @@ Maximum unescaped frame size: 512 bytes.
 
 ## Commands
 
-Command and response codes below are taken from `examples/kiss_modem/KissModem.h` and the switch in `KissModem::processFrame()`.
-
 ### Request Commands (Host → Modem)
 
 | Command | Value | Data |
@@ -129,7 +127,7 @@ Response to `CMD_GET_NOISE_FLOOR` (0x13). Little-endian.
 |--------------|------|--------------------------------|
 | Noise floor  | 2    | int16_t, dBm (signed), e.g. -120 |
 
-The modem recalibrates the noise floor periodically (every 2 s) from RX samples when idle. The receiver AGC is also reset periodically (every 30 s) so RSSI and noise floor do not drift to the minimum (-120). Typical range after calibration is about -120 to -90 dBm. Values may be 0 or briefly stale until the radio has been in receive mode long enough to collect 64 samples.
+The modem recalibrates the noise floor every two seconds with an AGC reset every 30 seconds.
 
 ### Stats (RESP_STATS)
 
