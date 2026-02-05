@@ -2,10 +2,10 @@
 
 #define RADIOLIB_STATIC_ONLY 1
 #include <RadioLib.h>
-#include <helpers/radiolib/RadioLibWrappers.h>
 #include <T114Board.h>
-#include <helpers/radiolib/CustomSX1262Wrapper.h>
 #include <helpers/AutoDiscoverRTCClock.h>
+#include <helpers/radiolib/CustomSX1262Wrapper.h>
+#include <helpers/radiolib/RadioLibWrappers.h>
 #include <helpers/sensors/EnvironmentSensorManager.h>
 #include <helpers/sensors/LocationProvider.h>
 
@@ -18,21 +18,14 @@
 #endif
 #endif
 
-class T114SensorManager : public EnvironmentSensorManager {
-public:
-  T114SensorManager(LocationProvider &location): EnvironmentSensorManager(location) { }
-  bool begin() override;
-  bool querySensors(uint8_t requester_permissions, CayenneLPP& telemetry) override;
-};
-
 extern T114Board board;
 extern WRAPPER_CLASS radio_driver;
 extern AutoDiscoverRTCClock rtc_clock;
-extern T114SensorManager sensors;
+extern EnvironmentSensorManager sensors;
 
 #ifdef DISPLAY_CLASS
-  extern DISPLAY_CLASS display;
-  extern MomentaryButton user_btn;
+extern DISPLAY_CLASS display;
+extern MomentaryButton user_btn;
 #endif
 
 bool radio_init();
