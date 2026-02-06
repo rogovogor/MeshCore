@@ -225,6 +225,15 @@ void KissModem::handleHardwareCommand(uint8_t sub_cmd, const uint8_t* data, uint
     case HW_CMD_GET_SENSORS:
       handleGetSensors(data, len);
       break;
+    case HW_CMD_GET_MCU_TEMP:
+      handleGetMCUTemp();
+      break;
+    case HW_CMD_REBOOT:
+      handleReboot();
+      break;
+    case HW_CMD_GET_DEVICE_NAME:
+      handleGetDeviceName();
+      break;
     default:
       writeHardwareError(HW_ERR_UNKNOWN_CMD);
       break;
@@ -535,4 +544,26 @@ void KissModem::handleGetSensors(const uint8_t* data, uint16_t len) {
   } else {
     writeHardwareFrame(HW_RESP_SENSORS, nullptr, 0);
   }
+}
+
+void KissModem::handleGetMCUTemp() {
+  float temp = _board.getMCUTemperature();
+  if (isnan(temp)) {
+    writeHardwareError(HW_ERR_NO_CALLBACK);
+    return;
+  }
+  int16_t temp_tenths = (int16_t)(temp * 10.0f);
+  writeHardwareFrame(HW_RESP_MCU_TEMP, (uint8_t*)&temp_tenths, 2);
+}
+
+void KissModem::handleReboot() {
+  writeHardwareFrame(HW_RESP_OK, nullptr, 0);
+  _serial.flush();
+  delay(50);
+  _board.reboot();
+}
+
+void KissModem::handleGetDeviceName() {
+  const char* name = _board.getManufacturerName();
+  writeHardwareFrame(HW_RESP_DEVICE_NAME, (const uint8_t*)name, strlen(name));
 }

@@ -37,17 +37,20 @@
 #define HW_CMD_HASH              0x08
 #define HW_CMD_SET_RADIO         0x09
 #define HW_CMD_SET_TX_POWER      0x0A
-#define HW_CMD_GET_RADIO         0x0C
-#define HW_CMD_GET_TX_POWER      0x0D
-#define HW_CMD_GET_VERSION       0x0F
-#define HW_CMD_GET_CURRENT_RSSI  0x10
-#define HW_CMD_IS_CHANNEL_BUSY   0x11
-#define HW_CMD_GET_AIRTIME       0x12
-#define HW_CMD_GET_NOISE_FLOOR   0x13
-#define HW_CMD_GET_STATS         0x14
-#define HW_CMD_GET_BATTERY       0x15
-#define HW_CMD_PING              0x16
-#define HW_CMD_GET_SENSORS       0x17
+#define HW_CMD_GET_RADIO         0x0B
+#define HW_CMD_GET_TX_POWER      0x0C
+#define HW_CMD_GET_CURRENT_RSSI  0x0D
+#define HW_CMD_IS_CHANNEL_BUSY   0x0E
+#define HW_CMD_GET_AIRTIME       0x0F
+#define HW_CMD_GET_NOISE_FLOOR   0x10
+#define HW_CMD_GET_VERSION       0x11
+#define HW_CMD_GET_STATS         0x12
+#define HW_CMD_GET_BATTERY       0x13
+#define HW_CMD_GET_MCU_TEMP      0x14
+#define HW_CMD_GET_SENSORS       0x15
+#define HW_CMD_GET_DEVICE_NAME   0x16
+#define HW_CMD_PING              0x17
+#define HW_CMD_REBOOT            0x18
 
 #define HW_RESP_IDENTITY         0x21
 #define HW_RESP_RANDOM           0x22
@@ -58,20 +61,22 @@
 #define HW_RESP_SHARED_SECRET    0x27
 #define HW_RESP_HASH             0x28
 #define HW_RESP_OK               0x29
-#define HW_RESP_RADIO            0x2A
-#define HW_RESP_TX_POWER         0x2B
-#define HW_RESP_VERSION          0x2D
-#define HW_RESP_ERROR            0x2E
-#define HW_RESP_TX_DONE          0x2F
-#define HW_RESP_CURRENT_RSSI     0x30
-#define HW_RESP_CHANNEL_BUSY     0x31
-#define HW_RESP_AIRTIME          0x32
-#define HW_RESP_NOISE_FLOOR      0x33
-#define HW_RESP_STATS            0x34
-#define HW_RESP_BATTERY          0x35
-#define HW_RESP_PONG             0x36
-#define HW_RESP_SENSORS          0x37
-#define HW_RESP_RX_META          0x38
+#define HW_RESP_ERROR            0x2A
+#define HW_RESP_RADIO            0x2B
+#define HW_RESP_TX_POWER         0x2C
+#define HW_RESP_CURRENT_RSSI     0x2D
+#define HW_RESP_CHANNEL_BUSY     0x2E
+#define HW_RESP_AIRTIME          0x2F
+#define HW_RESP_NOISE_FLOOR      0x30
+#define HW_RESP_VERSION          0x31
+#define HW_RESP_STATS            0x32
+#define HW_RESP_BATTERY          0x33
+#define HW_RESP_MCU_TEMP         0x34
+#define HW_RESP_SENSORS          0x35
+#define HW_RESP_DEVICE_NAME      0x36
+#define HW_RESP_PONG             0x37
+#define HW_RESP_TX_DONE          0x38
+#define HW_RESP_RX_META          0x39
 
 #define HW_ERR_INVALID_LENGTH    0x01
 #define HW_ERR_INVALID_PARAM     0x02
@@ -171,6 +176,9 @@ class KissModem {
   void handleGetBattery();
   void handlePing();
   void handleGetSensors(const uint8_t* data, uint16_t len);
+  void handleGetMCUTemp();
+  void handleReboot();
+  void handleGetDeviceName();
 
 public:
   KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng,

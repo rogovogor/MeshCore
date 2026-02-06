@@ -96,17 +96,20 @@ MeshCore-specific functionality uses the standard KISS SetHardware command. The 
 | Hash | `0x08` | Data to hash |
 | SetRadio | `0x09` | Freq (4) + BW (4) + SF (1) + CR (1) |
 | SetTxPower | `0x0A` | Power dBm (1) |
-| GetRadio | `0x0C` | - |
-| GetTxPower | `0x0D` | - |
-| GetVersion | `0x0F` | - |
-| GetCurrentRssi | `0x10` | - |
-| IsChannelBusy | `0x11` | - |
-| GetAirtime | `0x12` | Packet length (1) |
-| GetNoiseFloor | `0x13` | - |
-| GetStats | `0x14` | - |
-| GetBattery | `0x15` | - |
-| Ping | `0x16` | - |
-| GetSensors | `0x17` | Permissions (1) |
+| GetRadio | `0x0B` | - |
+| GetTxPower | `0x0C` | - |
+| GetCurrentRssi | `0x0D` | - |
+| IsChannelBusy | `0x0E` | - |
+| GetAirtime | `0x0F` | Packet length (1) |
+| GetNoiseFloor | `0x10` | - |
+| GetVersion | `0x11` | - |
+| GetStats | `0x12` | - |
+| GetBattery | `0x13` | - |
+| GetMCUTemp | `0x14` | - |
+| GetSensors | `0x15` | Permissions (1) |
+| GetDeviceName | `0x16` | - |
+| Ping | `0x17` | - |
+| Reboot | `0x18` | - |
 
 ### Response Sub-commands (TNC to Host)
 
@@ -121,20 +124,22 @@ MeshCore-specific functionality uses the standard KISS SetHardware command. The 
 | SharedSecret | `0x27` | Shared secret (32) |
 | Hash | `0x28` | SHA-256 hash (32) |
 | OK | `0x29` | - |
-| Radio | `0x2A` | Freq (4) + BW (4) + SF (1) + CR (1) |
-| TxPower | `0x2B` | Power dBm (1) |
-| Version | `0x2D` | Version (1) + Reserved (1) |
-| Error | `0x2E` | Error code (1) |
-| TxDone | `0x2F` | Result (1): 0x00=failed, 0x01=success |
-| CurrentRssi | `0x30` | RSSI dBm (1, signed) |
-| ChannelBusy | `0x31` | Result (1): 0x00=clear, 0x01=busy |
-| Airtime | `0x32` | Milliseconds (4) |
-| NoiseFloor | `0x33` | dBm (2, signed) |
-| Stats | `0x34` | RX (4) + TX (4) + Errors (4) |
-| Battery | `0x35` | Millivolts (2) |
-| Pong | `0x36` | - |
-| Sensors | `0x37` | CayenneLPP payload |
-| RxMeta | `0x38` | SNR (1) + RSSI (1) |
+| Error | `0x2A` | Error code (1) |
+| Radio | `0x2B` | Freq (4) + BW (4) + SF (1) + CR (1) |
+| TxPower | `0x2C` | Power dBm (1) |
+| CurrentRssi | `0x2D` | RSSI dBm (1, signed) |
+| ChannelBusy | `0x2E` | Result (1): 0x00=clear, 0x01=busy |
+| Airtime | `0x2F` | Milliseconds (4) |
+| NoiseFloor | `0x30` | dBm (2, signed) |
+| Version | `0x31` | Version (1) + Reserved (1) |
+| Stats | `0x32` | RX (4) + TX (4) + Errors (4) |
+| Battery | `0x33` | Millivolts (2) |
+| MCUTemp | `0x34` | Temperature (2, signed) |
+| Sensors | `0x35` | CayenneLPP payload |
+| DeviceName | `0x36` | Name (variable, UTF-8) |
+| Pong | `0x37` | - |
+| TxDone | `0x38` | Result (1): 0x00=failed, 0x01=success |
+| RxMeta | `0x39` | SNR (1) + RSSI (1) |
 
 ### Error Codes
 
@@ -151,9 +156,9 @@ MeshCore-specific functionality uses the standard KISS SetHardware command. The 
 
 The TNC sends these SetHardware frames without a preceding request:
 
-**TxDone (0x2F)**: Sent after a packet has been transmitted. Contains a single byte: 0x01 for success, 0x00 for failure.
+**TxDone (0x38)**: Sent after a packet has been transmitted. Contains a single byte: 0x01 for success, 0x00 for failure.
 
-**RxMeta (0x38)**: Sent immediately after each standard data frame (type 0x00) with metadata for the received packet. Contains SNR (1 byte, signed, value x4 for 0.25 dB precision) followed by RSSI (1 byte, signed, dBm). Standard KISS clients ignore this frame.
+**RxMeta (0x39)**: Sent immediately after each standard data frame (type 0x00) with metadata for the received packet. Contains SNR (1 byte, signed, value x4 for 0.25 dB precision) followed by RSSI (1 byte, signed, dBm). Standard KISS clients ignore this frame.
 
 ## Data Formats
 
@@ -217,6 +222,26 @@ All values little-endian.
 | Field | Size | Description |
 |-------|------|-------------|
 | Millivolts | 2 bytes | uint16_t, battery voltage in mV |
+
+### MCU Temperature (MCUTemp response)
+
+All values little-endian.
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Temperature | 2 bytes | int16_t, tenths of °C (e.g., 253 = 25.3°C) |
+
+Returns `NoCallback` error if the board does not support temperature readings.
+
+### Device Name (DeviceName response)
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Name | variable | UTF-8 string, no null terminator |
+
+### Reboot
+
+Sends an `OK` response, flushes serial, then reboots the device. The host should expect the connection to drop.
 
 ### Sensor Permissions (GetSensors)
 
