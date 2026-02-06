@@ -11,6 +11,9 @@
 #elif defined(ESP32)
   #include <SPIFFS.h>
 #endif
+#if defined(KISS_UART_RX) && defined(KISS_UART_TX)
+  #include <HardwareSerial.h>
+#endif
 
 #define NOISE_FLOOR_CALIB_INTERVAL_MS 2000
 #define AGC_RESET_INTERVAL_MS 30000
@@ -91,14 +94,35 @@ void setup() {
   rng.begin(radio_get_rng_seed());
   loadOrCreateIdentity();
 
+  sensors.begin();
+
+#if defined(KISS_UART_RX) && defined(KISS_UART_TX)
+#if defined(ESP32)
+  Serial1.setPins(KISS_UART_RX, KISS_UART_TX);
+  Serial1.begin(115200);
+#elif defined(NRF52_PLATFORM)
+  ((Uart *)&Serial1)->setPins(KISS_UART_RX, KISS_UART_TX);
+  Serial1.begin(115200);
+#elif defined(RP2040_PLATFORM)
+  ((SerialUART *)&Serial1)->setRX(KISS_UART_RX);
+  ((SerialUART *)&Serial1)->setTX(KISS_UART_TX);
+  Serial1.begin(115200);
+#elif defined(STM32_PLATFORM)
+  ((HardwareSerial *)&Serial1)->setRx(KISS_UART_RX);
+  ((HardwareSerial *)&Serial1)->setTx(KISS_UART_TX);
+  Serial1.begin(115200);
+#else
+  #error "KISS UART not supported on this platform"
+#endif
+  modem = new KissModem(Serial1, identity, rng, radio_driver, board, sensors);
+#else
   Serial.begin(115200);
   uint32_t start = millis();
   while (!Serial && millis() - start < 3000) delay(10);
   delay(100);
-
-  sensors.begin();
-
   modem = new KissModem(Serial, identity, rng, radio_driver, board, sensors);
+#endif
+
   modem->setRadioCallback(onSetRadio);
   modem->setTxPowerCallback(onSetTxPower);
   modem->setGetCurrentRssiCallback(onGetCurrentRssi);
