@@ -168,6 +168,38 @@ All values little-endian.
 | SF | 1 byte | Spreading factor (5-12) |
 | CR | 1 byte | Coding rate (5-8) |
 
+### Version (Version response)
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Version | 1 byte | Firmware version |
+| Reserved | 1 byte | Always 0 |
+
+### Encrypted (Encrypted response)
+
+| Field | Size | Description |
+|-------|------|-------------|
+| MAC | 2 bytes | HMAC-SHA256 truncated to 2 bytes |
+| Ciphertext | variable | AES-128-CBC encrypted data |
+
+### Airtime (Airtime response)
+
+All values little-endian.
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Airtime | 4 bytes | uint32_t, estimated air time in milliseconds |
+
+### Noise Floor (NoiseFloor response)
+
+All values little-endian.
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Noise floor | 2 bytes | int16_t, dBm (signed) |
+
+The modem recalibrates the noise floor every 2 seconds with an AGC reset every 30 seconds.
+
 ### Stats (Stats response)
 
 All values little-endian.
@@ -177,6 +209,14 @@ All values little-endian.
 | RX | 4 bytes | Packets received |
 | TX | 4 bytes | Packets transmitted |
 | Errors | 4 bytes | Receive errors |
+
+### Battery (Battery response)
+
+All values little-endian.
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Millivolts | 2 bytes | uint16_t, battery voltage in mV |
 
 ### Sensor Permissions (GetSensors)
 
@@ -192,9 +232,19 @@ Use `0x07` for all permissions.
 
 Data returned in CayenneLPP format. See [CayenneLPP documentation](https://docs.mydevices.com/docs/lorawan/cayenne-lpp) for parsing.
 
+## Cryptographic Algorithms
+
+| Operation | Algorithm |
+|-----------|-----------|
+| Identity / Signing / Verification | Ed25519 |
+| Key Exchange | X25519 (ECDH) |
+| Encryption | AES-128-CBC + HMAC-SHA256 (MAC truncated to 2 bytes) |
+| Hashing | SHA-256 |
+
 ## Notes
 
 - Modem generates identity on first boot (stored in flash)
+- All multi-byte values are little-endian unless stated otherwise
 - SNR values in RxMeta are multiplied by 4 for 0.25 dB precision
 - TxDone is sent as a SetHardware event after each transmission
 - Standard KISS clients receive only type 0x00 data frames and can safely ignore all SetHardware (0x06) frames
