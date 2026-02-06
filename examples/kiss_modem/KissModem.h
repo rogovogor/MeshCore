@@ -11,62 +11,74 @@
 #define KISS_TFEND 0xDC
 #define KISS_TFESC 0xDD
 
-#define KISS_MAX_FRAME_SIZE 512
+#define KISS_MAX_FRAME_SIZE  512
 #define KISS_MAX_PACKET_SIZE 255
 
-#define CMD_DATA              0x00
-#define CMD_GET_IDENTITY      0x01
-#define CMD_GET_RANDOM        0x02
-#define CMD_VERIFY_SIGNATURE  0x03
-#define CMD_SIGN_DATA         0x04
-#define CMD_ENCRYPT_DATA      0x05
-#define CMD_DECRYPT_DATA      0x06
-#define CMD_KEY_EXCHANGE      0x07
-#define CMD_HASH              0x08
-#define CMD_SET_RADIO         0x09
-#define CMD_SET_TX_POWER      0x0A
-#define CMD_GET_RADIO         0x0C
-#define CMD_GET_TX_POWER      0x0D
-#define CMD_GET_VERSION       0x0F
-#define CMD_GET_CURRENT_RSSI  0x10
-#define CMD_IS_CHANNEL_BUSY   0x11
-#define CMD_GET_AIRTIME       0x12
-#define CMD_GET_NOISE_FLOOR   0x13
-#define CMD_GET_STATS         0x14
-#define CMD_GET_BATTERY       0x15
-#define CMD_PING              0x16
-#define CMD_GET_SENSORS       0x17
+#define KISS_CMD_DATA        0x00
+#define KISS_CMD_TXDELAY     0x01
+#define KISS_CMD_PERSISTENCE 0x02
+#define KISS_CMD_SLOTTIME    0x03
+#define KISS_CMD_TXTAIL      0x04
+#define KISS_CMD_FULLDUPLEX  0x05
+#define KISS_CMD_SETHARDWARE 0x06
+#define KISS_CMD_RETURN      0xFF
 
-#define RESP_IDENTITY         0x21
-#define RESP_RANDOM           0x22
-#define RESP_VERIFY           0x23
-#define RESP_SIGNATURE        0x24
-#define RESP_ENCRYPTED        0x25
-#define RESP_DECRYPTED        0x26
-#define RESP_SHARED_SECRET    0x27
-#define RESP_HASH             0x28
-#define RESP_OK               0x29
-#define RESP_RADIO            0x2A
-#define RESP_TX_POWER         0x2B
-#define RESP_VERSION          0x2D
-#define RESP_ERROR            0x2E
-#define RESP_TX_DONE          0x2F
-#define RESP_CURRENT_RSSI     0x30
-#define RESP_CHANNEL_BUSY     0x31
-#define RESP_AIRTIME          0x32
-#define RESP_NOISE_FLOOR      0x33
-#define RESP_STATS            0x34
-#define RESP_BATTERY          0x35
-#define RESP_PONG             0x36
-#define RESP_SENSORS          0x37
+#define KISS_DEFAULT_TXDELAY     50
+#define KISS_DEFAULT_PERSISTENCE 63
+#define KISS_DEFAULT_SLOTTIME    10
 
-#define ERR_INVALID_LENGTH    0x01
-#define ERR_INVALID_PARAM     0x02
-#define ERR_NO_CALLBACK       0x03
-#define ERR_MAC_FAILED        0x04
-#define ERR_UNKNOWN_CMD       0x05
-#define ERR_ENCRYPT_FAILED    0x06
-#define ERR_TX_PENDING        0x07
+#define HW_CMD_GET_IDENTITY      0x01
+#define HW_CMD_GET_RANDOM        0x02
+#define HW_CMD_VERIFY_SIGNATURE  0x03
+#define HW_CMD_SIGN_DATA         0x04
+#define HW_CMD_ENCRYPT_DATA      0x05
+#define HW_CMD_DECRYPT_DATA      0x06
+#define HW_CMD_KEY_EXCHANGE      0x07
+#define HW_CMD_HASH              0x08
+#define HW_CMD_SET_RADIO         0x09
+#define HW_CMD_SET_TX_POWER      0x0A
+#define HW_CMD_GET_RADIO         0x0C
+#define HW_CMD_GET_TX_POWER      0x0D
+#define HW_CMD_GET_VERSION       0x0F
+#define HW_CMD_GET_CURRENT_RSSI  0x10
+#define HW_CMD_IS_CHANNEL_BUSY   0x11
+#define HW_CMD_GET_AIRTIME       0x12
+#define HW_CMD_GET_NOISE_FLOOR   0x13
+#define HW_CMD_GET_STATS         0x14
+#define HW_CMD_GET_BATTERY       0x15
+#define HW_CMD_PING              0x16
+#define HW_CMD_GET_SENSORS       0x17
+
+#define HW_RESP_IDENTITY         0x21
+#define HW_RESP_RANDOM           0x22
+#define HW_RESP_VERIFY           0x23
+#define HW_RESP_SIGNATURE        0x24
+#define HW_RESP_ENCRYPTED        0x25
+#define HW_RESP_DECRYPTED        0x26
+#define HW_RESP_SHARED_SECRET    0x27
+#define HW_RESP_HASH             0x28
+#define HW_RESP_OK               0x29
+#define HW_RESP_RADIO            0x2A
+#define HW_RESP_TX_POWER         0x2B
+#define HW_RESP_VERSION          0x2D
+#define HW_RESP_ERROR            0x2E
+#define HW_RESP_TX_DONE          0x2F
+#define HW_RESP_CURRENT_RSSI     0x30
+#define HW_RESP_CHANNEL_BUSY     0x31
+#define HW_RESP_AIRTIME          0x32
+#define HW_RESP_NOISE_FLOOR      0x33
+#define HW_RESP_STATS            0x34
+#define HW_RESP_BATTERY          0x35
+#define HW_RESP_PONG             0x36
+#define HW_RESP_SENSORS          0x37
+#define HW_RESP_RX_META          0x38
+
+#define HW_ERR_INVALID_LENGTH    0x01
+#define HW_ERR_INVALID_PARAM     0x02
+#define HW_ERR_NO_CALLBACK       0x03
+#define HW_ERR_MAC_FAILED        0x04
+#define HW_ERR_UNKNOWN_CMD       0x05
+#define HW_ERR_ENCRYPT_FAILED    0x06
 
 #define KISS_FIRMWARE_VERSION 1
 
@@ -74,6 +86,9 @@ typedef void (*SetRadioCallback)(float freq, float bw, uint8_t sf, uint8_t cr);
 typedef void (*SetTxPowerCallback)(uint8_t power);
 typedef float (*GetCurrentRssiCallback)();
 typedef void (*GetStatsCallback)(uint32_t* rx, uint32_t* tx, uint32_t* errors);
+typedef void (*SendPacketCallback)(const uint8_t* data, uint16_t len);
+typedef bool (*IsSendCompleteCallback)();
+typedef void (*OnSendFinishedCallback)();
 
 struct RadioConfig {
   uint32_t freq_hz;
@@ -83,6 +98,14 @@ struct RadioConfig {
   uint8_t tx_power;
 };
 
+enum TxState {
+  TX_IDLE,
+  TX_WAIT_CLEAR,
+  TX_SLOT_WAIT,
+  TX_DELAY,
+  TX_SENDING
+};
+
 class KissModem {
   Stream& _serial;
   mesh::LocalIdentity& _identity;
@@ -90,28 +113,43 @@ class KissModem {
   mesh::Radio& _radio;
   mesh::MainBoard& _board;
   SensorManager& _sensors;
-  
+
   uint8_t _rx_buf[KISS_MAX_FRAME_SIZE];
   uint16_t _rx_len;
   bool _rx_escaped;
   bool _rx_active;
-  
+
   uint8_t _pending_tx[KISS_MAX_PACKET_SIZE];
   uint16_t _pending_tx_len;
   bool _has_pending_tx;
+
+  uint8_t _txdelay;
+  uint8_t _persistence;
+  uint8_t _slottime;
+  uint8_t _txtail;
+  uint8_t _fullduplex;
+
+  TxState _tx_state;
+  uint32_t _tx_timer;
 
   SetRadioCallback _setRadioCallback;
   SetTxPowerCallback _setTxPowerCallback;
   GetCurrentRssiCallback _getCurrentRssiCallback;
   GetStatsCallback _getStatsCallback;
-  
+  SendPacketCallback _sendPacketCallback;
+  IsSendCompleteCallback _isSendCompleteCallback;
+  OnSendFinishedCallback _onSendFinishedCallback;
+
   RadioConfig _config;
 
   void writeByte(uint8_t b);
-  void writeFrame(uint8_t cmd, const uint8_t* data, uint16_t len);
-  void writeErrorFrame(uint8_t error_code);
+  void writeFrame(uint8_t type, const uint8_t* data, uint16_t len);
+  void writeHardwareFrame(uint8_t sub_cmd, const uint8_t* data, uint16_t len);
+  void writeHardwareError(uint8_t error_code);
   void processFrame();
-  
+  void handleHardwareCommand(uint8_t sub_cmd, const uint8_t* data, uint16_t len);
+  void processTx();
+
   void handleGetIdentity();
   void handleGetRandom(const uint8_t* data, uint16_t len);
   void handleVerifySignature(const uint8_t* data, uint16_t len);
@@ -137,16 +175,18 @@ class KissModem {
 public:
   KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng,
             mesh::Radio& radio, mesh::MainBoard& board, SensorManager& sensors);
-  
+
   void begin();
   void loop();
-  
+
   void setRadioCallback(SetRadioCallback cb) { _setRadioCallback = cb; }
   void setTxPowerCallback(SetTxPowerCallback cb) { _setTxPowerCallback = cb; }
   void setGetCurrentRssiCallback(GetCurrentRssiCallback cb) { _getCurrentRssiCallback = cb; }
   void setGetStatsCallback(GetStatsCallback cb) { _getStatsCallback = cb; }
-  
-  bool getPacketToSend(uint8_t* packet, uint16_t* len);
+  void setSendPacketCallback(SendPacketCallback cb) { _sendPacketCallback = cb; }
+  void setIsSendCompleteCallback(IsSendCompleteCallback cb) { _isSendCompleteCallback = cb; }
+  void setOnSendFinishedCallback(OnSendFinishedCallback cb) { _onSendFinishedCallback = cb; }
+
   void onPacketReceived(int8_t snr, int8_t rssi, const uint8_t* packet, uint16_t len);
-  void onTxComplete(bool success);
+  bool isTxBusy() const { return _tx_state != TX_IDLE; }
 };

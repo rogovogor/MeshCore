@@ -1,6 +1,6 @@
 # MeshCore KISS Modem Protocol
 
-Serial protocol for the KISS modem firmware. Enables sending/receiving MeshCore packets over LoRa and cryptographic operations using the modem's identity.
+Standard KISS TNC firmware for MeshCore LoRa radios. Compatible with any KISS client (Direwolf, APRSdroid, YAAC, etc.) for sending and receiving raw packets. MeshCore-specific extensions (cryptography, radio configuration, telemetry) are available through the standard SetHardware (0x06) command.
 
 ## Serial Configuration
 
@@ -8,7 +8,7 @@ Serial protocol for the KISS modem firmware. Enables sending/receiving MeshCore 
 
 ## Frame Format
 
-Standard KISS framing with byte stuffing.
+Standard KISS framing per the KA9Q/K3MC specification.
 
 | Byte | Name | Description |
 |------|------|-------------|
@@ -18,89 +18,146 @@ Standard KISS framing with byte stuffing.
 | `0xDD` | TFESC | Escaped FESC (FESC + TFESC = 0xDB) |
 
 ```
-┌──────┬─────────┬──────────────┬──────┐
-│ FEND │ Command │ Data (escaped)│ FEND │
-│ 0xC0 │ 1 byte  │ 0-510 bytes  │ 0xC0 │
-└──────┴─────────┴──────────────┴──────┘
+┌──────┬───────────┬──────────────┬──────┐
+│ FEND │ Type Byte │ Data (escaped)│ FEND │
+│ 0xC0 │  1 byte   │ 0-510 bytes  │ 0xC0 │
+└──────┴───────────┴──────────────┴──────┘
 ```
+
+### Type Byte
+
+The type byte is split into two nibbles:
+
+| Bits | Field | Description |
+|------|-------|-------------|
+| 7-4 | Port | Port number (0 for single-port TNC) |
+| 3-0 | Command | Command number |
 
 Maximum unescaped frame size: 512 bytes.
 
-## Commands
+## Standard KISS Commands
 
-### Request Commands (Host → Modem)
+### Host to TNC
 
-| Command | Value | Data |
-|---------|-------|------|
-| `CMD_DATA` | `0x00` | Packet (2-255 bytes) |
-| `CMD_GET_IDENTITY` | `0x01` | - |
-| `CMD_GET_RANDOM` | `0x02` | Length (1 byte, 1-64) |
-| `CMD_VERIFY_SIGNATURE` | `0x03` | PubKey (32) + Signature (64) + Data |
-| `CMD_SIGN_DATA` | `0x04` | Data to sign |
-| `CMD_ENCRYPT_DATA` | `0x05` | Key (32) + Plaintext |
-| `CMD_DECRYPT_DATA` | `0x06` | Key (32) + MAC (2) + Ciphertext |
-| `CMD_KEY_EXCHANGE` | `0x07` | Remote PubKey (32) |
-| `CMD_HASH` | `0x08` | Data to hash |
-| `CMD_SET_RADIO` | `0x09` | Freq (4) + BW (4) + SF (1) + CR (1) |
-| `CMD_SET_TX_POWER` | `0x0A` | Power dBm (1) |
-| *reserved* | `0x0B` | *(not implemented)* |
-| `CMD_GET_RADIO` | `0x0C` | - |
-| `CMD_GET_TX_POWER` | `0x0D` | - |
-| *reserved* | `0x0E` | *(not implemented)* |
-| `CMD_GET_VERSION` | `0x0F` | - |
-| `CMD_GET_CURRENT_RSSI` | `0x10` | - |
-| `CMD_IS_CHANNEL_BUSY` | `0x11` | - |
-| `CMD_GET_AIRTIME` | `0x12` | Packet length (1) |
-| `CMD_GET_NOISE_FLOOR` | `0x13` | - |
-| `CMD_GET_STATS` | `0x14` | - |
-| `CMD_GET_BATTERY` | `0x15` | - |
-| `CMD_PING` | `0x16` | - |
-| `CMD_GET_SENSORS` | `0x17` | Permissions (1) |
+| Command | Value | Data | Description |
+|---------|-------|------|-------------|
+| Data | `0x00` | Raw packet | Queue packet for transmission |
+| TXDELAY | `0x01` | Delay (1 byte) | Transmitter keyup delay in 10ms units (default: 50 = 500ms) |
+| Persistence | `0x02` | P (1 byte) | CSMA persistence parameter 0-255 (default: 63) |
+| SlotTime | `0x03` | Interval (1 byte) | CSMA slot interval in 10ms units (default: 10 = 100ms) |
+| TXtail | `0x04` | Delay (1 byte) | Post-TX hold time in 10ms units (default: 0) |
+| FullDuplex | `0x05` | Mode (1 byte) | 0 = half duplex, nonzero = full duplex (default: 0) |
+| SetHardware | `0x06` | Sub-command + data | MeshCore extensions (see below) |
+| Return | `0xFF` | - | Exit KISS mode (no-op) |
 
-### Response Commands (Modem → Host)
+### TNC to Host
 
-| Command | Value | Data |
-|---------|-------|------|
-| `CMD_DATA` | `0x00` | SNR (1) + RSSI (1) + Packet |
-| `RESP_IDENTITY` | `0x21` | PubKey (32) |
-| `RESP_RANDOM` | `0x22` | Random bytes (1-64) |
-| `RESP_VERIFY` | `0x23` | Result (1): 0x00=invalid, 0x01=valid |
-| `RESP_SIGNATURE` | `0x24` | Signature (64) |
-| `RESP_ENCRYPTED` | `0x25` | MAC (2) + Ciphertext |
-| `RESP_DECRYPTED` | `0x26` | Plaintext |
-| `RESP_SHARED_SECRET` | `0x27` | Shared secret (32) |
-| `RESP_HASH` | `0x28` | SHA-256 hash (32) |
-| `RESP_OK` | `0x29` | - |
-| `RESP_RADIO` | `0x2A` | Freq (4) + BW (4) + SF (1) + CR (1) |
-| `RESP_TX_POWER` | `0x2B` | Power dBm (1) |
-| *reserved* | `0x2C` | *(not implemented)* |
-| `RESP_VERSION` | `0x2D` | Version (1) + Reserved (1) |
-| `RESP_ERROR` | `0x2E` | Error code (1) |
-| `RESP_TX_DONE` | `0x2F` | Result (1): 0x00=failed, 0x01=success |
-| `RESP_CURRENT_RSSI` | `0x30` | RSSI dBm (1, signed) |
-| `RESP_CHANNEL_BUSY` | `0x31` | Result (1): 0x00=clear, 0x01=busy |
-| `RESP_AIRTIME` | `0x32` | Milliseconds (4) |
-| `RESP_NOISE_FLOOR` | `0x33` | dBm (2, signed) |
-| `RESP_STATS` | `0x34` | RX (4) + TX (4) + Errors (4) |
-| `RESP_BATTERY` | `0x35` | Millivolts (2) |
-| `RESP_PONG` | `0x36` | - |
-| `RESP_SENSORS` | `0x37` | CayenneLPP payload |
+| Type | Value | Data | Description |
+|------|-------|------|-------------|
+| Data | `0x00` | Raw packet | Received packet from radio |
 
-## Error Codes
+Data frames carry raw packet data only, with no metadata prepended.
+
+### CSMA Behavior
+
+The TNC implements p-persistent CSMA for half-duplex operation:
+
+1. When a packet is queued, monitor carrier detect
+2. When the channel clears, generate a random value 0-255
+3. If the value is less than or equal to P (Persistence), wait TXDELAY then transmit
+4. Otherwise, wait SlotTime and repeat from step 1
+
+In full-duplex mode, CSMA is bypassed and packets transmit after TXDELAY.
+
+## SetHardware Extensions (0x06)
+
+MeshCore-specific functionality uses the standard KISS SetHardware command. The first byte of SetHardware data is a sub-command. Standard KISS clients ignore these frames.
+
+### Frame Format
+
+```
+┌──────┬──────┬─────────────┬──────────────┬──────┐
+│ FEND │ 0x06 │ Sub-command  │ Data (escaped)│ FEND │
+│ 0xC0 │      │   1 byte    │   variable   │ 0xC0 │
+└──────┴──────┴─────────────┴──────────────┴──────┘
+```
+
+### Request Sub-commands (Host to TNC)
+
+| Sub-command | Value | Data |
+|-------------|-------|------|
+| GetIdentity | `0x01` | - |
+| GetRandom | `0x02` | Length (1 byte, 1-64) |
+| VerifySignature | `0x03` | PubKey (32) + Signature (64) + Data |
+| SignData | `0x04` | Data to sign |
+| EncryptData | `0x05` | Key (32) + Plaintext |
+| DecryptData | `0x06` | Key (32) + MAC (2) + Ciphertext |
+| KeyExchange | `0x07` | Remote PubKey (32) |
+| Hash | `0x08` | Data to hash |
+| SetRadio | `0x09` | Freq (4) + BW (4) + SF (1) + CR (1) |
+| SetTxPower | `0x0A` | Power dBm (1) |
+| GetRadio | `0x0C` | - |
+| GetTxPower | `0x0D` | - |
+| GetVersion | `0x0F` | - |
+| GetCurrentRssi | `0x10` | - |
+| IsChannelBusy | `0x11` | - |
+| GetAirtime | `0x12` | Packet length (1) |
+| GetNoiseFloor | `0x13` | - |
+| GetStats | `0x14` | - |
+| GetBattery | `0x15` | - |
+| Ping | `0x16` | - |
+| GetSensors | `0x17` | Permissions (1) |
+
+### Response Sub-commands (TNC to Host)
+
+| Sub-command | Value | Data |
+|-------------|-------|------|
+| Identity | `0x21` | PubKey (32) |
+| Random | `0x22` | Random bytes (1-64) |
+| Verify | `0x23` | Result (1): 0x00=invalid, 0x01=valid |
+| Signature | `0x24` | Signature (64) |
+| Encrypted | `0x25` | MAC (2) + Ciphertext |
+| Decrypted | `0x26` | Plaintext |
+| SharedSecret | `0x27` | Shared secret (32) |
+| Hash | `0x28` | SHA-256 hash (32) |
+| OK | `0x29` | - |
+| Radio | `0x2A` | Freq (4) + BW (4) + SF (1) + CR (1) |
+| TxPower | `0x2B` | Power dBm (1) |
+| Version | `0x2D` | Version (1) + Reserved (1) |
+| Error | `0x2E` | Error code (1) |
+| TxDone | `0x2F` | Result (1): 0x00=failed, 0x01=success |
+| CurrentRssi | `0x30` | RSSI dBm (1, signed) |
+| ChannelBusy | `0x31` | Result (1): 0x00=clear, 0x01=busy |
+| Airtime | `0x32` | Milliseconds (4) |
+| NoiseFloor | `0x33` | dBm (2, signed) |
+| Stats | `0x34` | RX (4) + TX (4) + Errors (4) |
+| Battery | `0x35` | Millivolts (2) |
+| Pong | `0x36` | - |
+| Sensors | `0x37` | CayenneLPP payload |
+| RxMeta | `0x38` | SNR (1) + RSSI (1) |
+
+### Error Codes
 
 | Code | Value | Description |
 |------|-------|-------------|
-| `ERR_INVALID_LENGTH` | `0x01` | Request data too short |
-| `ERR_INVALID_PARAM` | `0x02` | Invalid parameter value |
-| `ERR_NO_CALLBACK` | `0x03` | Feature not available |
-| `ERR_MAC_FAILED` | `0x04` | MAC verification failed |
-| `ERR_UNKNOWN_CMD` | `0x05` | Unknown command |
-| `ERR_ENCRYPT_FAILED` | `0x06` | Encryption failed |
-| `ERR_TX_PENDING` | `0x07` | TX already pending |
+| InvalidLength | `0x01` | Request data too short |
+| InvalidParam | `0x02` | Invalid parameter value |
+| NoCallback | `0x03` | Feature not available |
+| MacFailed | `0x04` | MAC verification failed |
+| UnknownCmd | `0x05` | Unknown sub-command |
+| EncryptFailed | `0x06` | Encryption failed |
+
+### Unsolicited Events
+
+The TNC sends these SetHardware frames without a preceding request:
+
+**TxDone (0x2F)**: Sent after a packet has been transmitted. Contains a single byte: 0x01 for success, 0x00 for failure.
+
+**RxMeta (0x38)**: Sent immediately after each standard data frame (type 0x00) with metadata for the received packet. Contains SNR (1 byte, signed, value x4 for 0.25 dB precision) followed by RSSI (1 byte, signed, dBm). Standard KISS clients ignore this frame.
 
 ## Data Formats
 
-### Radio Parameters (CMD_SET_RADIO / RESP_RADIO)
+### Radio Parameters (SetRadio / Radio response)
 
 All values little-endian.
 
@@ -111,27 +168,9 @@ All values little-endian.
 | SF | 1 byte | Spreading factor (5-12) |
 | CR | 1 byte | Coding rate (5-8) |
 
-### Received Packet (CMD_DATA response)
+### Stats (Stats response)
 
-| Field | Size | Description |
-|-------|------|-------------|
-| SNR | 1 byte | Signal-to-noise × 4, signed |
-| RSSI | 1 byte | Signal strength dBm, signed |
-| Packet | variable | Raw MeshCore packet |
-
-### Noise Floor (RESP_NOISE_FLOOR)
-
-Response to `CMD_GET_NOISE_FLOOR` (0x13). Little-endian.
-
-| Field        | Size | Description                    |
-|--------------|------|--------------------------------|
-| Noise floor  | 2    | int16_t, dBm (signed), e.g. -120 |
-
-The modem recalibrates the noise floor every two seconds with an AGC reset every 30 seconds.
-
-### Stats (RESP_STATS)
-
-Response to `CMD_GET_STATS` (0x14). All values little-endian.
+All values little-endian.
 
 | Field | Size | Description |
 |-------|------|-------------|
@@ -139,7 +178,7 @@ Response to `CMD_GET_STATS` (0x14). All values little-endian.
 | TX | 4 bytes | Packets transmitted |
 | Errors | 4 bytes | Receive errors |
 
-### Sensor Permissions (CMD_GET_SENSORS)
+### Sensor Permissions (GetSensors)
 
 | Bit | Value | Description |
 |-----|-------|-------------|
@@ -149,14 +188,14 @@ Response to `CMD_GET_STATS` (0x14). All values little-endian.
 
 Use `0x07` for all permissions.
 
-### Sensor Data (RESP_SENSORS)
+### Sensor Data (Sensors response)
 
 Data returned in CayenneLPP format. See [CayenneLPP documentation](https://docs.mydevices.com/docs/lorawan/cayenne-lpp) for parsing.
 
 ## Notes
 
 - Modem generates identity on first boot (stored in flash)
-- SNR values multiplied by 4 for 0.25 dB precision
-- Wait for `RESP_TX_DONE` before sending next packet
-- Sending `CMD_DATA` while TX is pending returns `ERR_TX_PENDING`
+- SNR values in RxMeta are multiplied by 4 for 0.25 dB precision
+- TxDone is sent as a SetHardware event after each transmission
+- Standard KISS clients receive only type 0x00 data frames and can safely ignore all SetHardware (0x06) frames
 - See [packet_structure.md](./packet_structure.md) for packet format
