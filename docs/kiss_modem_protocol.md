@@ -56,7 +56,7 @@ Maximum unescaped frame size: 512 bytes.
 |------|-------|------|-------------|
 | Data | `0x00` | Raw packet | Received packet from radio |
 
-Data frames carry raw packet data only, with no metadata prepended.
+Data frames carry raw packet data only, with no metadata prepended. The Data command payload is limited to 255 bytes to match the MeshCore maximum transmission unit (MAX_TRANS_UNIT); frames larger than 255 bytes are silently dropped. The KISS specification recommends at least 1024 bytes for general-purpose TNCs; this modem is intended for MeshCore packets only, whose protocol MTU is 255 bytes.
 
 ### CSMA Behavior
 
@@ -268,6 +268,7 @@ Data returned in CayenneLPP format. See [CayenneLPP documentation](https://docs.
 
 ## Notes
 
+- Data payload limit (255 bytes) matches MeshCore MAX_TRANS_UNIT; no change needed for KISS “1024+ recommended” (that applies to general TNCs, not MeshCore)
 - Modem generates identity on first boot (stored in flash)
 - All multi-byte values are little-endian unless stated otherwise
 - SNR values in RxMeta are multiplied by 4 for 0.25 dB precision
