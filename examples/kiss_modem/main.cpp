@@ -12,9 +12,14 @@
   #include <SPIFFS.h>
 #endif
 
+#define NOISE_FLOOR_CALIB_INTERVAL_MS 2000
+#define AGC_RESET_INTERVAL_MS 30000
+
 StdRNG rng;
 mesh::LocalIdentity identity;
 KissModem* modem;
+static uint32_t next_noise_floor_calib_ms = 0;
+static uint32_t next_agc_reset_ms = 0;
 
 void halt() {
   while (1) ;
@@ -107,16 +112,24 @@ void setup() {
 void loop() {
   modem->loop();
 
+  if ((uint32_t)(millis() - next_noise_floor_calib_ms) >= NOISE_FLOOR_CALIB_INTERVAL_MS) {
+    radio_driver.triggerNoiseFloorCalibrate(0);
+    next_noise_floor_calib_ms = millis();
+  }
+  radio_driver.loop();
+
   if (!modem->isTxBusy()) {
+    if ((uint32_t)(millis() - next_agc_reset_ms) >= AGC_RESET_INTERVAL_MS) {
+      radio_driver.resetAGC();
+      next_agc_reset_ms = millis();
+    }
+
     uint8_t rx_buf[256];
     int rx_len = radio_driver.recvRaw(rx_buf, sizeof(rx_buf));
-
     if (rx_len > 0) {
       int8_t snr = (int8_t)(radio_driver.getLastSNR() * 4);
       int8_t rssi = (int8_t)radio_driver.getLastRSSI();
       modem->onPacketReceived(snr, rssi, rx_buf, rx_len);
     }
   }
-
-  radio_driver.loop();
 }
