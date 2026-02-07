@@ -52,31 +52,38 @@
 #define HW_CMD_PING              0x17
 #define HW_CMD_REBOOT            0x18
 
-#define HW_RESP_IDENTITY         0x21
-#define HW_RESP_RANDOM           0x22
-#define HW_RESP_VERIFY           0x23
-#define HW_RESP_SIGNATURE        0x24
-#define HW_RESP_ENCRYPTED        0x25
-#define HW_RESP_DECRYPTED        0x26
-#define HW_RESP_SHARED_SECRET    0x27
-#define HW_RESP_HASH             0x28
-#define HW_RESP_OK               0x29
-#define HW_RESP_ERROR            0x2A
-#define HW_RESP_RADIO            0x2B
-#define HW_RESP_TX_POWER         0x2C
-#define HW_RESP_CURRENT_RSSI     0x2D
-#define HW_RESP_CHANNEL_BUSY     0x2E
-#define HW_RESP_AIRTIME          0x2F
-#define HW_RESP_NOISE_FLOOR      0x30
-#define HW_RESP_VERSION          0x31
-#define HW_RESP_STATS            0x32
-#define HW_RESP_BATTERY          0x33
-#define HW_RESP_MCU_TEMP         0x34
-#define HW_RESP_SENSORS          0x35
-#define HW_RESP_DEVICE_NAME      0x36
-#define HW_RESP_PONG             0x37
-#define HW_RESP_TX_DONE          0x38
-#define HW_RESP_RX_META          0x39
+/* Response code = command code | 0x80.  Generic / unsolicited use 0xF0+. */
+#define HW_RESP(cmd)             ((cmd) | 0x80)
+
+#define HW_RESP_IDENTITY         HW_RESP(HW_CMD_GET_IDENTITY)      /* 0x81 */
+#define HW_RESP_RANDOM           HW_RESP(HW_CMD_GET_RANDOM)        /* 0x82 */
+#define HW_RESP_VERIFY           HW_RESP(HW_CMD_VERIFY_SIGNATURE)  /* 0x83 */
+#define HW_RESP_SIGNATURE        HW_RESP(HW_CMD_SIGN_DATA)         /* 0x84 */
+#define HW_RESP_ENCRYPTED        HW_RESP(HW_CMD_ENCRYPT_DATA)      /* 0x85 */
+#define HW_RESP_DECRYPTED        HW_RESP(HW_CMD_DECRYPT_DATA)      /* 0x86 */
+#define HW_RESP_SHARED_SECRET    HW_RESP(HW_CMD_KEY_EXCHANGE)      /* 0x87 */
+#define HW_RESP_HASH             HW_RESP(HW_CMD_HASH)              /* 0x88 */
+#define HW_RESP_RADIO            HW_RESP(HW_CMD_GET_RADIO)         /* 0x8B */
+#define HW_RESP_TX_POWER         HW_RESP(HW_CMD_GET_TX_POWER)      /* 0x8C */
+#define HW_RESP_CURRENT_RSSI     HW_RESP(HW_CMD_GET_CURRENT_RSSI)  /* 0x8D */
+#define HW_RESP_CHANNEL_BUSY     HW_RESP(HW_CMD_IS_CHANNEL_BUSY)   /* 0x8E */
+#define HW_RESP_AIRTIME          HW_RESP(HW_CMD_GET_AIRTIME)       /* 0x8F */
+#define HW_RESP_NOISE_FLOOR      HW_RESP(HW_CMD_GET_NOISE_FLOOR)   /* 0x90 */
+#define HW_RESP_VERSION          HW_RESP(HW_CMD_GET_VERSION)        /* 0x91 */
+#define HW_RESP_STATS            HW_RESP(HW_CMD_GET_STATS)         /* 0x92 */
+#define HW_RESP_BATTERY          HW_RESP(HW_CMD_GET_BATTERY)       /* 0x93 */
+#define HW_RESP_MCU_TEMP         HW_RESP(HW_CMD_GET_MCU_TEMP)      /* 0x94 */
+#define HW_RESP_SENSORS          HW_RESP(HW_CMD_GET_SENSORS)       /* 0x95 */
+#define HW_RESP_DEVICE_NAME      HW_RESP(HW_CMD_GET_DEVICE_NAME)   /* 0x96 */
+#define HW_RESP_PONG             HW_RESP(HW_CMD_PING)              /* 0x97 */
+
+/* Generic responses (shared by multiple commands) */
+#define HW_RESP_OK               0xF0
+#define HW_RESP_ERROR            0xF1
+
+/* Unsolicited notifications (no corresponding request) */
+#define HW_RESP_TX_DONE          0xF8
+#define HW_RESP_RX_META          0xF9
 
 #define HW_ERR_INVALID_LENGTH    0x01
 #define HW_ERR_INVALID_PARAM     0x02
