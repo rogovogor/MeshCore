@@ -43,10 +43,10 @@ Maximum unescaped frame size: 512 bytes.
 | `CMD_HASH` | `0x08` | Data to hash |
 | `CMD_SET_RADIO` | `0x09` | Freq (4) + BW (4) + SF (1) + CR (1) |
 | `CMD_SET_TX_POWER` | `0x0A` | Power dBm (1) |
-| `CMD_SET_SYNC_WORD` | `0x0B` | Sync word (1) |
+| *reserved* | `0x0B` | *(not implemented)* |
 | `CMD_GET_RADIO` | `0x0C` | - |
 | `CMD_GET_TX_POWER` | `0x0D` | - |
-| `CMD_GET_SYNC_WORD` | `0x0E` | - |
+| *reserved* | `0x0E` | *(not implemented)* |
 | `CMD_GET_VERSION` | `0x0F` | - |
 | `CMD_GET_CURRENT_RSSI` | `0x10` | - |
 | `CMD_IS_CHANNEL_BUSY` | `0x11` | - |
@@ -73,7 +73,7 @@ Maximum unescaped frame size: 512 bytes.
 | `RESP_OK` | `0x29` | - |
 | `RESP_RADIO` | `0x2A` | Freq (4) + BW (4) + SF (1) + CR (1) |
 | `RESP_TX_POWER` | `0x2B` | Power dBm (1) |
-| `RESP_SYNC_WORD` | `0x2C` | Sync word (1) |
+| *reserved* | `0x2C` | *(not implemented)* |
 | `RESP_VERSION` | `0x2D` | Version (1) + Reserved (1) |
 | `RESP_ERROR` | `0x2E` | Error code (1) |
 | `RESP_TX_DONE` | `0x2F` | Result (1): 0x00=failed, 0x01=success |
@@ -119,9 +119,19 @@ All values little-endian.
 | RSSI | 1 byte | Signal strength dBm, signed |
 | Packet | variable | Raw MeshCore packet |
 
+### Noise Floor (RESP_NOISE_FLOOR)
+
+Response to `CMD_GET_NOISE_FLOOR` (0x13). Little-endian.
+
+| Field        | Size | Description                    |
+|--------------|------|--------------------------------|
+| Noise floor  | 2    | int16_t, dBm (signed), e.g. -120 |
+
+The modem recalibrates the noise floor every two seconds with an AGC reset every 30 seconds.
+
 ### Stats (RESP_STATS)
 
-All values little-endian.
+Response to `CMD_GET_STATS` (0x14). All values little-endian.
 
 | Field | Size | Description |
 |-------|------|-------------|
