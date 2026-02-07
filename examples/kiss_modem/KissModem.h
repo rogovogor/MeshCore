@@ -51,6 +51,8 @@
 #define HW_CMD_GET_DEVICE_NAME   0x16
 #define HW_CMD_PING              0x17
 #define HW_CMD_REBOOT            0x18
+#define HW_CMD_SET_SIGNAL_REPORT 0x19
+#define HW_CMD_GET_SIGNAL_REPORT 0x1A
 
 /* Response code = command code | 0x80.  Generic / unsolicited use 0xF0+. */
 #define HW_RESP(cmd)             ((cmd) | 0x80)
@@ -76,6 +78,7 @@
 #define HW_RESP_SENSORS          HW_RESP(HW_CMD_GET_SENSORS)       /* 0x95 */
 #define HW_RESP_DEVICE_NAME      HW_RESP(HW_CMD_GET_DEVICE_NAME)   /* 0x96 */
 #define HW_RESP_PONG             HW_RESP(HW_CMD_PING)              /* 0x97 */
+#define HW_RESP_SIGNAL_REPORT    HW_RESP(HW_CMD_GET_SIGNAL_REPORT) /* 0x9A */
 
 /* Generic responses (shared by multiple commands) */
 #define HW_RESP_OK               0xF0
@@ -153,6 +156,7 @@ class KissModem {
   OnSendFinishedCallback _onSendFinishedCallback;
 
   RadioConfig _config;
+  bool _signal_report_enabled;
 
   void writeByte(uint8_t b);
   void writeFrame(uint8_t type, const uint8_t* data, uint16_t len);
@@ -186,6 +190,8 @@ class KissModem {
   void handleGetMCUTemp();
   void handleReboot();
   void handleGetDeviceName();
+  void handleSetSignalReport(const uint8_t* data, uint16_t len);
+  void handleGetSignalReport();
 
 public:
   KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& rng,

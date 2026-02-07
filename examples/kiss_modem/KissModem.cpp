@@ -24,6 +24,7 @@ KissModem::KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& r
   _isSendCompleteCallback = nullptr;
   _onSendFinishedCallback = nullptr;
   _config = {0, 0, 0, 0, 0};
+  _signal_report_enabled = true;
 }
 
 void KissModem::begin() {
@@ -239,6 +240,12 @@ void KissModem::handleHardwareCommand(uint8_t sub_cmd, const uint8_t* data, uint
     case HW_CMD_GET_DEVICE_NAME:
       handleGetDeviceName();
       break;
+    case HW_CMD_SET_SIGNAL_REPORT:
+      handleSetSignalReport(data, len);
+      break;
+    case HW_CMD_GET_SIGNAL_REPORT:
+      handleGetSignalReport();
+      break;
     default:
       writeHardwareError(HW_ERR_UNKNOWN_CMD);
       break;
@@ -304,8 +311,10 @@ void KissModem::processTx() {
 
 void KissModem::onPacketReceived(int8_t snr, int8_t rssi, const uint8_t* packet, uint16_t len) {
   writeFrame(KISS_CMD_DATA, packet, len);
-  uint8_t meta[2] = { (uint8_t)snr, (uint8_t)rssi };
-  writeHardwareFrame(HW_RESP_RX_META, meta, 2);
+  if (_signal_report_enabled) {
+    uint8_t meta[2] = { (uint8_t)snr, (uint8_t)rssi };
+    writeHardwareFrame(HW_RESP_RX_META, meta, 2);
+  }
 }
 
 void KissModem::handleGetIdentity() {
@@ -571,4 +580,19 @@ void KissModem::handleReboot() {
 void KissModem::handleGetDeviceName() {
   const char* name = _board.getManufacturerName();
   writeHardwareFrame(HW_RESP_DEVICE_NAME, (const uint8_t*)name, strlen(name));
+}
+
+void KissModem::handleSetSignalReport(const uint8_t* data, uint16_t len) {
+  if (len < 1) {
+    writeHardwareError(HW_ERR_INVALID_LENGTH);
+    return;
+  }
+  _signal_report_enabled = (data[0] != 0x00);
+  uint8_t val = _signal_report_enabled ? 0x01 : 0x00;
+  writeHardwareFrame(HW_RESP_SIGNAL_REPORT, &val, 1);
+}
+
+void KissModem::handleGetSignalReport() {
+  uint8_t val = _signal_report_enabled ? 0x01 : 0x00;
+  writeHardwareFrame(HW_RESP_SIGNAL_REPORT, &val, 1);
 }
