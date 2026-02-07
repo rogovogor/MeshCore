@@ -310,7 +310,7 @@ void KissModem::onPacketReceived(int8_t snr, int8_t rssi, const uint8_t* packet,
 }
 
 void KissModem::handleGetIdentity() {
-  writeHardwareFrame(HW_RESP_IDENTITY, _identity.pub_key, PUB_KEY_SIZE);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_IDENTITY), _identity.pub_key, PUB_KEY_SIZE);
 }
 
 void KissModem::handleGetRandom(const uint8_t* data, uint16_t len) {
@@ -327,7 +327,7 @@ void KissModem::handleGetRandom(const uint8_t* data, uint16_t len) {
 
   uint8_t buf[64];
   _rng.random(buf, requested);
-  writeHardwareFrame(HW_RESP_RANDOM, buf, requested);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_RANDOM), buf, requested);
 }
 
 void KissModem::handleVerifySignature(const uint8_t* data, uint16_t len) {
@@ -342,7 +342,7 @@ void KissModem::handleVerifySignature(const uint8_t* data, uint16_t len) {
   uint16_t msg_len = len - PUB_KEY_SIZE - SIGNATURE_SIZE;
 
   uint8_t result = signer.verify(signature, msg, msg_len) ? 0x01 : 0x00;
-  writeHardwareFrame(HW_RESP_VERIFY, &result, 1);
+  writeHardwareFrame(HW_RESP(HW_CMD_VERIFY_SIGNATURE), &result, 1);
 }
 
 void KissModem::handleSignData(const uint8_t* data, uint16_t len) {
@@ -353,7 +353,7 @@ void KissModem::handleSignData(const uint8_t* data, uint16_t len) {
 
   uint8_t signature[SIGNATURE_SIZE];
   _identity.sign(signature, data, len);
-  writeHardwareFrame(HW_RESP_SIGNATURE, signature, SIGNATURE_SIZE);
+  writeHardwareFrame(HW_RESP(HW_CMD_SIGN_DATA), signature, SIGNATURE_SIZE);
 }
 
 void KissModem::handleEncryptData(const uint8_t* data, uint16_t len) {
@@ -370,7 +370,7 @@ void KissModem::handleEncryptData(const uint8_t* data, uint16_t len) {
   int encrypted_len = mesh::Utils::encryptThenMAC(key, buf, plaintext, plaintext_len);
 
   if (encrypted_len > 0) {
-    writeHardwareFrame(HW_RESP_ENCRYPTED, buf, encrypted_len);
+    writeHardwareFrame(HW_RESP(HW_CMD_ENCRYPT_DATA), buf, encrypted_len);
   } else {
     writeHardwareError(HW_ERR_ENCRYPT_FAILED);
   }
@@ -390,7 +390,7 @@ void KissModem::handleDecryptData(const uint8_t* data, uint16_t len) {
   int decrypted_len = mesh::Utils::MACThenDecrypt(key, buf, ciphertext, ciphertext_len);
 
   if (decrypted_len > 0) {
-    writeHardwareFrame(HW_RESP_DECRYPTED, buf, decrypted_len);
+    writeHardwareFrame(HW_RESP(HW_CMD_DECRYPT_DATA), buf, decrypted_len);
   } else {
     writeHardwareError(HW_ERR_MAC_FAILED);
   }
@@ -404,7 +404,7 @@ void KissModem::handleKeyExchange(const uint8_t* data, uint16_t len) {
 
   uint8_t shared_secret[PUB_KEY_SIZE];
   _identity.calcSharedSecret(shared_secret, data);
-  writeHardwareFrame(HW_RESP_SHARED_SECRET, shared_secret, PUB_KEY_SIZE);
+  writeHardwareFrame(HW_RESP(HW_CMD_KEY_EXCHANGE), shared_secret, PUB_KEY_SIZE);
 }
 
 void KissModem::handleHash(const uint8_t* data, uint16_t len) {
@@ -415,7 +415,7 @@ void KissModem::handleHash(const uint8_t* data, uint16_t len) {
 
   uint8_t hash[32];
   mesh::Utils::sha256(hash, 32, data, len);
-  writeHardwareFrame(HW_RESP_HASH, hash, 32);
+  writeHardwareFrame(HW_RESP(HW_CMD_HASH), hash, 32);
 }
 
 void KissModem::handleSetRadio(const uint8_t* data, uint16_t len) {
@@ -467,18 +467,18 @@ void KissModem::handleGetRadio() {
   memcpy(buf + 4, &_config.bw_hz, 4);
   buf[8] = _config.sf;
   buf[9] = _config.cr;
-  writeHardwareFrame(HW_RESP_RADIO, buf, 10);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_RADIO), buf, 10);
 }
 
 void KissModem::handleGetTxPower() {
-  writeHardwareFrame(HW_RESP_TX_POWER, &_config.tx_power, 1);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_TX_POWER), &_config.tx_power, 1);
 }
 
 void KissModem::handleGetVersion() {
   uint8_t buf[2];
   buf[0] = KISS_FIRMWARE_VERSION;
   buf[1] = 0;
-  writeHardwareFrame(HW_RESP_VERSION, buf, 2);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_VERSION), buf, 2);
 }
 
 void KissModem::handleGetCurrentRssi() {
@@ -489,12 +489,12 @@ void KissModem::handleGetCurrentRssi() {
 
   float rssi = _getCurrentRssiCallback();
   int8_t rssi_byte = (int8_t)rssi;
-  writeHardwareFrame(HW_RESP_CURRENT_RSSI, (uint8_t*)&rssi_byte, 1);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_CURRENT_RSSI), (uint8_t*)&rssi_byte, 1);
 }
 
 void KissModem::handleIsChannelBusy() {
   uint8_t busy = _radio.isReceiving() ? 0x01 : 0x00;
-  writeHardwareFrame(HW_RESP_CHANNEL_BUSY, &busy, 1);
+  writeHardwareFrame(HW_RESP(HW_CMD_IS_CHANNEL_BUSY), &busy, 1);
 }
 
 void KissModem::handleGetAirtime(const uint8_t* data, uint16_t len) {
@@ -505,12 +505,12 @@ void KissModem::handleGetAirtime(const uint8_t* data, uint16_t len) {
 
   uint8_t packet_len = data[0];
   uint32_t airtime = _radio.getEstAirtimeFor(packet_len);
-  writeHardwareFrame(HW_RESP_AIRTIME, (uint8_t*)&airtime, 4);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_AIRTIME), (uint8_t*)&airtime, 4);
 }
 
 void KissModem::handleGetNoiseFloor() {
   int16_t noise_floor = _radio.getNoiseFloor();
-  writeHardwareFrame(HW_RESP_NOISE_FLOOR, (uint8_t*)&noise_floor, 2);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_NOISE_FLOOR), (uint8_t*)&noise_floor, 2);
 }
 
 void KissModem::handleGetStats() {
@@ -525,16 +525,16 @@ void KissModem::handleGetStats() {
   memcpy(buf, &rx, 4);
   memcpy(buf + 4, &tx, 4);
   memcpy(buf + 8, &errors, 4);
-  writeHardwareFrame(HW_RESP_STATS, buf, 12);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_STATS), buf, 12);
 }
 
 void KissModem::handleGetBattery() {
   uint16_t mv = _board.getBattMilliVolts();
-  writeHardwareFrame(HW_RESP_BATTERY, (uint8_t*)&mv, 2);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_BATTERY), (uint8_t*)&mv, 2);
 }
 
 void KissModem::handlePing() {
-  writeHardwareFrame(HW_RESP_PONG, nullptr, 0);
+  writeHardwareFrame(HW_RESP(HW_CMD_PING), nullptr, 0);
 }
 
 void KissModem::handleGetSensors(const uint8_t* data, uint16_t len) {
@@ -546,9 +546,9 @@ void KissModem::handleGetSensors(const uint8_t* data, uint16_t len) {
   uint8_t permissions = data[0];
   CayenneLPP telemetry(255);
   if (_sensors.querySensors(permissions, telemetry)) {
-    writeHardwareFrame(HW_RESP_SENSORS, telemetry.getBuffer(), telemetry.getSize());
+    writeHardwareFrame(HW_RESP(HW_CMD_GET_SENSORS), telemetry.getBuffer(), telemetry.getSize());
   } else {
-    writeHardwareFrame(HW_RESP_SENSORS, nullptr, 0);
+    writeHardwareFrame(HW_RESP(HW_CMD_GET_SENSORS), nullptr, 0);
   }
 }
 
@@ -559,7 +559,7 @@ void KissModem::handleGetMCUTemp() {
     return;
   }
   int16_t temp_tenths = (int16_t)(temp * 10.0f);
-  writeHardwareFrame(HW_RESP_MCU_TEMP, (uint8_t*)&temp_tenths, 2);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_MCU_TEMP), (uint8_t*)&temp_tenths, 2);
 }
 
 void KissModem::handleReboot() {
@@ -571,7 +571,7 @@ void KissModem::handleReboot() {
 
 void KissModem::handleGetDeviceName() {
   const char* name = _board.getManufacturerName();
-  writeHardwareFrame(HW_RESP_DEVICE_NAME, (const uint8_t*)name, strlen(name));
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_DEVICE_NAME), (const uint8_t*)name, strlen(name));
 }
 
 void KissModem::handleSetSignalReport(const uint8_t* data, uint16_t len) {
@@ -581,10 +581,10 @@ void KissModem::handleSetSignalReport(const uint8_t* data, uint16_t len) {
   }
   _signal_report_enabled = (data[0] != 0x00);
   uint8_t val = _signal_report_enabled ? 0x01 : 0x00;
-  writeHardwareFrame(HW_RESP_SIGNAL_REPORT, &val, 1);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_SIGNAL_REPORT), &val, 1);
 }
 
 void KissModem::handleGetSignalReport() {
   uint8_t val = _signal_report_enabled ? 0x01 : 0x00;
-  writeHardwareFrame(HW_RESP_SIGNAL_REPORT, &val, 1);
+  writeHardwareFrame(HW_RESP(HW_CMD_GET_SIGNAL_REPORT), &val, 1);
 }
