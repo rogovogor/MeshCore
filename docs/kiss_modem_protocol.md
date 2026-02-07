@@ -110,36 +110,41 @@ MeshCore-specific functionality uses the standard KISS SetHardware command. The 
 | GetDeviceName | `0x16` | - |
 | Ping | `0x17` | - |
 | Reboot | `0x18` | - |
+| SetSignalReport | `0x19` | Enable (1): 0x00=disable, nonzero=enable |
+| GetSignalReport | `0x1A` | - |
 
 ### Response Sub-commands (TNC to Host)
 
+Response codes use the high-bit convention: `response = command | 0x80`. Generic and unsolicited responses use the `0xF0`+ range.
+
 | Sub-command | Value | Data |
 |-------------|-------|------|
-| Identity | `0x21` | PubKey (32) |
-| Random | `0x22` | Random bytes (1-64) |
-| Verify | `0x23` | Result (1): 0x00=invalid, 0x01=valid |
-| Signature | `0x24` | Signature (64) |
-| Encrypted | `0x25` | MAC (2) + Ciphertext |
-| Decrypted | `0x26` | Plaintext |
-| SharedSecret | `0x27` | Shared secret (32) |
-| Hash | `0x28` | SHA-256 hash (32) |
-| OK | `0x29` | - |
-| Error | `0x2A` | Error code (1) |
-| Radio | `0x2B` | Freq (4) + BW (4) + SF (1) + CR (1) |
-| TxPower | `0x2C` | Power dBm (1) |
-| CurrentRssi | `0x2D` | RSSI dBm (1, signed) |
-| ChannelBusy | `0x2E` | Result (1): 0x00=clear, 0x01=busy |
-| Airtime | `0x2F` | Milliseconds (4) |
-| NoiseFloor | `0x30` | dBm (2, signed) |
-| Version | `0x31` | Version (1) + Reserved (1) |
-| Stats | `0x32` | RX (4) + TX (4) + Errors (4) |
-| Battery | `0x33` | Millivolts (2) |
-| MCUTemp | `0x34` | Temperature (2, signed) |
-| Sensors | `0x35` | CayenneLPP payload |
-| DeviceName | `0x36` | Name (variable, UTF-8) |
-| Pong | `0x37` | - |
-| TxDone | `0x38` | Result (1): 0x00=failed, 0x01=success |
-| RxMeta | `0x39` | SNR (1) + RSSI (1) |
+| Identity | `0x81` | PubKey (32) |
+| Random | `0x82` | Random bytes (1-64) |
+| Verify | `0x83` | Result (1): 0x00=invalid, 0x01=valid |
+| Signature | `0x84` | Signature (64) |
+| Encrypted | `0x85` | MAC (2) + Ciphertext |
+| Decrypted | `0x86` | Plaintext |
+| SharedSecret | `0x87` | Shared secret (32) |
+| Hash | `0x88` | SHA-256 hash (32) |
+| Radio | `0x8B` | Freq (4) + BW (4) + SF (1) + CR (1) |
+| TxPower | `0x8C` | Power dBm (1) |
+| CurrentRssi | `0x8D` | RSSI dBm (1, signed) |
+| ChannelBusy | `0x8E` | Result (1): 0x00=clear, 0x01=busy |
+| Airtime | `0x8F` | Milliseconds (4) |
+| NoiseFloor | `0x90` | dBm (2, signed) |
+| Version | `0x91` | Version (1) + Reserved (1) |
+| Stats | `0x92` | RX (4) + TX (4) + Errors (4) |
+| Battery | `0x93` | Millivolts (2) |
+| MCUTemp | `0x94` | Temperature (2, signed) |
+| Sensors | `0x95` | CayenneLPP payload |
+| DeviceName | `0x96` | Name (variable, UTF-8) |
+| Pong | `0x97` | - |
+| SignalReport | `0x9A` | Status (1): 0x00=disabled, 0x01=enabled |
+| OK | `0xF0` | - |
+| Error | `0xF1` | Error code (1) |
+| TxDone | `0xF8` | Result (1): 0x00=failed, 0x01=success |
+| RxMeta | `0xF9` | SNR (1) + RSSI (1) |
 
 ### Error Codes
 
@@ -156,9 +161,9 @@ MeshCore-specific functionality uses the standard KISS SetHardware command. The 
 
 The TNC sends these SetHardware frames without a preceding request:
 
-**TxDone (0x38)**: Sent after a packet has been transmitted. Contains a single byte: 0x01 for success, 0x00 for failure.
+**TxDone (0xF8)**: Sent after a packet has been transmitted. Contains a single byte: 0x01 for success, 0x00 for failure.
 
-**RxMeta (0x39)**: Sent immediately after each standard data frame (type 0x00) with metadata for the received packet. Contains SNR (1 byte, signed, value x4 for 0.25 dB precision) followed by RSSI (1 byte, signed, dBm). Standard KISS clients ignore this frame.
+**RxMeta (0xF9)**: Sent immediately after each standard data frame (type 0x00) with metadata for the received packet. Contains SNR (1 byte, signed, value x4 for 0.25 dB precision) followed by RSSI (1 byte, signed, dBm). Enabled by default; can be toggled with SetSignalReport. Standard KISS clients ignore this frame.
 
 ## Data Formats
 
