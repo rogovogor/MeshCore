@@ -20,9 +20,6 @@ KissModem::KissModem(Stream& serial, mesh::LocalIdentity& identity, mesh::RNG& r
   _setTxPowerCallback = nullptr;
   _getCurrentRssiCallback = nullptr;
   _getStatsCallback = nullptr;
-  _sendPacketCallback = nullptr;
-  _isSendCompleteCallback = nullptr;
-  _onSendFinishedCallback = nullptr;
   _config = {0, 0, 0, 0, 0};
   _signal_report_enabled = true;
 }
@@ -287,19 +284,14 @@ void KissModem::processTx() {
 
     case TX_DELAY:
       if (millis() - _tx_timer >= (uint32_t)_txdelay * 10) {
-        if (_sendPacketCallback) {
-          _sendPacketCallback(_pending_tx, _pending_tx_len);
-          _tx_state = TX_SENDING;
-        } else {
-          _has_pending_tx = false;
-          _tx_state = TX_IDLE;
-        }
+        _radio.startSendRaw(_pending_tx, _pending_tx_len);
+        _tx_state = TX_SENDING;
       }
       break;
 
     case TX_SENDING:
-      if (_isSendCompleteCallback && _isSendCompleteCallback()) {
-        if (_onSendFinishedCallback) _onSendFinishedCallback();
+      if (_radio.isSendComplete()) {
+        _radio.onSendFinished();
         uint8_t result = 0x01;
         writeHardwareFrame(HW_RESP_TX_DONE, &result, 1);
         _has_pending_tx = false;

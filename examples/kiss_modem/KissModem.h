@@ -101,9 +101,6 @@ typedef void (*SetRadioCallback)(float freq, float bw, uint8_t sf, uint8_t cr);
 typedef void (*SetTxPowerCallback)(uint8_t power);
 typedef float (*GetCurrentRssiCallback)();
 typedef void (*GetStatsCallback)(uint32_t* rx, uint32_t* tx, uint32_t* errors);
-typedef void (*SendPacketCallback)(const uint8_t* data, uint16_t len);
-typedef bool (*IsSendCompleteCallback)();
-typedef void (*OnSendFinishedCallback)();
 
 struct RadioConfig {
   uint32_t freq_hz;
@@ -151,9 +148,6 @@ class KissModem {
   SetTxPowerCallback _setTxPowerCallback;
   GetCurrentRssiCallback _getCurrentRssiCallback;
   GetStatsCallback _getStatsCallback;
-  SendPacketCallback _sendPacketCallback;
-  IsSendCompleteCallback _isSendCompleteCallback;
-  OnSendFinishedCallback _onSendFinishedCallback;
 
   RadioConfig _config;
   bool _signal_report_enabled;
@@ -204,9 +198,6 @@ public:
   void setTxPowerCallback(SetTxPowerCallback cb) { _setTxPowerCallback = cb; }
   void setGetCurrentRssiCallback(GetCurrentRssiCallback cb) { _getCurrentRssiCallback = cb; }
   void setGetStatsCallback(GetStatsCallback cb) { _getStatsCallback = cb; }
-  void setSendPacketCallback(SendPacketCallback cb) { _sendPacketCallback = cb; }
-  void setIsSendCompleteCallback(IsSendCompleteCallback cb) { _isSendCompleteCallback = cb; }
-  void setOnSendFinishedCallback(OnSendFinishedCallback cb) { _onSendFinishedCallback = cb; }
 
   void onPacketReceived(int8_t snr, int8_t rssi, const uint8_t* packet, uint16_t len);
   bool isTxBusy() const { return _tx_state != TX_IDLE; }

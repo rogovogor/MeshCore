@@ -70,18 +70,6 @@ void onGetStats(uint32_t* rx, uint32_t* tx, uint32_t* errors) {
   *errors = radio_driver.getPacketsRecvErrors();
 }
 
-void onSendPacket(const uint8_t* data, uint16_t len) {
-  radio_driver.startSendRaw(data, len);
-}
-
-bool onIsSendComplete() {
-  return radio_driver.isSendComplete();
-}
-
-void onSendFinished() {
-  radio_driver.onSendFinished();
-}
-
 void setup() {
   board.begin();
 
@@ -127,9 +115,6 @@ void setup() {
   modem->setTxPowerCallback(onSetTxPower);
   modem->setGetCurrentRssiCallback(onGetCurrentRssi);
   modem->setGetStatsCallback(onGetStats);
-  modem->setSendPacketCallback(onSendPacket);
-  modem->setIsSendCompleteCallback(onIsSendComplete);
-  modem->setOnSendFinishedCallback(onSendFinished);
   modem->begin();
 }
 
