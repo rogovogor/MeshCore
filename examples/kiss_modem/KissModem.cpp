@@ -99,6 +99,11 @@ void KissModem::loop() {
 
     if (_rx_len < KISS_MAX_FRAME_SIZE) {
       _rx_buf[_rx_len++] = b;
+    } else {
+      /* Buffer full with no FEND; reset so we don't stay stuck ignoring input. */
+      _rx_len = 0;
+      _rx_escaped = false;
+      _rx_active = false;
     }
   }
 

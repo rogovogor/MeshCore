@@ -197,4 +197,6 @@ public:
 
   void onPacketReceived(int8_t snr, int8_t rssi, const uint8_t* packet, uint16_t len);
   bool isTxBusy() const { return _tx_state != TX_IDLE; }
+  /** True only when radio is actually transmitting; use to skip recvRaw in main loop. */
+  bool isActuallyTransmitting() const { return _tx_state == TX_SENDING; }
 };
