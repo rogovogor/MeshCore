@@ -428,21 +428,12 @@ void KissModem::handleSetRadio(const uint8_t* data, uint16_t len) {
     return;
   }
 
-  uint32_t freq_hz, bw_hz;
-  memcpy(&freq_hz, data, 4);
-  memcpy(&bw_hz, data + 4, 4);
-  uint8_t sf = data[8];
-  uint8_t cr = data[9];
+  memcpy(&_config.freq_hz, data, 4);
+  memcpy(&_config.bw_hz, data + 4, 4);
+  _config.sf = data[8];
+  _config.cr = data[9];
 
-  _config.freq_hz = freq_hz;
-  _config.bw_hz = bw_hz;
-  _config.sf = sf;
-  _config.cr = cr;
-
-  float freq = freq_hz / 1000000.0f;
-  float bw = bw_hz / 1000.0f;
-
-  _setRadioCallback(freq, bw, sf, cr);
+  _setRadioCallback(_config.freq_hz / 1000000.0f, _config.bw_hz / 1000.0f, _config.sf, _config.cr);
   writeHardwareFrame(HW_RESP_OK, nullptr, 0);
 }
 
