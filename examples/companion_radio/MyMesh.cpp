@@ -1568,7 +1568,7 @@ void MyMesh::handleCmdFrame(size_t len) {
         sendDirect(pkt, &cmd_frame[10], path_len);
 
         uint32_t t = _radio->getEstAirtimeFor(pkt->payload_len + pkt->path_len + 2);
-        uint32_t est_timeout = calcDirectTimeoutMillisFor(t, path_len);
+        uint32_t est_timeout = calcDirectTimeoutMillisFor(t, path_len >> path_sz);
 
         out_frame[0] = RESP_CODE_SENT;
         out_frame[1] = 0;
