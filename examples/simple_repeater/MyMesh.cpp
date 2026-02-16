@@ -738,6 +738,37 @@ void MyMesh::onControlDataRecv(mesh::Packet* packet) {
         sendZeroHop(resp, getRetransmitDelay(resp)*4);  // apply random delay (widened x4), as multiple nodes can respond to this
       }
     }
+  } else if (type == CTL_TYPE_NODE_DISCOVER_RESP && packet->payload_len >= 6) {
+    uint8_t node_type = packet->payload[0] & 0x0F;
+    if (node_type != ADV_TYPE_REPEATER) {
+      return;
+    }
+    if (packet->payload_len < 6 + PUB_KEY_SIZE) {
+      MESH_DEBUG_PRINTLN("onControlDataRecv: DISCOVER_RESP pubkey too short: %d", (uint32_t)packet->payload_len);
+      return;
+    }
+
+    mesh::Identity id(&packet->payload[6]);
+    if (id.matches(self_id)) {
+      return;
+    }
+    putNeighbour(id, rtc_clock.getCurrentTime(), packet->getSNR());
+  }
+}
+
+void MyMesh::sendNodeDiscoverReq() {
+  if (_prefs.disable_fwd) return;
+
+  uint8_t data[10];
+  data[0] = CTL_TYPE_NODE_DISCOVER_REQ; // prefix_only=0
+  data[1] = (1 << ADV_TYPE_REPEATER);
+  getRNG()->random(&data[2], 4); // tag
+  uint32_t since = 0;
+  memcpy(&data[6], &since, 4);
+
+  auto pkt = createControlData(data, sizeof(data));
+  if (pkt) {
+    sendZeroHop(pkt);
   }
 }
 
@@ -1167,6 +1198,15 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       }
     } else {
       strcpy(reply, "Err - ??");
+    }
+  } else if (memcmp(command, "discover", 8) == 0) {
+    const char* sub = command + 8;
+    while (*sub == ' ') sub++;
+    if (*sub != 0) {
+      strcpy(reply, "Err - discover has no options");
+    } else {
+      sendNodeDiscoverReq();
+      strcpy(reply, "OK - Discover sent");
     }
   } else{
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
