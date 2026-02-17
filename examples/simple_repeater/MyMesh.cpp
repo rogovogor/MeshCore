@@ -774,7 +774,7 @@ void MyMesh::sendNodeDiscoverReq() {
   data[1] = (1 << ADV_TYPE_REPEATER);
   getRNG()->random(&data[2], 4); // tag
   memcpy(&pending_discover_tag, &data[2], 4);
-  pending_discover_until = futureMillis(30000);
+  pending_discover_until = futureMillis(60000);
   uint32_t since = 0;
   memcpy(&data[6], &since, 4);
 
