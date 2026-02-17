@@ -97,6 +97,8 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   RegionEntry* load_stack[8];
   RegionEntry* recv_pkt_region;
   RateLimiter discover_limiter, anon_limiter;
+  uint32_t pending_discover_tag;
+  unsigned long pending_discover_until;
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
