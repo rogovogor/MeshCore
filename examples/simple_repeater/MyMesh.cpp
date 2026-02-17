@@ -292,6 +292,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
 
       // create copy of neighbours list, skipping empty entries so we can sort it separately from main list
       int16_t neighbours_count = 0;
+#if MAX_NEIGHBOURS
       NeighbourInfo* sorted_neighbours[MAX_NEIGHBOURS];
       for (int i = 0; i < MAX_NEIGHBOURS; i++) {
         auto neighbour = &neighbours[i];
@@ -327,6 +328,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
           return a->snr < b->snr; // asc
         });
       }
+#endif
 
       // build results buffer
       int results_count = 0;
@@ -341,6 +343,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
           break;
         }
 
+#if MAX_NEIGHBOURS
         // add next neighbour to results
         auto neighbour = sorted_neighbours[index + offset];
         uint32_t heard_seconds_ago = getRTCClock()->getCurrentTime() - neighbour->heard_timestamp;
@@ -348,6 +351,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
         memcpy(&results_buffer[results_offset], &heard_seconds_ago, 4); results_offset += 4;
         memcpy(&results_buffer[results_offset], &neighbour->snr, 1); results_offset += 1;
         results_count++;
+#endif
 
       }
 
