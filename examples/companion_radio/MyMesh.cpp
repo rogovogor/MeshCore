@@ -258,11 +258,11 @@ int MyMesh::calcRxDelay(float score, uint32_t air_time) const {
 }
 
 uint32_t MyMesh::getRetransmitDelay(const mesh::Packet *packet) {
-  uint32_t t = (_radio->getEstAirtimeFor(packet->path_len + packet->payload_len + 2) * 0.5f);
+  uint32_t t = (_radio->getEstAirtimeFor(packet->getPathByteLen() + packet->payload_len + 2) * 0.5f);
   return getRNG()->nextInt(0, 5*t + 1);
 }
 uint32_t MyMesh::getDirectRetransmitDelay(const mesh::Packet *packet) {
-  uint32_t t = (_radio->getEstAirtimeFor(packet->path_len + packet->payload_len + 2) * 0.2f);
+  uint32_t t = (_radio->getEstAirtimeFor(packet->getPathByteLen() + packet->payload_len + 2) * 0.2f);
   return getRNG()->nextInt(0, 5*t + 1);
 }
 
@@ -678,7 +678,7 @@ void MyMesh::onContactResponse(const ContactInfo &contact, const uint8_t *data, 
   }
 }
 
-bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t in_path_len, uint8_t* out_path, uint8_t out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
+bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t _in_path_len, uint8_t* out_path, uint8_t _out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
   if (extra_type == PAYLOAD_TYPE_RESPONSE && extra_len > 4) {
     uint32_t tag;
     memcpy(&tag, extra, 4);
@@ -785,9 +785,10 @@ uint32_t MyMesh::calcFloodTimeoutMillisFor(uint32_t pkt_airtime_millis) const {
   return SEND_TIMEOUT_BASE_MILLIS + (FLOOD_SEND_TIMEOUT_FACTOR * pkt_airtime_millis);
 }
 uint32_t MyMesh::calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t path_len) const {
+  uint8_t path_hash_count = path_len & 63;
   return SEND_TIMEOUT_BASE_MILLIS +
          ((pkt_airtime_millis * DIRECT_SEND_PERHOP_FACTOR + DIRECT_SEND_PERHOP_EXTRA_MILLIS) *
-          (path_len + 1));
+          (path_hash_count + 1));
 }
 
 void MyMesh::onSendTimeout() {}
@@ -1115,7 +1116,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     }
     if (pkt) {
       if (len >= 2 && cmd_frame[1] == 1) { // optional param (1 = flood, 0 = zero hop)
-        sendFlood(pkt);
+        sendFlood(pkt);  // TODO: which path_hash_size to use??
       } else {
         sendZeroHop(pkt);
       }
@@ -1127,7 +1128,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     uint8_t *pub_key = &cmd_frame[1];
     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
     if (recipient) {
-      recipient->out_path_len = -1;
+      recipient->out_path_len = OUT_PATH_UNKNOWN;
       // recipient->lastmod = ??   shouldn't be needed, app already has this version of contact
       dirty_contacts_expiry = futureMillis(LAZY_CONTACTS_WRITE_DELAY);
       writeOKFrame();
@@ -1449,7 +1450,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       memset(&req_data[2], 0, 3);  // reserved
       getRNG()->random(&req_data[5], 4);   // random blob to help make packet-hash unique
       auto save = recipient->out_path_len;    // temporarily force sendRequest() to flood
-      recipient->out_path_len = -1;
+      recipient->out_path_len = OUT_PATH_UNKNOWN;
       int result = sendRequest(*recipient, req_data, sizeof(req_data), tag, est_timeout);
       recipient->out_path_len = save;
       if (result == MSG_SEND_FAILED) {

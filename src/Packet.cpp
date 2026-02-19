@@ -10,8 +10,19 @@ Packet::Packet() {
   payload_len = 0;
 }
 
+uint8_t Packet::copyPath(uint8_t* dest, const uint8_t* src, uint8_t path_len) {
+  uint8_t hash_count = path_len & 63;
+  uint8_t hash_size = (path_len >> 6) + 1;
+  if (hash_count*hash_size > MAX_PATH_SIZE) {
+    MESH_DEBUG_PRINTLN("Packet::copyPath, invalid path_len=%d", (uint32_t)path_len);
+    return 0;   // Error
+  }
+  memcpy(dest, src, hash_count*hash_size);
+  return path_len;
+}
+
 int Packet::getRawLength() const {
-  return 2 + path_len + payload_len + (hasTransportCodes() ? 4 : 0);
+  return 2 + getPathByteLen() + payload_len + (hasTransportCodes() ? 4 : 0);
 }
 
 void Packet::calculatePacketHash(uint8_t* hash) const {
