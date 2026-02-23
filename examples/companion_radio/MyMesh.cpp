@@ -57,6 +57,7 @@
 #define CMD_SET_AUTOADD_CONFIG        58
 #define CMD_GET_AUTOADD_CONFIG        59
 #define CMD_GET_ALLOWED_REPEAT_FREQ   60
+#define CMD_SET_PATH_HASH_MODE        61
 
 // Stats sub-types for CMD_GET_STATS
 #define STATS_TYPE_CORE               0
@@ -1308,14 +1309,19 @@ void MyMesh::handleCmdFrame(size_t len) {
         _prefs.advert_loc_policy = cmd_frame[3];
         if (len >= 5) {
           _prefs.multi_acks = cmd_frame[4];
-          if (len >= 6) {
-            _prefs.path_hash_mode = cmd_frame[5];
-          }
         }
       }
     }
     savePrefs();
     writeOKFrame();
+  } else if (cmd_frame[0] == CMD_SET_PATH_HASH_MODE && cmd_frame[1] == 0 && len >= 3) {
+    if (cmd_frame[2] >= 3) {
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+    } else {
+      _prefs.path_hash_mode = cmd_frame[2];
+      savePrefs();
+      writeOKFrame();
+    }
   } else if (cmd_frame[0] == CMD_REBOOT && memcmp(&cmd_frame[1], "reboot", 6) == 0) {
     if (dirty_contacts_expiry) { // is there are pending dirty contacts write needed?
       saveContacts();
