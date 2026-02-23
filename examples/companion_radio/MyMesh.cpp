@@ -1115,9 +1115,9 @@ void MyMesh::handleCmdFrame(size_t len) {
       pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
     }
     if (pkt) {
-      if (len >= 2 && cmd_frame[1] >= 1 && cmd_frame[1] <= 3) { // optional param (1..3 = flood, 0 = zero hop)
+      if (len >= 2 && cmd_frame[1] == 1) { // optional param (1 = flood, 0 = zero hop)
         unsigned long delay_millis = 0;
-        sendFlood(pkt, delay_millis, cmd_frame[1]);
+        sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
       } else {
         sendZeroHop(pkt);
       }
