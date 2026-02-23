@@ -68,7 +68,7 @@ void Dispatcher::loop() {
       next_tx_time = futureMillis(t * getAirtimeBudgetFactor());
 
       _radio->onSendFinished();
-      logTx(outbound, 2 + outbound->path_len + outbound->payload_len);
+      logTx(outbound, 2 + outbound->getPathByteLen() + outbound->payload_len);
       if (outbound->isRouteFlood()) {
         n_sent_flood++;
       } else {
@@ -80,7 +80,7 @@ void Dispatcher::loop() {
       MESH_DEBUG_PRINTLN("%s Dispatcher::loop(): WARNING: outbound packed send timed out!", getLogDateTime());
 
       _radio->onSendFinished();
-      logTxFail(outbound, 2 + outbound->path_len + outbound->payload_len);
+      logTxFail(outbound, 2 + outbound->getPathByteLen() + outbound->payload_len);
 
       releasePacket(outbound);  // return to pool
       outbound = NULL;
@@ -266,7 +266,7 @@ void Dispatcher::checkSend() {
       memcpy(&raw[len], &outbound->transport_codes[1], 2); len += 2;
     }
     raw[len++] = outbound->path_len;
-    memcpy(&raw[len], outbound->path, outbound->path_len); len += outbound->path_len;
+    len += Packet::writePath(&raw[len], outbound->path, outbound->path_len);
 
     if (len + outbound->payload_len > MAX_TRANS_UNIT) {
       MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): FATAL: Invalid packet queued... too long, len=%d", getLogDateTime(), len + outbound->payload_len);
@@ -320,7 +320,7 @@ void Dispatcher::releasePacket(Packet* packet) {
 }
 
 void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_millis) {
-  if (packet->path_len > MAX_PATH_SIZE || packet->payload_len > MAX_PACKET_PAYLOAD) {
+  if (!Packet::isValidPathLen(packet->path_len) || packet->payload_len > MAX_PACKET_PAYLOAD) {
     MESH_DEBUG_PRINTLN("%s Dispatcher::sendPacket(): ERROR: invalid packet... path_len=%d, payload_len=%d", getLogDateTime(), (uint32_t) packet->path_len, (uint32_t) packet->payload_len);
     _mgr->free(packet);
   } else {
