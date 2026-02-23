@@ -473,23 +473,23 @@ bool MyMesh::allowPacketForward(const mesh::Packet* packet) {
 void MyMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis) {
   // TODO: dynamic send_scope, depending on recipient and current 'home' Region
   if (send_scope.isNull()) {
-    sendFlood(pkt, delay_millis);
+    sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
   } else {
     uint16_t codes[2];
     codes[0] = send_scope.calcTransportCode(pkt);
     codes[1] = 0;  // REVISIT: set to 'home' Region, for sender/return region?
-    sendFlood(pkt, codes, delay_millis);
+    sendFlood(pkt, codes, delay_millis, _prefs.path_hash_mode + 1);
   }
 }
 void MyMesh::sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t delay_millis) {
   // TODO: have per-channel send_scope
   if (send_scope.isNull()) {
-    sendFlood(pkt, delay_millis);
+    sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
   } else {
     uint16_t codes[2];
     codes[0] = send_scope.calcTransportCode(pkt);
     codes[1] = 0;  // REVISIT: set to 'home' Region, for sender/return region?
-    sendFlood(pkt, codes, delay_millis);
+    sendFlood(pkt, codes, delay_millis, _prefs.path_hash_mode + 1);
   }
 }
 
@@ -937,6 +937,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     StrHelper::strzcpy((char *)&out_frame[i], FIRMWARE_VERSION, 20);
     i += 20;
     out_frame[i++] = _prefs.client_repeat;   // v9+
+    out_frame[i++] = _prefs.path_hash_mode;  // v10+
     _serial->writeFrame(out_frame, i);
   } else if (cmd_frame[0] == CMD_APP_START &&
              len >= 8) { // sent when app establishes connection, respond with node ID
@@ -1113,8 +1114,9 @@ void MyMesh::handleCmdFrame(size_t len) {
       pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
     }
     if (pkt) {
-      if (len >= 2 && cmd_frame[1] == 1) { // optional param (1 = flood, 0 = zero hop)
-        sendFlood(pkt);  // TODO: which path_hash_size to use??
+      if (len >= 2 && cmd_frame[1] >= 1 && cmd_frame[1] <= 3) { // optional param (1..3 = flood, 0 = zero hop)
+        unsigned long delay_millis = 0;
+        sendFlood(pkt, delay_millis, cmd_frame[1]);
       } else {
         sendZeroHop(pkt);
       }
@@ -1306,6 +1308,9 @@ void MyMesh::handleCmdFrame(size_t len) {
         _prefs.advert_loc_policy = cmd_frame[3];
         if (len >= 5) {
           _prefs.multi_acks = cmd_frame[4];
+          if (len >= 6) {
+            _prefs.path_hash_mode = cmd_frame[5];
+          }
         }
       }
     }

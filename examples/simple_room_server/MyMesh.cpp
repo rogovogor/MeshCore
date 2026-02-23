@@ -74,7 +74,8 @@ void MyMesh::pushPostToClient(ClientInfo *client, PostInfo &post) {
   auto reply = createDatagram(PAYLOAD_TYPE_TXT_MSG, client->id, client->shared_secret, reply_data, len);
   if (reply) {
     if (client->out_path_len == OUT_PATH_UNKNOWN) {
-      sendFlood(reply);  // TODO: which path_hash_size to use?
+      unsigned long delay_millis = 0;
+      sendFlood(reply, delay_millis, _prefs.path_hash_mode);
       client->extra.room.ack_timeout = futureMillis(PUSH_ACK_TIMEOUT_FLOOD);
     } else {
       sendDirect(reply, client->out_path, client->out_path_len);
