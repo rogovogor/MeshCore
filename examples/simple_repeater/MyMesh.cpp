@@ -917,7 +917,7 @@ void MyMesh::sendSelfAdvertisement(int delay_millis, bool flood) {
   mesh::Packet *pkt = createSelfAdvert();
   if (pkt) {
     if (flood) {
-      sendFlood(pkt, delay_millis);   // TODO: which path_hash_size to use??
+      sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
     } else {
       sendZeroHop(pkt, delay_millis);
     }

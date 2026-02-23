@@ -678,7 +678,7 @@ void MyMesh::onContactResponse(const ContactInfo &contact, const uint8_t *data, 
   }
 }
 
-bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t _in_path_len, uint8_t* out_path, uint8_t _out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
+bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t in_path_len, uint8_t* out_path, uint8_t out_path_len, uint8_t extra_type, uint8_t* extra, uint8_t extra_len) {
   if (extra_type == PAYLOAD_TYPE_RESPONSE && extra_len > 4) {
     uint32_t tag;
     memcpy(&tag, extra, 4);
@@ -686,7 +686,7 @@ bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t _
     if (tag == pending_discovery) {  // check for matching response tag)
       pending_discovery = 0;
 
-      if (in_path_len > MAX_PATH_SIZE || out_path_len > MAX_PATH_SIZE) {
+      if (!mesh::Packet::isValidPathLen(in_path_len) || !mesh::Packet::isValidPathLen(out_path_len)) {
         MESH_DEBUG_PRINTLN("onContactPathRecv, invalid path sizes: %d, %d", in_path_len, out_path_len);
       } else {
         int i = 0;
@@ -695,11 +695,9 @@ bool MyMesh::onContactPathRecv(ContactInfo& contact, uint8_t* in_path, uint8_t _
         memcpy(&out_frame[i], contact.id.pub_key, 6);
         i += 6; // pub_key_prefix
         out_frame[i++] = out_path_len;
-        memcpy(&out_frame[i], out_path, out_path_len);
-        i += out_path_len;
+        i += mesh::Packet::writePath(&out_frame[i], out_path, out_path_len);
         out_frame[i++] = in_path_len;
-        memcpy(&out_frame[i], in_path, in_path_len);
-        i += in_path_len;
+        i += mesh::Packet::writePath(&out_frame[i], in_path, in_path_len);
         // NOTE: telemetry data in 'extra' is discarded at present
 
         _serial->writeFrame(out_frame, i);

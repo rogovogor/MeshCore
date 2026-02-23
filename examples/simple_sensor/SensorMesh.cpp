@@ -261,7 +261,8 @@ void SensorMesh::sendAlert(const ClientInfo* c, Trigger* t) {
     if (c->out_path_len != OUT_PATH_UNKNOWN) {  // we have an out_path, so send DIRECT
       sendDirect(pkt, c->out_path, c->out_path_len);
     } else {
-      sendFlood(pkt);
+      unsigned long delay_millis = 0;
+      sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
     }
   }
   t->send_expiry = futureMillis(ALERT_ACK_EXPIRY_MILLIS);
@@ -567,7 +568,7 @@ void SensorMesh::onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_i
             // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
             mesh::Packet* path = createPathReturn(from->id, secret, packet->path, packet->path_len,
                                                   PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
-            if (path) sendFlood(path, TXT_ACK_DELAY);
+            if (path) sendFlood(path, TXT_ACK_DELAY, packet->getPathHashSize());
           } else {
             sendAckTo(*from, ack_hash, packet->getPathHashSize());
           }
@@ -791,7 +792,7 @@ void SensorMesh::sendSelfAdvertisement(int delay_millis, bool flood) {
   mesh::Packet* pkt = createSelfAdvert();
   if (pkt) {
     if (flood) {
-      sendFlood(pkt, delay_millis);
+      sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
     } else {
       sendZeroHop(pkt, delay_millis);
     }
@@ -868,7 +869,8 @@ void SensorMesh::loop() {
 
   if (next_flood_advert && millisHasNowPassed(next_flood_advert)) {
     mesh::Packet* pkt = createSelfAdvert();
-    if (pkt) sendFlood(pkt);
+    unsigned long delay_millis = 0;
+    if (pkt) sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
 
     updateFloodAdvertTimer();   // schedule next flood advert
     updateAdvertTimer();   // also schedule local advert (so they don't overlap)
