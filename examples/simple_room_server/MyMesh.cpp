@@ -75,7 +75,7 @@ void MyMesh::pushPostToClient(ClientInfo *client, PostInfo &post) {
   if (reply) {
     if (client->out_path_len == OUT_PATH_UNKNOWN) {
       unsigned long delay_millis = 0;
-      sendFlood(reply, delay_millis, _prefs.path_hash_mode);
+      sendFlood(reply, delay_millis, _prefs.path_hash_mode + 1);
       client->extra.room.ack_timeout = futureMillis(PUSH_ACK_TIMEOUT_FLOOD);
     } else {
       sendDirect(reply, client->out_path, client->out_path_len);
