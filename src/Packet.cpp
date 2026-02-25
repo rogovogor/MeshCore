@@ -30,7 +30,7 @@ size_t Packet::writePath(uint8_t* dest, const uint8_t* src, uint8_t path_len) {
 }
 
 uint8_t Packet::copyPath(uint8_t* dest, const uint8_t* src, uint8_t path_len) {
-  if (writePath(dest, src, path_len) == 0) return 0;
+  writePath(dest, src, path_len);
   return path_len;
 }
 
