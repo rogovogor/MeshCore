@@ -10,8 +10,32 @@ Packet::Packet() {
   payload_len = 0;
 }
 
+bool Packet::isValidPathLen(uint8_t path_len) {
+  uint8_t hash_count = path_len & 63;
+  uint8_t hash_size = (path_len >> 6) + 1;
+  if (hash_size == 4) return false;  // Reserved for future
+  return hash_count*hash_size <= MAX_PATH_SIZE;
+}
+
+size_t Packet::writePath(uint8_t* dest, const uint8_t* src, uint8_t path_len) {
+  uint8_t hash_count = path_len & 63;
+  uint8_t hash_size = (path_len >> 6) + 1;
+  size_t len = hash_count*hash_size;
+  if (len > MAX_PATH_SIZE) {
+    MESH_DEBUG_PRINTLN("Packet::copyPath, invalid path_len=%d", (uint32_t)path_len);
+    return 0;   // Error
+  }
+  memcpy(dest, src, len);
+  return len;
+}
+
+uint8_t Packet::copyPath(uint8_t* dest, const uint8_t* src, uint8_t path_len) {
+  writePath(dest, src, path_len);
+  return path_len;
+}
+
 int Packet::getRawLength() const {
-  return 2 + path_len + payload_len + (hasTransportCodes() ? 4 : 0);
+  return 2 + getPathByteLen() + payload_len + (hasTransportCodes() ? 4 : 0);
 }
 
 void Packet::calculatePacketHash(uint8_t* hash) const {
