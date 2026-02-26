@@ -57,7 +57,7 @@ uint8_t Packet::writeTo(uint8_t dest[]) const {
     memcpy(&dest[i], &transport_codes[1], 2); i += 2;
   }
   dest[i++] = path_len;
-  memcpy(&dest[i], path, path_len); i += path_len;
+  i += writePath(&dest[i], path, path_len);
   memcpy(&dest[i], payload, payload_len); i += payload_len;
   return i;
 }
@@ -72,8 +72,11 @@ bool Packet::readFrom(const uint8_t src[], uint8_t len) {
     transport_codes[0] = transport_codes[1] = 0;
   }
   path_len = src[i++];
-  if (path_len > sizeof(path)) return false;   // bad encoding
-  memcpy(path, &src[i], path_len); i += path_len;
+  if (!isValidPathLen(path_len)) return false;   // bad encoding
+
+  uint8_t bl = getPathByteLen();
+  memcpy(path, &src[i], bl); i += bl;
+
   if (i >= len) return false;   // bad encoding
   payload_len = len - i;
   if (payload_len > sizeof(payload)) return false;  // bad encoding
