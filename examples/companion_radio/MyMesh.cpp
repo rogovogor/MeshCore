@@ -1790,7 +1790,7 @@ void MyMesh::handleCmdFrame(size_t len) {
   } else if (cmd_frame[0] == CMD_SET_AUTOADD_CONFIG) {
     _prefs.autoadd_config = cmd_frame[1];
     if (len >= 3) {
-      _prefs.autoadd_max_hops = min(cmd_frame[2], (uint8_t)63);
+      _prefs.autoadd_max_hops = min(cmd_frame[2], (uint8_t)64);
     }
     savePrefs();
     writeOKFrame();
