@@ -75,9 +75,9 @@ void LoRaFEMControl::setRxModeEnable(void)
     } else if(fem_type==KCT8103L_PA) {
         digitalWrite(P_LORA_KCT8103L_PA_CSD, HIGH);
         if(lna_enabled) {
-            digitalWrite(P_LORA_KCT8103L_PA_CTX, LOW);
+            digitalWrite(P_LORA_KCT8103L_PA_CTX, LOW);   // LNA on
         } else {
-            digitalWrite(P_LORA_KCT8103L_PA_CTX, HIGH);
+            digitalWrite(P_LORA_KCT8103L_PA_CTX, HIGH);  // LNA bypass
         }
     }
 }
