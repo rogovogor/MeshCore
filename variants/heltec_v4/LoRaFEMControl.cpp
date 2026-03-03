@@ -94,9 +94,9 @@ void LoRaFEMControl::setRxModeEnableWhenMCUSleep(void)
         digitalWrite(P_LORA_KCT8103L_PA_CSD, HIGH);
         rtc_gpio_hold_en((gpio_num_t)P_LORA_KCT8103L_PA_CSD);
         if(lna_enabled) {
-            digitalWrite(P_LORA_KCT8103L_PA_CTX, LOW);
+            digitalWrite(P_LORA_KCT8103L_PA_CTX, LOW);   // LNA on
         } else {
-            digitalWrite(P_LORA_KCT8103L_PA_CTX, HIGH);
+            digitalWrite(P_LORA_KCT8103L_PA_CTX, HIGH);  // LNA bypass
         }
         rtc_gpio_hold_en((gpio_num_t)P_LORA_KCT8103L_PA_CTX);
     }
