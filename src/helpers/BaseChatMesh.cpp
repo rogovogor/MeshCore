@@ -141,6 +141,15 @@ void BaseChatMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, 
       return;
     }
 
+    // check hop limit for new contacts (0 = no limit, 1 = direct (0 hops), N = up to N-1 hops)
+    uint8_t max_hops = getAutoAddMaxHops();
+    if (max_hops > 0 && packet->getPathHashCount() >= max_hops) {
+      ContactInfo ci;
+      populateContactFromAdvert(ci, id, parser, timestamp);
+      onDiscoveredContact(ci, true, packet->path_len, packet->path);       // let UI know
+      return;
+    }
+
     from = allocateContactSlot();
     if (from == NULL) {
       ContactInfo ci;
