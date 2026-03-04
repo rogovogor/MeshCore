@@ -27,6 +27,7 @@ namespace mesh {
 #define PAYLOAD_TYPE_PATH        0x08    // returned path (prefixed with dest/src hashes, MAC) (enc data: path, extra)
 #define PAYLOAD_TYPE_TRACE       0x09    // trace a path, collecting SNI for each hop
 #define PAYLOAD_TYPE_MULTIPART   0x0A    // packet is one of a set of packets
+#define PAYLOAD_TYPE_CONTROL     0x0B    // a control/discovery packet
 //...
 #define PAYLOAD_TYPE_RAW_CUSTOM   0x0F    // custom packet as raw bytes, for applications with custom encryption, payloads, etc
 
@@ -74,6 +75,16 @@ public:
    * \returns  one of PAYLOAD_VER_ values
    */
   uint8_t getPayloadVer() const { return (header >> PH_VER_SHIFT) & PH_VER_MASK; }
+
+  uint8_t getPathHashSize() const { return (path_len >> 6) + 1; }
+  uint8_t getPathHashCount() const { return path_len & 63; }
+  uint8_t getPathByteLen() const { return getPathHashCount() * getPathHashSize(); }
+  void setPathHashCount(uint8_t n) { path_len &= ~63; path_len |= n; }
+  void setPathHashSizeAndCount(uint8_t sz, uint8_t n) { path_len = ((sz - 1) << 6) | (n & 63); }
+
+  static uint8_t copyPath(uint8_t* dest, const uint8_t* src, uint8_t path_len);  // returns path_len
+  static size_t writePath(uint8_t* dest, const uint8_t* src, uint8_t path_len);  // returns byte length written
+  static bool isValidPathLen(uint8_t path_len);
 
   void markDoNotRetransmit() { header = 0xFF; }
   bool isMarkedDoNotRetransmit() const { return header == 0xFF; }

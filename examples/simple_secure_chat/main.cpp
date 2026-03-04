@@ -66,7 +66,7 @@ struct NodePrefs {  // persisted to file
   char node_name[32];
   double node_lat, node_lon;
   float freq;
-  uint8_t tx_power_dbm;
+  int8_t tx_power_dbm;
   uint8_t unused[3];
 };
 
@@ -213,22 +213,22 @@ protected:
   }
 
   void onContactPathUpdated(const ContactInfo& contact) override {
-    Serial.printf("PATH to: %s, path_len=%d\n", contact.name, (int32_t) contact.out_path_len);
+    Serial.printf("PATH to: %s, path_len=%d\n", contact.name, (uint32_t) contact.out_path_len);
     saveContacts();
   }
 
-  bool processAck(const uint8_t *data) override {
+  ContactInfo* processAck(const uint8_t *data) override {
     if (memcmp(data, &expected_ack_crc, 4) == 0) {     // got an ACK from recipient
       Serial.printf("   Got ACK! (round trip: %d millis)\n", _ms->getMillis() - last_msg_sent);
       // NOTE: the same ACK can be received multiple times!
       expected_ack_crc = 0;  // reset our expected hash, now that we have received ACK
-      return true;
+      return NULL;  // TODO: really should return ContactInfo pointer 
     }
 
     //uint32_t crc;
     //memcpy(&crc, data, 4);
     //MESH_DEBUG_PRINTLN("unknown ACK received: %08X (expected: %08X)", crc, expected_ack_crc);
-    return false;
+    return NULL;
   }
 
   void onMessageRecv(const ContactInfo& from, mesh::Packet* pkt, uint32_t sender_timestamp, const char *text) override {
@@ -266,8 +266,9 @@ protected:
     return SEND_TIMEOUT_BASE_MILLIS + (FLOOD_SEND_TIMEOUT_FACTOR * pkt_airtime_millis);
   }
   uint32_t calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t path_len) const override {
+    uint8_t path_hash_count = path_len & 63;
     return SEND_TIMEOUT_BASE_MILLIS + 
-         ( (pkt_airtime_millis*DIRECT_SEND_PERHOP_FACTOR + DIRECT_SEND_PERHOP_EXTRA_MILLIS) * (path_len + 1));
+         ( (pkt_airtime_millis*DIRECT_SEND_PERHOP_FACTOR + DIRECT_SEND_PERHOP_EXTRA_MILLIS) * (path_hash_count + 1));
   }
 
   void onSendTimeout() override {
@@ -290,7 +291,7 @@ public:
   }
 
   float getFreqPref() const { return _prefs.freq; }
-  uint8_t getTxPowerPref() const { return _prefs.tx_power_dbm; }
+  int8_t getTxPowerPref() const { return _prefs.tx_power_dbm; }
 
   void begin(FILESYSTEM& fs) {
     _fs = &fs;
@@ -548,7 +549,7 @@ public:
 
 StdRNG fast_rng;
 SimpleMeshTables tables;
-MyMesh the_mesh(radio_driver, fast_rng, *new VolatileRTCClock(), tables); // TODO: test with 'rtc_clock' in target.cpp
+MyMesh the_mesh(radio_driver, fast_rng, rtc_clock, tables);
 
 void halt() {
   while (1) ;
@@ -582,9 +583,12 @@ void setup() {
   the_mesh.showWelcome();
 
   // send out initial Advertisement to the mesh
+#if ENABLE_ADVERT_ON_BOOT == 1
   the_mesh.sendSelfAdvert(1200);   // add slight delay
+#endif
 }
 
 void loop() {
   the_mesh.loop();
+  rtc_clock.tick();
 }

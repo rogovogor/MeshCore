@@ -2,18 +2,16 @@
 
 #include <MeshCore.h>
 #include <Arduino.h>
+#include <helpers/NRF52Board.h>
 
 // built-ins
 #define  PIN_VBAT_READ    5
 #define  ADC_MULTIPLIER   (3 * 1.73 * 1.187 * 1000)
 
-class RAKWismeshTagBoard : public mesh::MainBoard {
-protected:
-  uint8_t startup_reason;
-
+class RAKWismeshTagBoard : public NRF52BoardDCDC {
 public:
+  RAKWismeshTagBoard() : NRF52Board("WISMESHTAG_OTA") {}
   void begin();
-  uint8_t getStartupReason() const override { return startup_reason; }
 
 #if defined(P_LORA_TX_LED) && defined(LED_STATE_ON)
   void onBeforeTransmit() override {
@@ -42,12 +40,6 @@ public:
     return "RAK WisMesh Tag";
   }
 
-  void reboot() override {
-    NVIC_SystemReset();
-  }
-
-  bool startOTAUpdate(const char* id, char reply[]) override;
-
   void powerOff() override {
     #ifdef BUZZER_EN
         digitalWrite(BUZZER_EN, LOW);
@@ -62,7 +54,8 @@ public:
     digitalWrite(LED_PIN, HIGH);
     #endif
     #ifdef BUTTON_PIN
-    while(digitalRead(BUTTON_PIN));
+    // wismesh tag uses LOW to indicate button is pressed, wait until it goes HIGH to indicate it was released
+    while(digitalRead(BUTTON_PIN) == LOW);
     #endif
     #ifdef LED_GREEN
     digitalWrite(LED_GREEN, LOW);
@@ -72,7 +65,8 @@ public:
     #endif
 
     #ifdef BUTTON_PIN
-    nrf_gpio_cfg_sense_input(digitalPinToInterrupt(BUTTON_PIN), NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_SENSE_HIGH);
+    // configure button press to wake up when in powered off state
+    nrf_gpio_cfg_sense_input(digitalPinToInterrupt(BUTTON_PIN), NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
     #endif
 
     sd_power_system_off();

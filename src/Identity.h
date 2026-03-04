@@ -20,8 +20,15 @@ public:
     memcpy(dest, pub_key, PATH_HASH_SIZE);    // hash is just prefix of pub_key
     return PATH_HASH_SIZE;
   }
+  int copyHashTo(uint8_t* dest, uint8_t len) const { 
+    memcpy(dest, pub_key, len);    // hash is just prefix of pub_key
+    return len;
+  }
   bool isHashMatch(const uint8_t* hash) const {
     return memcmp(hash, pub_key, PATH_HASH_SIZE) == 0;
+  }
+  bool isHashMatch(const uint8_t* hash, uint8_t len) const {
+    return memcmp(hash, pub_key, len) == 0;
   }
 
   /**
@@ -64,14 +71,21 @@ public:
    * \param  secret OUT - the 'shared secret' (must be PUB_KEY_SIZE bytes)
    * \param  other IN - the second party in the exchange.
   */
-  void calcSharedSecret(uint8_t* secret, const Identity& other) { calcSharedSecret(secret, other.pub_key); }
+  void calcSharedSecret(uint8_t* secret, const Identity& other) const { calcSharedSecret(secret, other.pub_key); }
 
   /**
    * \brief  the ECDH key exhange, with Ed25519 public key transposed to Ex25519.
    * \param  secret OUT - the 'shared secret' (must be PUB_KEY_SIZE bytes)
    * \param  other_pub_key IN - the public key of second party in the exchange (must be PUB_KEY_SIZE bytes)
   */
-  void calcSharedSecret(uint8_t* secret, const uint8_t* other_pub_key);
+  void calcSharedSecret(uint8_t* secret, const uint8_t* other_pub_key) const;
+
+  /**
+   * \brief  Validates that a given private key can be used for ECDH / shared-secret operations.
+   * \param  prv IN - the private key to validate (must be PRV_KEY_SIZE bytes)
+   * \returns true, if the private key is valid for login.
+  */
+  static bool validatePrivateKey(const uint8_t prv[64]);
 
   bool readFrom(Stream& s);
   bool writeTo(Stream& s) const;

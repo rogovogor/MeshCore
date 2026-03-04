@@ -16,6 +16,7 @@ MASensorManager sensors = MASensorManager(nmea);
 
 #ifdef DISPLAY_CLASS
   DISPLAY_CLASS display;
+  MomentaryButton user_btn(PIN_USER_BTN, 1000, true);
 #endif
 
 bool radio_init() {
@@ -40,7 +41,7 @@ void radio_set_params(float freq, float bw, uint8_t sf, uint8_t cr) {
   radio.setCodingRate(cr);
 }
 
-void radio_set_tx_power(uint8_t dbm) {
+void radio_set_tx_power(int8_t dbm) {
   radio.setOutputPower(dbm);
 }
 

@@ -56,6 +56,7 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
 
 #ifdef PIN_BUZZER
   buzzer.begin();
+  buzzer.quiet(_node_prefs->buzzer_quiet);
 #endif
 
   // Initialize digital button if available
@@ -88,9 +89,9 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   ui_started_at = millis();
 }
 
-void UITask::soundBuzzer(UIEventType bet) {
+void UITask::notify(UIEventType t) {
 #if defined(PIN_BUZZER)
-switch(bet){
+switch(t){
   case UIEventType::contactMessage:
     // gemini's pick
     buzzer.play("MsgRcv3:d=4,o=6,b=200:32e,32g,32b,16c7");
@@ -108,8 +109,8 @@ switch(bet){
     break;
 }
 #endif
-//  Serial.print("DBG:  Buzzzzzz -> ");
-//  Serial.println((int) bet);
+//  Serial.print("DBG:  Alert user -> ");
+//  Serial.println((int) t);
 }
 
 void UITask::msgRead(int msgcount) {
@@ -136,16 +137,26 @@ void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, i
   StrHelper::strncpy(_msg, text, sizeof(_msg));
 
   if (_display != NULL) {
-    if (!_display->isOn()) _display->turnOn();
+    if (!_display->isOn() && !hasConnection()) {
+      _display->turnOn();
+    }
+    if (_display->isOn()) {
     _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
     _need_refresh = true;
+    }
   }
 }
 
 void UITask::renderBatteryIndicator(uint16_t batteryMilliVolts) {
   // Convert millivolts to percentage
-  const int minMilliVolts = 3000; // Minimum voltage (e.g., 3.0V)
-  const int maxMilliVolts = 4200; // Maximum voltage (e.g., 4.2V)
+#ifndef BATT_MIN_MILLIVOLTS
+  #define BATT_MIN_MILLIVOLTS 3000
+#endif
+#ifndef BATT_MAX_MILLIVOLTS
+  #define BATT_MAX_MILLIVOLTS 4200
+#endif
+  const int minMilliVolts = BATT_MIN_MILLIVOLTS;
+  const int maxMilliVolts = BATT_MAX_MILLIVOLTS;
   int batteryPercentage = ((batteryMilliVolts - minMilliVolts) * 100) / (maxMilliVolts - minMilliVolts);
   if (batteryPercentage < 0) batteryPercentage = 0; // Clamp to 0%
   if (batteryPercentage > 100) batteryPercentage = 100; // Clamp to 100%
@@ -269,7 +280,7 @@ void UITask::userLedHandler() {
       state = 0;
       next_change = cur_time + LED_CYCLE_MILLIS - last_increment;
     }
-    digitalWrite(PIN_STATUS_LED, state);
+    digitalWrite(PIN_STATUS_LED, state == LED_STATE_ON);
   }
 #endif
 }
@@ -292,10 +303,12 @@ void UITask::shutdown(bool restart){
 
   #endif // PIN_BUZZER
 
-  if (restart)
+  if (restart) {
     _board->reboot();
-  else
+  } else {
+    radio_driver.powerOff();
     _board->powerOff();
+  }
 }
 
 void UITask::loop() {
@@ -370,7 +383,7 @@ void UITask::handleButtonDoublePress() {
   MESH_DEBUG_PRINTLN("UITask: double press triggered, sending advert");
   // ADVERT
   #ifdef PIN_BUZZER
-      soundBuzzer(UIEventType::ack);
+      notify(UIEventType::ack);
   #endif
   if (the_mesh.advert()) {
     MESH_DEBUG_PRINTLN("Advert sent!");
@@ -388,12 +401,14 @@ void UITask::handleButtonTriplePress() {
   #ifdef PIN_BUZZER
     if (buzzer.isQuiet()) {
       buzzer.quiet(false);
-      soundBuzzer(UIEventType::ack);
+      notify(UIEventType::ack);
       sprintf(_alert, "Buzzer: ON");
     } else {
       buzzer.quiet(true);
       sprintf(_alert, "Buzzer: OFF");
     }
+    _node_prefs->buzzer_quiet = buzzer.isQuiet();
+    the_mesh.savePrefs();
     _need_refresh = true;
   #endif
 }
@@ -407,11 +422,11 @@ void UITask::handleButtonQuadruplePress() {
       if (strcmp(_sensors->getSettingName(i), "gps") == 0) {
         if (strcmp(_sensors->getSettingValue(i), "1") == 0) {
           _sensors->setSettingValue("gps", "0");
-          soundBuzzer(UIEventType::ack);
+          notify(UIEventType::ack);
           sprintf(_alert, "GPS: Disabled");
         } else {
           _sensors->setSettingValue("gps", "1");
-          soundBuzzer(UIEventType::ack);
+          notify(UIEventType::ack);
           sprintf(_alert, "GPS: Enabled");
         }
         break;
