@@ -424,7 +424,7 @@ bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
     const uint8_t* maximums;
     if (_prefs.loop_detect == LOOP_DETECT_MINIMAL) {
       maximums = max_loop_minimal;
-    } else if (_prefs.loop_detect == LOOP_DETECT_MINIMAL) {
+    } else if (_prefs.loop_detect == LOOP_DETECT_MODERATE) {
       maximums = max_loop_moderate;
     } else {
       maximums = max_loop_strict;
