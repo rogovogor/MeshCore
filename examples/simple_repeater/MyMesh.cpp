@@ -891,9 +891,9 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
 
 #if defined(USE_SX1262) || defined(USE_SX1268)
 #ifdef SX126X_RX_BOOSTED_GAIN
-  _prefs.sx126x_rx_boosted_gain = SX126X_RX_BOOSTED_GAIN;
+  _prefs.rx_boosted_gain = SX126X_RX_BOOSTED_GAIN;
 #else
-  _prefs.sx126x_rx_boosted_gain = 1; // enabled by default;
+  _prefs.rx_boosted_gain = 1; // enabled by default;
 #endif
 #endif
 
@@ -920,7 +920,7 @@ void MyMesh::begin(FILESYSTEM *fs) {
   radio_set_tx_power(_prefs.tx_power_dbm);
 
 #if defined(USE_SX1262) || defined(USE_SX1268)
-  radio_set_rx_boosted_gain_mode(_prefs.sx126x_rx_boosted_gain);
+  radio_set_rx_boosted_gain_mode(_prefs.rx_boosted_gain);
   MESH_DEBUG_PRINTLN("SX126x RX Boosted Gain Mode: %s",
                      radio_get_rx_boosted_gain_mode() ? "Enabled" : "Disabled");
 #endif
