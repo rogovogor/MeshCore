@@ -894,11 +894,9 @@ void MyMesh::begin(bool has_display) {
 
   radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
   radio_set_tx_power(_prefs.tx_power_dbm);
-#if defined(USE_SX1262) || defined(USE_SX1268)
-  radio_set_rx_boosted_gain_mode(_prefs.rx_boosted_gain);
-  MESH_DEBUG_PRINTLN("SX126x RX Boosted Gain Mode: %s",
-                     radio_get_rx_boosted_gain_mode() ? "Enabled" : "Disabled");
-#endif
+  radio_driver.setRxBoostedGainMode(_prefs.rx_boosted_gain);
+  MESH_DEBUG_PRINTLN("RX Boosted Gain Mode: %s",
+                     radio_driver.getRxBoostedGainMode() ? "Enabled" : "Disabled");
 }
 
 const char *MyMesh::getNodeName() {
