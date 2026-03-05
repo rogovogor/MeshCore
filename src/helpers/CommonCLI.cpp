@@ -64,7 +64,8 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)&_prefs->bw, sizeof(_prefs->bw));                                         // 116
     file.read((uint8_t *)&_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));         // 120
     file.read((uint8_t *)&_prefs->path_hash_mode, sizeof(_prefs->path_hash_mode));                 // 121
-    file.read(pad, 2);                                                                             // 122
+    file.read((uint8_t *)&_prefs->loop_detect, sizeof(_prefs->loop_detect));                       // 122
+    file.read(pad, 1);                                                                             // 123
     file.read((uint8_t *)&_prefs->flood_max, sizeof(_prefs->flood_max));                           // 124
     file.read((uint8_t *)&_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));   // 125
     file.read((uint8_t *)&_prefs->interference_threshold, sizeof(_prefs->interference_threshold)); // 126
@@ -150,7 +151,8 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)&_prefs->bw, sizeof(_prefs->bw));                                         // 116
     file.write((uint8_t *)&_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));         // 120
     file.write((uint8_t *)&_prefs->path_hash_mode, sizeof(_prefs->path_hash_mode));                 // 121
-    file.write(pad, 2);                                                                             // 122
+    file.write((uint8_t *)&_prefs->loop_detect, sizeof(_prefs->loop_detect));                       // 122
+    file.write(pad, 1);                                                                             // 123
     file.write((uint8_t *)&_prefs->flood_max, sizeof(_prefs->flood_max));                           // 124
     file.write((uint8_t *)&_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));   // 125
     file.write((uint8_t *)&_prefs->interference_threshold, sizeof(_prefs->interference_threshold)); // 126
@@ -203,6 +205,10 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       // Reset clock
       getRTCClock()->setCurrentTime(1715770351);  // 15 May 2024, 8:50pm
       _board->reboot();  // doesn't return
+     } else if (memcmp(command, "advert.zerohop", 14) == 0 && (command[14] == 0 || command[14] == ' ')) {
+      // send zerohop advert
+      _callbacks->sendSelfAdvertisement(1500, false);  // longer delay, give CLI response time to be sent first
+      strcpy(reply, "OK - zerohop advert sent");
     } else if (memcmp(command, "advert", 6) == 0) {
       // send flood advert
       _callbacks->sendSelfAdvertisement(1500, true);  // longer delay, give CLI response time to be sent first
@@ -330,6 +336,16 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         *reply = 0;  // set null terminator
       } else if (memcmp(config, "path.hash.mode", 14) == 0) {
         sprintf(reply, "> %d", (uint32_t)_prefs->path_hash_mode);
+      } else if (memcmp(config, "loop.detect", 11) == 0) {
+        if (_prefs->loop_detect == LOOP_DETECT_OFF) {
+          strcpy(reply, "> off");
+        } else if (_prefs->loop_detect == LOOP_DETECT_MINIMAL) {
+          strcpy(reply, "> minimal");
+        } else if (_prefs->loop_detect == LOOP_DETECT_MODERATE) {
+          strcpy(reply, "> moderate");
+        } else {
+          strcpy(reply, "> strict");
+        }
       } else if (memcmp(config, "tx", 2) == 0 && (config[2] == 0 || config[2] == ' ')) {
         sprintf(reply, "> %d", (int32_t) _prefs->tx_power_dbm);
       } else if (memcmp(config, "freq", 4) == 0) {
@@ -570,6 +586,26 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
           strcpy(reply, "OK");
         } else {
           strcpy(reply, "Error, must be 0,1, or 2");
+        }
+      } else if (memcmp(config, "loop.detect ", 12) == 0) {
+        config += 12;
+        uint8_t mode;
+        if (memcmp(config, "off", 3) == 0) {
+          mode = LOOP_DETECT_OFF;
+        } else if (memcmp(config, "minimal", 7) == 0) {
+          mode = LOOP_DETECT_MINIMAL;
+        } else if (memcmp(config, "moderate", 8) == 0) {
+          mode = LOOP_DETECT_MODERATE;
+        } else if (memcmp(config, "strict", 6) == 0) {
+          mode = LOOP_DETECT_STRICT;
+        } else {
+          mode = 0xFF;
+          strcpy(reply, "Error, must be: off, minimal, moderate, or strict");
+        }
+        if (mode != 0xFF) {
+          _prefs->loop_detect = mode;
+          savePrefs();
+          strcpy(reply, "OK");
         }
       } else if (memcmp(config, "tx ", 3) == 0) {
         _prefs->tx_power_dbm = atoi(&config[3]);
