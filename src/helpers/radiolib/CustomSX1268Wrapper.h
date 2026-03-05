@@ -2,6 +2,7 @@
 
 #include "CustomSX1268.h"
 #include "RadioLibWrappers.h"
+#include "SX126xReset.h"
 
 #ifndef USE_SX1268
 #define USE_SX1268
@@ -23,4 +24,6 @@ public:
     int sf = ((CustomSX1268 *)_radio)->spreadingFactor;
     return packetScoreInt(snr, sf, packet_len);
   }
+
+  void doResetAGC() override { sx126xResetAGC((SX126x *)_radio); }
 };

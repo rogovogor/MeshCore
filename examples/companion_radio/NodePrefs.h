@@ -31,4 +31,5 @@ struct NodePrefs {  // persisted to file
   uint8_t sx126x_rx_boosted_gain; // SX126x RX boosted gain mode (0=power saving, 1=boosted)
   uint8_t client_repeat;
   uint8_t path_hash_mode;    // which path mode to use when sending
+  uint8_t autoadd_max_hops;  // 0 = no limit, 1 = direct (0 hops), N = up to N-1 hops (max 64)
 };

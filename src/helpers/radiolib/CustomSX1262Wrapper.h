@@ -2,6 +2,7 @@
 
 #include "CustomSX1262.h"
 #include "RadioLibWrappers.h"
+#include "SX126xReset.h"
 
 #ifndef USE_SX1262
 #define USE_SX1262
@@ -26,4 +27,6 @@ public:
   virtual void powerOff() override {
     ((CustomSX1262 *)_radio)->sleep(false);
   }
+
+  void doResetAGC() override { sx126xResetAGC((SX126x *)_radio); }
 };

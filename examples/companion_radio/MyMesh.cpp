@@ -318,6 +318,10 @@ bool MyMesh::shouldOverwriteWhenFull() const {
   return (_prefs.autoadd_config & AUTO_ADD_OVERWRITE_OLDEST) != 0;
 }
 
+uint8_t MyMesh::getAutoAddMaxHops() const {
+  return _prefs.autoadd_max_hops;
+}
+
 void MyMesh::onContactOverwrite(const uint8_t* pub_key) {
     _store->deleteBlobByKey(pub_key, PUB_KEY_SIZE); // delete from storage
   if (_serial->isConnected()) {
@@ -1797,12 +1801,16 @@ void MyMesh::handleCmdFrame(size_t len) {
     }
   } else if (cmd_frame[0] == CMD_SET_AUTOADD_CONFIG) {
     _prefs.autoadd_config = cmd_frame[1];
+    if (len >= 3) {
+      _prefs.autoadd_max_hops = min(cmd_frame[2], (uint8_t)64);
+    }
     savePrefs();
-    writeOKFrame();  
+    writeOKFrame();
   } else if (cmd_frame[0] == CMD_GET_AUTOADD_CONFIG) {
     int i = 0;
     out_frame[i++] = RESP_CODE_AUTOADD_CONFIG;
     out_frame[i++] = _prefs.autoadd_config;
+    out_frame[i++] = _prefs.autoadd_max_hops;
     _serial->writeFrame(out_frame, i);
   } else if (cmd_frame[0] == CMD_GET_ALLOWED_REPEAT_FREQ) {
     int i = 0;
