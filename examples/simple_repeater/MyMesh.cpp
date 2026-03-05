@@ -1005,6 +1005,12 @@ void MyMesh::setTxPower(int8_t power_dbm) {
   radio_set_tx_power(power_dbm);
 }
 
+#if defined(USE_SX1262) || defined(USE_SX1268)
+void MyMesh::setRxBoostedGain(bool enable) {
+  radio_driver.setRxBoostedGainMode(enable);
+}
+#endif
+
 void MyMesh::formatNeighborsReply(char *reply) {
   char *dp = reply;
 

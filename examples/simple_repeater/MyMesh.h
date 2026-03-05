@@ -241,8 +241,6 @@ public:
   bool hasPendingWork() const;
 
 #if defined(USE_SX1262) || defined(USE_SX1268)
-  void setRxBoostedGain(bool enable) override {
-    radio_set_rx_boosted_gain_mode(enable);
-  }
+  void setRxBoostedGain(bool enable) override;
 #endif
 };
