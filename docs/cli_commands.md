@@ -383,6 +383,43 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 ---
 
+### View or change this node's avert path hash size
+**Usage:**
+- `get path.hash.mode`
+- `set path.hash.mode <value>`
+
+**Parameters:**
+- `value`: Path hash size (0-2)
+  - `0`: 1 Byte hash size (256 count)[64 max flood]
+  - `1`: 2 Byte hash size (65,536 count)[32 max flood]
+  - `2`: 3 Byte hash size (16,777,216 count)[21 max flood]
+
+**Default:** `0`
+
+**Note:** the 'mode' is the low-level encoding (0..3) where 0 -> 1-byte (legacy), 1 -> 2-byte, 2 -> 3-byte for the ID/hash of the repeaters adverts. This feature was added in firmware 1.14
+
+---
+
+### View or change this node's loop detection 
+**Usage:**
+- `get loop.detect`
+- `set loop.detect <state>`
+
+**Parameters:**
+- `state`: 
+  - `off`: no loop detection is performed
+  - `minimal`: packets are dropped if repeaters ID/hash shows more times than 4(1-byte), 2(2-byte), 1(3-byte)
+  - `moderate`: packets are dropped if repeaters ID/hash shows more times than 2(1-byte), 1(2-byte), 1(3-byte)
+  - `strict`: packets are dropped if repeaters ID/hash shows more times than 1(1-byte), 1(2-byte), 1(3-byte)
+  
+**Default:** `off`
+
+**Note:** When it is enabled, repeaters will now reject flood packets which look like they are in a loop. This has been happening recently in some meshes when there is just a single 'bad' repeater firmware out there (prob some forked or custom firmware). If the payload is messed with, then forwarded, the same packet ends up causing a packet storm, repeated up to the max 64 hops. This feature was added in firmware 1.14
+
+**Example:** If preference is `loop.detect minimal`, and a 1-byte path size packet is received, the repeater will see if its own ID/hash is already in the path. If it's already encoded 4 times, it will reject the packet.  If the packet uses 2-byte path size, and repeater's own ID/hash is already encoded 2 times, it rejects. If the packet uses 3-byte path size, and the repeater's own ID/hash is already encoded 1 time, it rejects. 
+
+---
+
 #### View or change the retransmit delay factor for flood traffic
 **Usage:**
 - `get txdelay`
