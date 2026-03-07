@@ -500,20 +500,22 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 ---
 
-#### View or change the airtime factor (duty cycle limit)
+#### View or change the duty cycle limit
 **Usage:**
-- `get af`
-- `set af <value>`
+- `get dutycycle`
+- `set dutycycle <value>`
 
 **Parameters:**
-- `value`: Airtime factor (0-9). After each transmission, the repeater enforces a silent period of approximately the on-air transmission time multiplied by the value. This results in a long-term duty cycle of roughly 1 divided by (1 plus the value). For example:
-  - `af = 1` → ~50% duty
-  - `af = 2` → ~33% duty
-  - `af = 3` → ~25% duty
-  - `af = 9` → ~10% duty  
-  Yyou are responsible for choosing a value that is appropriate for your jurisdiction and channel plan (for example EU 868 Mhz 10% duty cycle regulation).
+- `value`: Duty cycle percentage (10-100)
 
-**Default:** `1.0`
+**Default:** `50%` (equivalent to airtime factor 1.0)
+
+**Examples:**
+- `set dutycycle 100` — no duty cycle limit
+- `set dutycycle 50` — 50% duty cycle (default)
+- `set dutycycle 10` — 10% duty cycle (strictest EU requirement)
+
+> **Deprecated:** `get af` / `set af` still work but are deprecated in favour of `dutycycle`.
 
 ---
 
