@@ -383,7 +383,7 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 ---
 
-### View or change this node's avert path hash size
+#### View or change this node's advert path hash size
 **Usage:**
 - `get path.hash.mode`
 - `set path.hash.mode <value>`
