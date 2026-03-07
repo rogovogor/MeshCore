@@ -410,9 +410,9 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 **Parameters:**
 - `state`: 
   - `off`: no loop detection is performed
-  - `minimal`: packets are dropped if repeaters ID/hash shows more times than 4(1-byte), 2(2-byte), 1(3-byte)
-  - `moderate`: packets are dropped if repeaters ID/hash shows more times than 2(1-byte), 1(2-byte), 1(3-byte)
-  - `strict`: packets are dropped if repeaters ID/hash shows more times than 1(1-byte), 1(2-byte), 1(3-byte)
+  - `minimal`: packets are dropped if repeater's ID/hash appears 4 or more times (1-byte), 2 or more (2-byte), 1 or more (3-byte)
+  - `moderate`: packets are dropped if repeater's ID/hash appears 2 or more times (1-byte), 1 or more (2-byte), 1 or more (3-byte)
+  - `strict`: packets are dropped if repeater's ID/hash appears 1 or more times (1-byte), 1 or more (2-byte), 1 or more (3-byte)
   
 **Default:** `off`
 
