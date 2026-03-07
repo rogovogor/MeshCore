@@ -402,7 +402,7 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 ---
 
-### View or change this node's loop detection 
+#### View or change this node's loop detection
 **Usage:**
 - `get loop.detect`
 - `set loop.detect <state>`
