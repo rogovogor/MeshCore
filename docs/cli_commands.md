@@ -398,6 +398,8 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 **Note:** the 'mode' is the low-level encoding (0..3) where 0 -> 1-byte (legacy), 1 -> 2-byte, 2 -> 3-byte for the ID/hash of the repeaters adverts. This feature was added in firmware 1.14
 
+**Temporary Note:** adverts with hash sizes of 2 or 3 bytes may have limited flood propogation in your network while this feature is new. Consider your install base of firmware >=1.14 before implementing. 
+
 ---
 
 ### View or change this node's loop detection 
