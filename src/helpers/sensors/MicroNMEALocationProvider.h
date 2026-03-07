@@ -39,6 +39,7 @@ class MicroNMEALocationProvider : public LocationProvider {
     mesh::RTCClock* _clock;
     Stream* _gps_serial;
     RefCountedDigitalPin* _peripher_power;
+    int8_t _claims = 0;
     int _pin_reset;
     int _pin_en;
     long next_check = 0;
@@ -59,8 +60,21 @@ public :
         }
     }
 
+    void claim() {
+        _claims++;
+        if (_claims > 0) {
+            if (_peripher_power) _peripher_power->claim();
+        }
+    }
+
+    void release() {
+        if (_claims == 0) return; // avoid negative _claims
+        _claims--;
+        if (_peripher_power) _peripher_power->release();
+    }
+
     void begin() override {
-        if (_peripher_power) _peripher_power->claim();
+        claim();
         if (_pin_en != -1) {
             digitalWrite(_pin_en, PIN_GPS_EN_ACTIVE);
         }
@@ -84,7 +98,7 @@ public :
         if (_pin_reset != -1) {
             digitalWrite(_pin_reset, GPS_RESET_FORCE);
         }
-        if (_peripher_power) _peripher_power->release();
+        release();
     }
 
     bool isEnabled() override {
