@@ -390,13 +390,14 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 **Parameters:**
 - `value`: Path hash size (0-2)
-  - `0`: 1 Byte hash size (256 count)[64 max flood]
-  - `1`: 2 Byte hash size (65,536 count)[32 max flood]
-  - `2`: 3 Byte hash size (16,777,216 count)[21 max flood]
+  - `0`: 1 Byte hash size (256 unique ids)[64 max flood]
+  - `1`: 2 Byte hash size (65,536 unique ids)[32 max flood]
+  - `2`: 3 Byte hash size (16,777,216 unique ids)[21 max flood]
+  - `3`: DO NOT USE (Reserved) 
 
 **Default:** `0`
 
-**Note:** the 'mode' is the low-level encoding (0..3) where 0 -> 1-byte (legacy), 1 -> 2-byte, 2 -> 3-byte for the ID/hash of the repeaters adverts. This feature was added in firmware 1.14
+**Note:** the 'path.hash.mode' sets the low-level ID/hash encoding size used the for when the repeater adverts. This setting has no impact on what packet ID/hash size this repeater forwards, all sizes should be forwarded on firmware >= 1.14. This feature was added in firmware 1.14
 
 **Temporary Note:** adverts with hash sizes of 2 or 3 bytes may have limited flood propogation in your network while this feature is new. Consider your install base of firmware >=1.14 before implementing. 
 
