@@ -141,7 +141,7 @@ protected:
   {
     outbound = NULL;
     total_air_time = rx_air_time = 0;
-    next_tx_time = 0;
+    next_tx_time = ms.getMillis();
     cad_busy_start = 0;
     next_floor_calib_time = next_agc_reset_time = 0;
     _err_flags = 0;
