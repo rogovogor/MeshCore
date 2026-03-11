@@ -294,7 +294,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
      */
     } else if (memcmp(command, "get ", 4) == 0) {
       const char* config = &command[4];
-      if (memcmp(config, "dutycycle", 8) == 0) {
+      if (memcmp(config, "dutycycle", 9) == 0) {
         float dc = 100.0f / (_prefs->airtime_factor + 1.0f);
         int dc_int = (int)dc;
         int dc_frac = (int)((dc - dc_int) * 10.0f + 0.5f);
@@ -456,8 +456,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
      */
     } else if (memcmp(command, "set ", 4) == 0) {
       const char* config = &command[4];
-      if (memcmp(config, "dutycycle ", 9) == 0) {
-        float dc = atof(&config[9]);
+      if (memcmp(config, "dutycycle ", 10) == 0) {
+        float dc = atof(&config[10]);
         if (dc < 10 || dc > 100) {
           strcpy(reply, "ERROR: dutycycle must be 10-100");
         } else {
