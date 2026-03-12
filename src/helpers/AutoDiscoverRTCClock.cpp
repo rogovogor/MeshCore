@@ -33,9 +33,9 @@ void AutoDiscoverRTCClock::begin(TwoWire& wire) {
 
   if (i2c_probe(wire, RV3028_ADDRESS)) {
     rtc_rv3028.initI2C(wire);
-	rtc_rv3028.writeToRegister(0x35, 0x00);
-	rtc_rv3028.writeToRegister(0x37, 0xB4); // Direct Switching Mode (DSM): when VDD < VBACKUP, switchover occurs from VDD to VBACKUP
-	rtc_rv3028.set24HourMode(); // Set the device to use the 24hour format (default) instead of the 12 hour format
+    rtc_rv3028.writeToRegister(0x35, 0x00);
+    rtc_rv3028.writeToRegister(0x37, 0xB4); // Direct Switching Mode (DSM): when VDD < VBACKUP, switchover occurs from VDD to VBACKUP
+    rtc_rv3028.set24HourMode(); // Set the device to use the 24hour format (default) instead of the 12 hour format
     rv3028_success = true;
   }
 

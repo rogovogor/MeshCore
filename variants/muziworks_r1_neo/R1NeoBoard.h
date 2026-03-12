@@ -38,6 +38,7 @@ public:
   #define BATTERY_SAMPLES 8
 
   uint16_t getBattMilliVolts() override {
+    MESH_DEBUG_PRINTLN("R1Neo: Sampling battery");
     analogReadResolution(12);
 
     uint32_t raw = 0;
