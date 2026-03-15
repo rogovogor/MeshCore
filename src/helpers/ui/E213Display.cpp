@@ -90,7 +90,10 @@ void E213Display::powerOff() {
 
 void E213Display::turnOn() {
   if (!_init) begin();
-  else if (!_isOn) powerOn();
+  else if (!_isOn) {
+    powerOn();
+    display->fastmodeOn();  // Reinitialize display controller after power was cut
+  }
   _isOn = true;
 }
 

@@ -44,7 +44,10 @@ void E290Display::powerOff() {
 
 void E290Display::turnOn() {
   if (!_init) begin();
-  else if (!_isOn) powerOn();
+  else if (!_isOn) {
+    powerOn();
+    display.fastmodeOn();  // Reinitialize display controller after power was cut
+  }
   _isOn = true;
 }
 
