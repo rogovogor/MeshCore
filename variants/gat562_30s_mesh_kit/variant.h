@@ -16,8 +16,8 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#ifndef _VARIANT_RAK3401_
-#define _VARIANT_RAK3401_
+#ifndef _VARIANT_RAK4630_
+#define _VARIANT_RAK4630_
 
 #define RAK4630
 
@@ -38,6 +38,27 @@ extern "C"
 {
 #endif // __cplusplus
 
+	/*
+ * WisBlock Base GPIO definitions
+ */
+	static const uint8_t WB_IO1 = 17;	   // SLOT_A SLOT_B
+	static const uint8_t WB_IO2 = 34;	   // SLOT_A SLOT_B
+	static const uint8_t WB_IO3 = 21;	   // SLOT_C
+	static const uint8_t WB_IO4 = 4;	   // SLOT_C
+	static const uint8_t WB_IO5 = 9;	   // SLOT_D
+	static const uint8_t WB_IO6 = 10;	   // SLOT_D
+	static const uint8_t WB_SW1 = 33;	   // IO_SLOT
+	static const uint8_t WB_A0 = 5;		   // IO_SLOT
+	static const uint8_t WB_A1 = 31;	   // IO_SLOT
+	static const uint8_t WB_I2C1_SDA = 13; // SENSOR_SLOT IO_SLOT
+	static const uint8_t WB_I2C1_SCL = 14; // SENSOR_SLOT IO_SLOT
+	static const uint8_t WB_I2C2_SDA = 24; // IO_SLOT
+	static const uint8_t WB_I2C2_SCL = 25; // IO_SLOT
+	static const uint8_t WB_SPI_CS = 26;   // IO_SLOT
+	static const uint8_t WB_SPI_CLK = 3;   // IO_SLOT
+	static const uint8_t WB_SPI_MISO = 29; // IO_SLOT
+	static const uint8_t WB_SPI_MOSI = 30; // IO_SLOT
+
 // Number of pins defined in PinDescription array
 #define PINS_COUNT (48)
 #define NUM_DIGITAL_PINS (48)
@@ -47,14 +68,44 @@ extern "C"
 // LEDs
 #define PIN_LED1 (35)
 #define PIN_LED2 (36)
+#define PIN_LED3 (29)
 
 #define LED_BUILTIN PIN_LED1
 #define LED_CONN PIN_LED2
+#define WS2812_PIN PIN_LED3
 
-#define LED_GREEN PIN_LED1
-#define LED_BLUE PIN_LED2
+#define LED_GREEN  PIN_LED1
+#define LED_BLUE   PIN_LED2
 
 #define LED_STATE_ON 1 // State when LED is litted
+
+#define P_LORA_TX_LED LED_GREEN
+
+
+/*
+ * Buttons
+ */
+#define PIN_BUTTON1             (9) // Menu / User Button
+#define PIN_BUTTON2             (28) // Joystick Up
+#define PIN_BUTTON3             (4) // Joystick Down
+#define PIN_BUTTON4             (30) // Joystick Left
+#define PIN_BUTTON5             (31) // Joystick Right
+#define PIN_BUTTON6             (26) // Joystick Press
+#define PIN_BACK_BTN            PIN_BUTTON1
+#define JOYSTICK_UP             PIN_BUTTON2
+#define JOYSTICK_DOWN           PIN_BUTTON3
+#define JOYSTICK_LEFT           PIN_BUTTON4
+#define JOYSTICK_RIGHT          PIN_BUTTON5
+#define JOYSTICK_PRESS          PIN_BUTTON6
+#define PIN_USER_BTN            PIN_BUTTON6
+
+/*
+ * Bat pins
+ */
+#define  PIN_VBAT_READ          (5)
+#define  ADC_MULTIPLIER         (3 * 1.75 * 1.187 * 1000)
+
+
 
 /*
  * Analog pins
@@ -87,16 +138,11 @@ extern "C"
 #define PWRMGT_LPCOMP_REFSEL 4  // 5/8 VDD (~3.13-3.44V)
 
 // Other pins
-#define WB_I2C1_SDA (13) // SENSOR_SLOT IO_SLOT
-#define WB_I2C1_SCL (14) // SENSOR_SLOT IO_SLOT
+#define PIN_AREF     (2)
+#define PIN_NFC1     (9)
+#define PIN_NFC2     (10)
 
-#define PIN_AREF (2)
-#define PIN_NFC1 (9)
-#define WB_IO5 PIN_NFC1
-#define WB_IO4 (4)
-#define PIN_NFC2 (10)
-
-static const uint8_t AREF = PIN_AREF;
+	static const uint8_t AREF = PIN_AREF;
 
 /*
  * Serial interfaces
@@ -105,110 +151,73 @@ static const uint8_t AREF = PIN_AREF;
 #define PIN_SERIAL1_RX (15)
 #define PIN_SERIAL1_TX (16)
 
-// Connected to Jlink CDC
-#define PIN_SERIAL2_RX (8)
-#define PIN_SERIAL2_TX (6)
+// TXD0 RXD0 on Base Board
+#define PIN_SERIAL2_RX (19)
+#define PIN_SERIAL2_TX (20)
 
 /*
  * SPI Interfaces
  */
-#define SPI_INTERFACES_COUNT 2
+#define SPI_INTERFACES_COUNT 1
 
-#define PIN_SPI_MISO (45)
-#define PIN_SPI_MOSI (44)
-#define PIN_SPI_SCK (43)
+#define PIN_SPI_MISO (29)
+#define PIN_SPI_MOSI (30)
+#define PIN_SPI_SCK   (3)
 
-#define PIN_SPI1_MISO (29)
-#define PIN_SPI1_MOSI (30)
-#define PIN_SPI1_SCK (3)
-
-	static const uint8_t SS = 42;
+	static const uint8_t SS = 26;
 	static const uint8_t MOSI = PIN_SPI_MOSI;
 	static const uint8_t MISO = PIN_SPI_MISO;
 	static const uint8_t SCK = PIN_SPI_SCK;
 
+// LoRa radio module pins for RAK4631
+
+#define  SX126X_POWER_EN (37)
+#define  P_LORA_RESET    (38)
+#define  P_LORA_NSS      (42)
+#define  P_LORA_SCLK     (43)
+#define  P_LORA_MOSI     (44)
+#define  P_LORA_MISO     (45)
+#define  P_LORA_BUSY     (46)
+#define  P_LORA_DIO_1    (47)
+
+#define SX126X_DIO2_AS_RF_SWITCH  true
+#define SX126X_DIO3_TCXO_VOLTAGE   1.8
+
 /*
  * Wire Interfaces
  */
-#define WIRE_INTERFACES_COUNT 1
+#define WIRE_INTERFACES_COUNT 2
 
-#define PIN_WIRE_SDA (WB_I2C1_SDA)
-#define PIN_WIRE_SCL (WB_I2C1_SCL)
+#define PIN_WIRE_SDA (13)
+#define PIN_WIRE_SCL (14)
+
+#define PIN_WIRE1_SDA (24)
+#define PIN_WIRE1_SCL (25)
 
 // QSPI Pins
 // QSPI occupied by GPIO's
-#define PIN_QSPI_SCK 3
-#define PIN_QSPI_CS 26
-#define PIN_QSPI_IO0 30
-#define PIN_QSPI_IO1 29
-#define PIN_QSPI_IO2 28
-#define PIN_QSPI_IO3 2
+#define PIN_QSPI_SCK 3	// 19
+#define PIN_QSPI_CS 26	// 17
+#define PIN_QSPI_IO0 30 // 20
+#define PIN_QSPI_IO1 29 // 21
+#define PIN_QSPI_IO2 28 // 22
+#define PIN_QSPI_IO3 2	// 23
 
 // On-board QSPI Flash
 // No onboard flash
 #define EXTERNAL_FLASH_DEVICES IS25LP080D
 #define EXTERNAL_FLASH_USE_QSPI
 
-#define USE_SX1262
-#define SX126X_CS (26)
-#define SX126X_DIO1 (10)
-#define SX126X_BUSY (9)
-#define SX126X_RESET (4)
+#define GPS_ADDRESS   0x42  //i2c address for GPS
 
-// SKY66122-11 FEM control on the RAK13302 module:
-//   CSD + CPS are tied together on the PCB, routed to WisBlock IO3 (P0.21).
-//   Setting IO3 HIGH enables the FEM (LNA for RX, PA path for TX).
-//   CTX is connected to SX1262 DIO2 — the radio handles TX/RX switching
-//   in hardware via SetDIO2AsRfSwitchCtrl (microsecond-accurate, no GPIO needed).
-//   The 5V boost for the PA is enabled by WB_IO2 (P0.34 = PIN_3V3_EN).
-#define SX126X_POWER_EN (21)        // P0.21 = IO3 -> SKY66122 CSD+CPS (FEM enable)
 
-// CTX is driven by SX1262 DIO2, not a GPIO
-#define SX126X_DIO2_AS_RF_SWITCH
-#define SX126X_DIO3_TCXO_VOLTAGE 1.8
-
-#define P_LORA_SCLK PIN_SPI1_SCK
-#define P_LORA_MISO PIN_SPI1_MISO
-#define P_LORA_MOSI PIN_SPI1_MOSI
-#define P_LORA_NSS SX126X_CS
-#define P_LORA_DIO_1 SX126X_DIO1
-#define P_LORA_BUSY SX126X_BUSY
-#define P_LORA_RESET SX126X_RESET
-
-// enables 3.3V periphery like GPS or IO Module
-// Do not toggle this for GPS power savings
-#define PIN_3V3_EN (34)
-#define WB_IO2 PIN_3V3_EN
-
-// RAK1910 GPS module
-// If using the wisblock GPS module and pluged into Port A on WisBlock base
-// IO1 is hooked to PPS (pin 12 on header) = gpio 17
-// IO2 is hooked to GPS RESET = gpio 34, but it can not be used to this because IO2 is ALSO used to control 3V3_S power (1 is on).
-// Therefore must be 1 to keep peripherals powered
-// Power is on the controllable 3V3_S rail
-#define PIN_GPS_PPS (17) // Pulse per second input from the GPS
-
-#define PIN_GPS_RX PIN_SERIAL1_RX
-#define PIN_GPS_TX PIN_SERIAL1_TX
-
-#define PIN_GPS_1PPS PIN_GPS_PPS
-#define GPS_BAUD_RATE 9600
-#define GPS_ADDRESS 0x42  //i2c address for GPS
-
-// Battery
-// The battery sense is hooked to pin A0 (5)
-#define BATTERY_PIN PIN_A0
-// and has 12 bit resolution
-#define BATTERY_SENSE_RESOLUTION_BITS 12
-#define BATTERY_SENSE_RESOLUTION 4096.0
-#undef AREF_VOLTAGE
-#define AREF_VOLTAGE 3.0
-#define VBAT_AR_INTERNAL AR_INTERNAL_3_0
-#define ADC_MULTIPLIER 1.73
-
-#define HAS_RTC 1
-
-#define RAK_4631 1
+// GPS L76KB
+#define GPS_BAUD_RATE           9600
+#define GPS_THREAD_INTERVAL     50
+#define PIN_GPS_TX              PIN_SERIAL1_RX
+#define PIN_GPS_RX              PIN_SERIAL1_TX
+#define PIN_GPS_EN              (33)
+#define PIN_GPS_PPS             (17)
 
 #ifdef __cplusplus
 }
