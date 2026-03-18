@@ -307,7 +307,7 @@ Bytes 7+: Binary payload bytes (variable length)
 
 ---
 
-### 7. Get Message
+### 6. Get Message
 
 **Purpose**: Request the next queued message from the device.
 
@@ -323,7 +323,6 @@ Byte 0: 0x0A
 
 **Response**: 
 - `PACKET_CHANNEL_MSG_RECV` (0x08) or `PACKET_CHANNEL_MSG_RECV_V3` (0x11) for channel messages
-- `PACKET_CHANNEL_DATA_RECV` (0x1B) for channel data
 - `PACKET_CONTACT_MSG_RECV` (0x07) or `PACKET_CONTACT_MSG_RECV_V3` (0x10) for contact messages
 - `PACKET_NO_MORE_MSGS` (0x0A) if no messages available
 
@@ -331,7 +330,7 @@ Byte 0: 0x0A
 
 ---
 
-### 8. Get Battery
+### 7. Get Battery
 
 **Purpose**: Query device battery level.
 
@@ -393,14 +392,11 @@ Messages are received via the RX characteristic (notifications). The device send
    - `PACKET_CHANNEL_MSG_RECV` (0x08) - Standard format
    - `PACKET_CHANNEL_MSG_RECV_V3` (0x11) - Version 3 with SNR
 
-2. **Channel Data**:
-   - `PACKET_CHANNEL_DATA_RECV` (0x1B) - Includes SNR and reserved bytes
-
-3. **Contact Messages**:
+2. **Contact Messages**:
    - `PACKET_CONTACT_MSG_RECV` (0x07) - Standard format
    - `PACKET_CONTACT_MSG_RECV_V3` (0x10) - Version 3 with SNR
 
-4. **Notifications**:
+3. **Notifications**:
    - `PACKET_MESSAGES_WAITING` (0x83) - Indicates messages are queued
 
 ### Contact Message Format
@@ -517,46 +513,9 @@ def parse_channel_message(data):
     }
 ```
 
-### Channel Data Format
-
-**Format** (`PACKET_CHANNEL_DATA_RECV`, 0x1B):
-```
-Byte 0: 0x1B (packet type)
-Byte 1: SNR (signed byte, multiplied by 4)
-Bytes 2-3: Reserved
-Byte 4: Channel Index (0-7)
-Byte 5: Path Length
-Byte 6: Data Type
-Byte 7: Data Length
-Bytes 8-11: Timestamp (32-bit little-endian)
-Bytes 12+: Payload bytes
-```
-
-**Parsing Pseudocode**:
-```python
-def parse_channel_data(data):
-    snr_byte = data[1]
-    snr = ((snr_byte if snr_byte < 128 else snr_byte - 256) / 4.0)
-    channel_idx = data[4]
-    path_len = data[5]
-    data_type = data[6]
-    data_len = data[7]
-    timestamp = int.from_bytes(data[8:12], 'little')
-    payload = data[12:12 + data_len]
-
-    return {
-        'channel_idx': channel_idx,
-        'path_len': path_len,
-        'data_type': data_type,
-        'timestamp': timestamp,
-        'payload': payload,
-        'snr': snr,
-    }
-```
-
 ### Sending Messages
 
-Use the `SEND_CHANNEL_MESSAGE` command for plain text messages. Use `CMD_SEND_CHANNEL_DATA` for binary datagrams (see [Commands](#commands)).
+Use the `SEND_CHANNEL_MESSAGE` command (see [Commands](#commands)).
 
 **Important**: 
 - Messages are limited to 133 characters per MeshCore specification
@@ -587,7 +546,6 @@ Use the `SEND_CHANNEL_MESSAGE` command for plain text messages. Use `CMD_SEND_CH
 | 0x10  | PACKET_CONTACT_MSG_RECV_V3 | Contact message (V3 with SNR) |
 | 0x11  | PACKET_CHANNEL_MSG_RECV_V3 | Channel message (V3 with SNR) |
 | 0x12  | PACKET_CHANNEL_INFO        | Channel information           |
-| 0x1B  | PACKET_CHANNEL_DATA_RECV   | Channel data (includes SNR)   |
 | 0x80  | PACKET_ADVERTISEMENT       | Advertisement packet          |
 | 0x82  | PACKET_ACK                 | Acknowledgment                |
 | 0x83  | PACKET_MESSAGES_WAITING    | Messages waiting notification |
@@ -824,7 +782,7 @@ class PacketBuffer:
     
     def can_parse_partial(self, packet_type):
         # Some packets can be parsed partially
-        return packet_type in [0x12, 0x08, 0x11, 0x1B, 0x07, 0x10, 0x05, 0x0D]
+        return packet_type in [0x12, 0x08, 0x11, 0x07, 0x10, 0x05, 0x0D]
     
     def try_parse_partial(self):
         # Try to parse with available data
@@ -865,8 +823,7 @@ def on_notification_received(data):
      - `GET_CHANNEL` → `PACKET_CHANNEL_INFO`
      - `SET_CHANNEL` → `PACKET_OK` or `PACKET_ERROR`
      - `SEND_CHANNEL_MESSAGE` → `PACKET_MSG_SENT`
-     - `CMD_SEND_CHANNEL_DATA` → `PACKET_OK` or `PACKET_ERROR`
-     - `GET_MESSAGE` → `PACKET_CHANNEL_MSG_RECV`, `PACKET_CHANNEL_DATA_RECV`, `PACKET_CONTACT_MSG_RECV`, or `PACKET_NO_MORE_MSGS`
+     - `GET_MESSAGE` → `PACKET_CHANNEL_MSG_RECV`, `PACKET_CONTACT_MSG_RECV`, or `PACKET_NO_MORE_MSGS`
      - `GET_BATTERY` → `PACKET_BATTERY`
 
 4. **Timeout Handling**:
