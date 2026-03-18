@@ -353,15 +353,15 @@ int BaseChatMesh::searchChannelsByHash(const uint8_t* hash, mesh::GroupChannel d
 #endif
 
 void BaseChatMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mesh::GroupChannel& channel, uint8_t* data, size_t len) {
-  if (len < 5) {
-    MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping short group payload len=%d", (uint32_t)len);
-    return;
-  }
-
-  uint8_t data_type = data[4];
   if (type == PAYLOAD_TYPE_GRP_TXT) {
-    if ((data_type >> 2) != 0) {
-      MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping unsupported group text type=%d", (uint32_t)data_type);
+    if (len < 5) {
+      MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping short group text payload len=%d", (uint32_t)len);
+      return;
+    }
+
+    uint8_t txt_type = data[4];
+    if ((txt_type >> 2) != 0) {
+      MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping unsupported group text type=%d", (uint32_t)txt_type);
       return;
     }
 
@@ -374,9 +374,24 @@ void BaseChatMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
     // notify UI  of this new message
     onChannelMessageRecv(channel, packet, timestamp, (const char *) &data[5]);  // let UI know
   } else if (type == PAYLOAD_TYPE_GRP_DATA) {
+    if (len < 6) {
+      MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping short group data payload len=%d", (uint32_t)len);
+      return;
+    }
+
     uint32_t timestamp;
     memcpy(&timestamp, data, 4);
-    onChannelDataRecv(channel, packet, timestamp, data_type, &data[5], len - 5);
+    uint8_t data_type = data[4];
+    uint8_t data_len = data[5];
+    size_t available_len = len - 6;
+
+    if (data_len > available_len) {
+      MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping malformed group data type=%d len=%d available=%d",
+                         (uint32_t)data_type, (uint32_t)data_len, (uint32_t)available_len);
+      return;
+    }
+
+    onChannelDataRecv(channel, packet, timestamp, data_type, &data[6], data_len);
   }
 }
 
@@ -478,12 +493,13 @@ bool BaseChatMesh::sendGroupData(uint32_t timestamp, mesh::GroupChannel& channel
     return false;
   }
 
-  uint8_t temp[5 + MAX_GROUP_DATA_LENGTH];
+  uint8_t temp[6 + MAX_GROUP_DATA_LENGTH];
   memcpy(temp, &timestamp, 4);
   temp[4] = data_type;
-  if (data_len > 0) memcpy(&temp[5], data, data_len);
+  temp[5] = (uint8_t)data_len;
+  if (data_len > 0) memcpy(&temp[6], data, data_len);
 
-  auto pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_DATA, channel, temp, 5 + data_len);
+  auto pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_DATA, channel, temp, 6 + data_len);
   if (pkt == NULL) {
     MESH_DEBUG_PRINTLN("sendGroupData: unable to create group datagram, data_len=%d", data_len);
     return false;
