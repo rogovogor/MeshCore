@@ -1,6 +1,6 @@
 # Companion Protocol
 
-- **Last Updated**: 2026-03-08
+- **Last Updated**: 2026-01-03
 - **Protocol Version**: Companion Firmware v1.12.0+
 
 > NOTE: This document is still in development. Some information may be inaccurate.
@@ -100,7 +100,7 @@ When writing commands to the RX characteristic, specify the write type:
 
 ### MTU (Maximum Transmission Unit)
 
-The default BLE MTU is 23 bytes (20 bytes payload). For larger commands like `SET_CHANNEL` (50 bytes), you may need to:
+The default BLE MTU is 23 bytes (20 bytes payload). For larger commands like `SET_CHANNEL` (66 bytes), you may need to:
 
 1. **Request Larger MTU**: Request MTU of 512 bytes if supported
     - Android: `gatt.requestMtu(512)`
@@ -167,16 +167,16 @@ The first byte indicates the packet type (see [Response Parsing](#response-parsi
 **Command Format**:
 ```
 Byte 0: 0x01
-Bytes 1-7: Reserved (currently ignored by firmware)
-Bytes 8+: Application name (UTF-8, optional)
+Byte 1: 0x03
+Bytes 2-10: "mccli" (ASCII, null-padded to 9 bytes)
 ```
 
 **Example** (hex):
 ```
-01 00 00 00 00 00 00 00 6d 63 63 6c 69
+01 03 6d 63 63 6c 69 00 00 00 00
 ```
 
-**Response**: `PACKET_SELF_INFO` (0x05)
+**Response**: `PACKET_OK` (0x00)
 
 ---
 
@@ -216,6 +216,8 @@ Byte 1: Channel Index (0-7)
 
 **Response**: `PACKET_CHANNEL_INFO` (0x12) with channel details
 
+**Note**: The device does not return channel secrets for security reasons. Store secrets locally when creating channels.
+
 ---
 
 ### 4. Set Channel
@@ -227,10 +229,10 @@ Byte 1: Channel Index (0-7)
 Byte 0: 0x20
 Byte 1: Channel Index (0-7)
 Bytes 2-33: Channel Name (32 bytes, UTF-8, null-padded)
-Bytes 34-49: Secret (16 bytes)
+Bytes 34-65: Secret (32 bytes)
 ```
 
-**Total Length**: 50 bytes
+**Total Length**: 66 bytes
 
 **Channel Index**:
 - Index 0: Reserved for public channels (no secret)
@@ -241,46 +243,41 @@ Bytes 34-49: Secret (16 bytes)
 - Maximum 32 bytes
 - Padded with null bytes (0x00) if shorter
 
-**Secret Field** (16 bytes):
-- For **private channels**: 16-byte secret
+**Secret Field** (32 bytes):
+- For **private channels**: 32-byte secret
 - For **public channels**: All zeros (0x00)
 
 **Example** (create channel "YourChannelName" at index 1 with secret):
 ```
 20 01 53 4D 53 00 00 ... (name padded to 32 bytes)
-    [16 bytes of secret]
+    [32 bytes of secret]
 ```
-
-**Note**: The 32-byte secret variant is unsupported and returns `PACKET_ERROR`.
 
 **Response**: `PACKET_OK` (0x00) on success, `PACKET_ERROR` (0x01) on failure
 
 ---
 
-### 5. Send Channel Text Message
+### 5. Send Channel Message
 
-**Purpose**: Send a plain text message to a channel.
+**Purpose**: Send a text message to a channel.
 
 **Command Format**:
 ```
 Byte 0: 0x03
-Byte 1: Text Type
+Byte 1: 0x00
 Byte 2: Channel Index (0-7)
 Bytes 3-6: Timestamp (32-bit little-endian Unix timestamp, seconds)
-Bytes 7+: UTF-8 text bytes (variable length)
+Bytes 7+: Message Text (UTF-8, variable length)
 ```
 
 **Timestamp**: Unix timestamp in seconds (32-bit unsigned integer, little-endian)
-
-**Text Type**:
-- Must be `0x00` (`TXT_TYPE_PLAIN`) for this command.
 
 **Example** (send "Hello" to channel 1 at timestamp 1234567890):
 ```
 03 00 01 D2 02 96 49 48 65 6C 6C 6F
 ```
 
-**Response**: `PACKET_OK` (0x00) on success
+**Response**: `PACKET_MSG_SENT` (0x06) on success
 
 ---
 
@@ -299,12 +296,12 @@ Bytes 7+: Binary payload bytes (variable length)
 
 **Data Type / Transport Mapping**:
 - `0xFF` (`DATA_TYPE_CUSTOM`) must be used for custom-protocol binary datagrams.
-- `0x00` (`TXT_TYPE_PLAIN`) is invalid for this command.
+- `0x00` is invalid for this command.
 - Values other than `0xFF` are reserved for official protocol extensions.
 
 **Limits**:
 - Maximum payload length is `160` bytes.
-- Larger payloads are rejected with `PACKET_ERROR` / `ERR_CODE_ILLEGAL_ARG`.
+- Larger payloads are rejected with `PACKET_ERROR`.
 
 **Response**: `PACKET_OK` (0x00) on success
 
@@ -334,9 +331,9 @@ Byte 0: 0x0A
 
 ---
 
-### 8. Get Battery and Storage
+### 8. Get Battery
 
-**Purpose**: Query device battery voltage and storage usage.
+**Purpose**: Query device battery level.
 
 **Command Format**:
 ```
@@ -348,7 +345,7 @@ Byte 0: 0x14
 14
 ```
 
-**Response**: `PACKET_BATTERY` (0x0C) with battery millivolts and storage information
+**Response**: `PACKET_BATTERY` (0x0C) with battery percentage
 
 ---
 
@@ -376,7 +373,7 @@ Byte 0: 0x14
 1. **Set Channel**:
     - Fetch all channel slots, and find one with empty name and all-zero secret
     - Generate or provide a 16-byte secret
-    - Send `CMD_SET_CHANNEL` with name and a 16-byte secret
+    - Send `CMD_SET_CHANNEL` with name and secret
 2. **Get Channel**:
     - Send `CMD_GET_CHANNEL` with channel index
     - Parse `RESP_CODE_CHANNEL_INFO` response
@@ -390,7 +387,7 @@ Byte 0: 0x14
 
 ### Receiving Messages
 
-Messages are received via the TX characteristic (notifications). The device sends:
+Messages are received via the RX characteristic (notifications). The device sends:
 
 1. **Channel Messages**:
    - `PACKET_CHANNEL_MSG_RECV` (0x08) - Standard format
@@ -479,7 +476,7 @@ Byte 1: Channel Index (0-7)
 Byte 2: Path Length
 Byte 3: Text Type
 Bytes 4-7: Timestamp (32-bit little-endian)
-Bytes 8+: Payload bytes
+Bytes 8+: Message Text (UTF-8)
 ```
 
 **V3 Format** (`PACKET_CHANNEL_MSG_RECV_V3`, 0x11):
@@ -491,13 +488,34 @@ Byte 4: Channel Index (0-7)
 Byte 5: Path Length
 Byte 6: Text Type
 Bytes 7-10: Timestamp (32-bit little-endian)
-Bytes 11+: Payload bytes
+Bytes 11+: Message Text (UTF-8)
 ```
 
-**Payload Meaning**:
-- If `txt_type == 0x00`: payload is UTF-8 channel text.
-- If `txt_type != 0x00`: payload is binary (for example image/voice fragments) and must be treated as raw bytes.
-  For custom app datagrams sent via `CMD_SEND_CHANNEL_DATA`, `data_type` must be `0xFF`.
+**Parsing Pseudocode**:
+```python
+def parse_channel_message(data):
+    packet_type = data[0]
+    offset = 1
+    
+    # Check for V3 format
+    if packet_type == 0x11:  # V3
+        snr_byte = data[offset]
+        snr = ((snr_byte if snr_byte < 128 else snr_byte - 256) / 4.0)
+        offset += 3  # Skip SNR + reserved
+    
+    channel_idx = data[offset]
+    path_len = data[offset + 1]
+    txt_type = data[offset + 2]
+    timestamp = int.from_bytes(data[offset+3:offset+7], 'little')
+    message = data[offset+7:].decode('utf-8')
+    
+    return {
+        'channel_idx': channel_idx,
+        'timestamp': timestamp,
+        'message': message,
+        'snr': snr if packet_type == 0x11 else None
+    }
+```
 
 ### Channel Data Format
 
@@ -516,43 +534,29 @@ Bytes 12+: Payload bytes
 
 **Parsing Pseudocode**:
 ```python
-def parse_channel_frame(data):
-    packet_type = data[0]
-    offset = 1
-    snr = None
-    
-    # Formats with explicit SNR/reserved bytes
-    if packet_type in (0x11, 0x1B):
-        snr_byte = data[offset]
-        snr = ((snr_byte if snr_byte < 128 else snr_byte - 256) / 4.0)
-        offset += 3  # Skip SNR + reserved
-    
-    channel_idx = data[offset]
-    path_len = data[offset + 1]
-    item_type = data[offset + 2]
-    data_len = data[offset + 3] if packet_type == 0x1B else None
-    timestamp = int.from_bytes(data[offset+4:offset+8], 'little') if packet_type == 0x1B else int.from_bytes(data[offset+3:offset+7], 'little')
-    payload_offset = offset + 8 if packet_type == 0x1B else offset + 7
-    payload = data[payload_offset:payload_offset + data_len] if packet_type == 0x1B else data[payload_offset:]
-    is_text = packet_type in (0x08, 0x11)
-    if is_text and item_type == 0:
-        message = payload.decode('utf-8')
-    else:
-        message = None
-    
+def parse_channel_data(data):
+    snr_byte = data[1]
+    snr = ((snr_byte if snr_byte < 128 else snr_byte - 256) / 4.0)
+    channel_idx = data[4]
+    path_len = data[5]
+    data_type = data[6]
+    data_len = data[7]
+    timestamp = int.from_bytes(data[8:12], 'little')
+    payload = data[12:12 + data_len]
+
     return {
         'channel_idx': channel_idx,
-        'item_type': item_type,
+        'path_len': path_len,
+        'data_type': data_type,
         'timestamp': timestamp,
         'payload': payload,
-        'message': message,
-        'snr': snr
+        'snr': snr,
     }
 ```
 
 ### Sending Messages
 
-Use `CMD_SEND_CHANNEL_TXT_MSG` for plain text, and `CMD_SEND_CHANNEL_DATA` for binary datagrams (see [Commands](#commands)).
+Use the `SEND_CHANNEL_MESSAGE` command for plain text messages. Use `CMD_SEND_CHANNEL_DATA` for binary datagrams (see [Commands](#commands)).
 
 **Important**: 
 - Messages are limited to 133 characters per MeshCore specification
@@ -573,7 +577,7 @@ Use `CMD_SEND_CHANNEL_TXT_MSG` for plain text, and `CMD_SEND_CHANNEL_DATA` for b
 | 0x03  | PACKET_CONTACT             | Contact information           |
 | 0x04  | PACKET_CONTACT_END         | End of contact list           |
 | 0x05  | PACKET_SELF_INFO           | Device self-information       |
-| 0x06  | PACKET_MSG_SENT            | Direct message sent confirmation |
+| 0x06  | PACKET_MSG_SENT            | Message sent confirmation     |
 | 0x07  | PACKET_CONTACT_MSG_RECV    | Contact message (standard)    |
 | 0x08  | PACKET_CHANNEL_MSG_RECV    | Channel message (standard)    |
 | 0x09  | PACKET_CURRENT_TIME        | Current time response         |
@@ -608,10 +612,10 @@ Byte 1: Error code (optional)
 Byte 0: 0x12
 Byte 1: Channel Index
 Bytes 2-33: Channel Name (32 bytes, null-terminated)
-Bytes 34-49: Secret (16 bytes)
+Bytes 34-65: Secret (32 bytes, but device typically only returns 20 bytes total)
 ```
 
-**Note**: The device returns the 16-byte channel secret in this response.
+**Note**: The device may not return the full 66-byte packet. Parse what is available. The secret field is typically not returned for security reasons.
 
 **PACKET_DEVICE_INFO** (0x0D):
 ```
@@ -626,8 +630,6 @@ Bytes 4-7: BLE PIN (32-bit little-endian)
 Bytes 8-19: Firmware Build (12 bytes, UTF-8, null-padded)
 Bytes 20-59: Model (40 bytes, UTF-8, null-padded)
 Bytes 60-79: Version (20 bytes, UTF-8, null-padded)
-Byte 80: Client repeat enabled/preferred (firmware v9+)
-Byte 81: Path hash mode (firmware v10+)
 ```
 
 **Parsing Pseudocode**:
@@ -653,7 +655,9 @@ def parse_device_info(data):
 **PACKET_BATTERY** (0x0C):
 ```
 Byte 0: 0x0C
-Bytes 1-2: Battery Voltage (16-bit little-endian, millivolts)
+Bytes 1-2: Battery Level (16-bit little-endian, percentage 0-100)
+
+Optional (if data size > 3):
 Bytes 3-6: Used Storage (32-bit little-endian, KB)
 Bytes 7-10: Total Storage (32-bit little-endian, KB)
 ```
@@ -664,12 +668,14 @@ def parse_battery(data):
     if len(data) < 3:
         return None
     
-    mv = int.from_bytes(data[1:3], 'little')
-    info = {'battery_mv': mv}
+    level = int.from_bytes(data[1:3], 'little')
+    info = {'level': level}
     
-    if len(data) >= 11:
-        info['used_kb'] = int.from_bytes(data[3:7], 'little')
-        info['total_kb'] = int.from_bytes(data[7:11], 'little')
+    if len(data) > 3:
+        used_kb = int.from_bytes(data[3:7], 'little')
+        total_kb = int.from_bytes(data[7:11], 'little')
+        info['used_kb'] = used_kb
+        info['total_kb'] = total_kb
     
     return info
 ```
@@ -691,7 +697,7 @@ Bytes 48-51: Radio Frequency (32-bit little-endian, divided by 1000.0)
 Bytes 52-55: Radio Bandwidth (32-bit little-endian, divided by 1000.0)
 Byte 56: Radio Spreading Factor
 Byte 57: Radio Coding Rate
-Bytes 58+: Device Name (UTF-8, variable length, no null terminator required)
+Bytes 58+: Device Name (UTF-8, variable length, null-terminated)
 ```
 
 **Parsing Pseudocode**:
@@ -739,12 +745,12 @@ def parse_self_info(data):
     return info
 ```
 
-**PACKET_MSG_SENT** (0x06, used by direct/contact send flows):
+**PACKET_MSG_SENT** (0x06):
 ```
 Byte 0: 0x06
-Byte 1: Route Flag (0 = direct, 1 = flood)
-Bytes 2-5: Tag / Expected ACK (4 bytes, little-endian)
-Bytes 6-9: Suggested Timeout (32-bit little-endian, milliseconds)
+Byte 1: Message Type
+Bytes 2-5: Expected ACK (4 bytes, hex)
+Bytes 6-9: Suggested Timeout (32-bit little-endian, seconds)
 ```
 
 **PACKET_ACK** (0x82):
@@ -772,36 +778,93 @@ Bytes 1-6: ACK Code (6 bytes, hex)
 
 **Note**: Error codes may vary by firmware version. Always check byte 1 of `PACKET_ERROR` response.
 
-### Frame Handling
+### Partial Packet Handling
 
-BLE implementations enqueue and deliver one protocol frame per BLE write/notification at the firmware layer.
+BLE notifications may arrive in chunks, especially for larger packets. Implement buffering:
 
-- Apps should treat each characteristic write/notification as exactly one companion protocol frame
-- Apps should still validate frame lengths before parsing
-- Future transports or firmware revisions may differ, so avoid assuming fixed payload sizes for variable-length responses
+**Implementation**:
+```python
+class PacketBuffer:
+    def __init__(self):
+        self.buffer = bytearray()
+        self.expected_length = None
+    
+    def add_data(self, data):
+        self.buffer.extend(data)
+        
+        # Check if we have a complete packet
+        if len(self.buffer) >= 1:
+            packet_type = self.buffer[0]
+            
+            # Determine expected length based on packet type
+            expected = self.get_expected_length(packet_type)
+            
+            if expected is not None and len(self.buffer) >= expected:
+                # Complete packet
+                packet = bytes(self.buffer[:expected])
+                self.buffer = self.buffer[expected:]
+                return packet
+            elif expected is None:
+                # Variable length packet - try to parse what we have
+                # Some packets have minimum length requirements
+                if self.can_parse_partial(packet_type):
+                    return self.try_parse_partial()
+        
+        return None  # Incomplete packet
+    
+    def get_expected_length(self, packet_type):
+        # Fixed-length packets
+        fixed_lengths = {
+            0x00: 5,  # PACKET_OK (minimum)
+            0x01: 2,  # PACKET_ERROR (minimum)
+            0x0A: 1,  # PACKET_NO_MORE_MSGS
+            0x14: 3,  # PACKET_BATTERY (minimum)
+        }
+        return fixed_lengths.get(packet_type)
+    
+    def can_parse_partial(self, packet_type):
+        # Some packets can be parsed partially
+        return packet_type in [0x12, 0x08, 0x11, 0x1B, 0x07, 0x10, 0x05, 0x0D]
+    
+    def try_parse_partial(self):
+        # Try to parse with available data
+        # Return packet if successfully parsed, None otherwise
+        # This is packet-type specific
+        pass
+```
+
+**Usage**:
+```python
+buffer = PacketBuffer()
+
+def on_notification_received(data):
+    packet = buffer.add_data(data)
+    if packet:
+        parse_and_handle_packet(packet)
+```
 
 ### Response Handling
 
 1. **Command-Response Pattern**:
-   - Send command via RX characteristic
-   - Wait for response via TX characteristic (notification)
+   - Send command via TX characteristic
+   - Wait for response via RX characteristic (notification)
    - Match response to command using sequence numbers or command type
    - Handle timeout (typically 5 seconds)
    - Use command queue to prevent concurrent commands
 
 2. **Asynchronous Messages**:
-   - Device may send messages at any time via TX characteristic
+   - Device may send messages at any time via RX characteristic
    - Handle `PACKET_MESSAGES_WAITING` (0x83) by polling `GET_MESSAGE` command
    - Parse incoming messages and route to appropriate handlers
-   - Validate frame length before decoding
+   - Buffer partial packets until complete
 
 3. **Response Matching**:
    - Match responses to commands by expected packet type:
-     - `APP_START` → `PACKET_SELF_INFO`
+     - `APP_START` → `PACKET_OK`
      - `DEVICE_QUERY` → `PACKET_DEVICE_INFO`
      - `GET_CHANNEL` → `PACKET_CHANNEL_INFO`
      - `SET_CHANNEL` → `PACKET_OK` or `PACKET_ERROR`
-     - `CMD_SEND_CHANNEL_TXT_MSG` → `PACKET_OK` or `PACKET_ERROR`
+     - `SEND_CHANNEL_MESSAGE` → `PACKET_MSG_SENT`
      - `CMD_SEND_CHANNEL_DATA` → `PACKET_OK` or `PACKET_ERROR`
      - `GET_MESSAGE` → `PACKET_CHANNEL_MSG_RECV`, `PACKET_CHANNEL_DATA_RECV`, `PACKET_CONTACT_MSG_RECV`, or `PACKET_NO_MORE_MSGS`
      - `GET_BATTERY` → `PACKET_BATTERY`
@@ -831,16 +894,16 @@ device = scan_for_device("MeshCore")
 gatt = connect_to_device(device)
 
 # 3. Discover services and characteristics
-service = discover_service(gatt, "6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
-rx_char = discover_characteristic(service, "6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
-tx_char = discover_characteristic(service, "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
+service = discover_service(gatt, "0000ff00-0000-1000-8000-00805f9b34fb")
+rx_char = discover_characteristic(service, "0000ff01-0000-1000-8000-00805f9b34fb")
+tx_char = discover_characteristic(service, "0000ff02-0000-1000-8000-00805f9b34fb")
 
-# 4. Enable notifications on TX characteristic
-enable_notifications(tx_char, on_notification_received)
+# 4. Enable notifications on RX characteristic
+enable_notifications(rx_char, on_notification_received)
 
 # 5. Send AppStart command
-send_command(rx_char, build_app_start())
-wait_for_response(PACKET_SELF_INFO)
+send_command(tx_char, build_app_start())
+wait_for_response(PACKET_OK)
 ```
 
 ### Creating a Private Channel
@@ -850,16 +913,21 @@ wait_for_response(PACKET_SELF_INFO)
 secret_16_bytes = generate_secret(16)  # Use CSPRNG
 secret_hex = secret_16_bytes.hex()
 
-# 2. Build SET_CHANNEL command
+# 2. Expand secret to 32 bytes using SHA-512
+import hashlib
+sha512_hash = hashlib.sha512(secret_16_bytes).digest()
+secret_32_bytes = sha512_hash[:32]
+
+# 3. Build SET_CHANNEL command
 channel_name = "YourChannelName"
 channel_index = 1  # Use 1-7 for private channels
-command = build_set_channel(channel_index, channel_name, secret_16_bytes)
+command = build_set_channel(channel_index, channel_name, secret_32_bytes)
 
-# 3. Send command
-send_command(rx_char, command)
+# 4. Send command
+send_command(tx_char, command)
 response = wait_for_response(PACKET_OK)
 
-# 4. Store secret locally
+# 5. Store secret locally (device won't return it)
 store_channel_secret(channel_index, secret_hex)
 ```
 
@@ -873,8 +941,8 @@ timestamp = int(time.time())
 command = build_channel_message(channel_index, message, timestamp)
 
 # 2. Send command
-send_command(rx_char, command)
-response = wait_for_response(PACKET_OK)
+send_command(tx_char, command)
+response = wait_for_response(PACKET_MSG_SENT)
 ```
 
 ### Receiving Messages
@@ -883,13 +951,12 @@ response = wait_for_response(PACKET_OK)
 def on_notification_received(data):
     packet_type = data[0]
     
-    if packet_type in (PACKET_CHANNEL_MSG_RECV, PACKET_CHANNEL_MSG_RECV_V3,
-                       PACKET_CHANNEL_DATA_RECV):
-        message = parse_channel_frame(data)
+    if packet_type == PACKET_CHANNEL_MSG_RECV or packet_type == PACKET_CHANNEL_MSG_RECV_V3:
+        message = parse_channel_message(data)
         handle_channel_message(message)
     elif packet_type == PACKET_MESSAGES_WAITING:
         # Poll for messages
-        send_command(rx_char, build_get_message())
+        send_command(tx_char, build_get_message())
 ```
 
 ---
