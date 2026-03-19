@@ -290,8 +290,7 @@ Bytes 7+: Message Text (UTF-8, variable length)
 Byte 0: 0x3E
 Byte 1: Data Type (`data_type`)
 Byte 2: Channel Index (0-7)
-Bytes 3-6: Timestamp (32-bit little-endian Unix timestamp, seconds)
-Bytes 7+: Binary payload bytes (variable length)
+Bytes 3+: Binary payload bytes (variable length)
 ```
 
 **Data Type / Transport Mapping**:
@@ -299,8 +298,10 @@ Bytes 7+: Binary payload bytes (variable length)
 - `0x00` is invalid for this command.
 - Values other than `0xFF` are reserved for official protocol extensions.
 
+**Note**: Applications that need a timestamp should encode it inside the binary payload.
+
 **Limits**:
-- Maximum payload length is `160` bytes.
+- Maximum payload length is `166` bytes.
 - Larger payloads are rejected with `PACKET_ERROR`.
 
 **Response**: `PACKET_OK` (0x00) on success

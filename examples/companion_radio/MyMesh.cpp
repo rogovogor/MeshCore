@@ -94,7 +94,7 @@
 #define RESP_ALLOWED_REPEAT_FREQ      26
 #define RESP_CODE_CHANNEL_DATA_RECV   27
 
-#define MAX_CHANNEL_DATA_LENGTH       (MAX_FRAME_SIZE - 12)
+#define MAX_CHANNEL_DATA_LENGTH       (MAX_FRAME_SIZE - 8)
 
 #define SEND_TIMEOUT_BASE_MILLIS        500
 #define FLOOD_SEND_TIMEOUT_FACTOR       16.0f
@@ -569,7 +569,7 @@ void MyMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packe
 #endif
 }
 
-void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint32_t timestamp, uint8_t data_type,
+void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint8_t data_type,
                                const uint8_t *data, size_t data_len) {
   if (data_len > MAX_CHANNEL_DATA_LENGTH) {
     MESH_DEBUG_PRINTLN("onChannelDataRecv: dropping payload_len=%d exceeds frame limit=%d",
@@ -588,8 +588,6 @@ void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *
   out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
   out_frame[i++] = data_type;
   out_frame[i++] = (uint8_t)data_len;
-  memcpy(&out_frame[i], &timestamp, 4);
-  i += 4;
 
   int copy_len = (int)data_len;
   if (copy_len > 0) {
@@ -1096,9 +1094,6 @@ void MyMesh::handleCmdFrame(size_t len) {
     int i = 1;
     uint8_t data_type = cmd_frame[i++];
     uint8_t channel_idx = cmd_frame[i++];
-    uint32_t msg_timestamp;
-    memcpy(&msg_timestamp, &cmd_frame[i], 4);
-    i += 4;
     const uint8_t *payload = &cmd_frame[i];
     int payload_len = (len > (size_t)i) ? (int)(len - i) : 0;
 
@@ -1110,7 +1105,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     } else if (payload_len > MAX_CHANNEL_DATA_LENGTH) {
       MESH_DEBUG_PRINTLN("CMD_SEND_CHANNEL_DATA payload too long: %d > %d", payload_len, MAX_CHANNEL_DATA_LENGTH);
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
-    } else if (sendGroupData(msg_timestamp, channel.channel, data_type, payload, payload_len)) {
+    } else if (sendGroupData(channel.channel, data_type, payload, payload_len)) {
       writeOKFrame();
     } else {
       writeErrFrame(ERR_CODE_TABLE_FULL);
