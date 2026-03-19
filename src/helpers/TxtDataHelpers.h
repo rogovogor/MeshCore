@@ -6,7 +6,7 @@
 #define TXT_TYPE_PLAIN          0      // a plain text message
 #define TXT_TYPE_CLI_DATA       1      // a CLI command
 #define TXT_TYPE_SIGNED_PLAIN   2      // plain text, signed by sender
-#define DATA_TYPE_CUSTOM        0xFFFF // generic custom app namespace for group/channel datagrams
+#define DATA_TYPE_DEV           0xFFFF // developer namespace for experimenting with group/channel datagrams and building apps
 
 class StrHelper {
 public:

@@ -295,7 +295,7 @@ Bytes 4+: Binary payload bytes (variable length)
 
 **Data Type / Transport Mapping**:
 - `0x0000` is invalid for this command.
-- `0xFFFF` (`DATA_TYPE_CUSTOM`) is the generic custom-app namespace.
+- `0xFFFF` (`DATA_TYPE_DEV`) is the developer namespace for experimenting and developing apps.
 - Other non-zero values can be used as assigned application/community namespaces.
 
 **Note**: Applications that need a timestamp should encode it inside the binary payload.
