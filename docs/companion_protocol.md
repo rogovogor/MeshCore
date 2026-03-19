@@ -288,20 +288,20 @@ Bytes 7+: Message Text (UTF-8, variable length)
 **Command Format**:
 ```
 Byte 0: 0x3E
-Byte 1: Data Type (`data_type`)
-Byte 2: Channel Index (0-7)
-Bytes 3+: Binary payload bytes (variable length)
+Bytes 1-2: Data Type (`data_type`, 16-bit little-endian)
+Byte 3: Channel Index (0-7)
+Bytes 4+: Binary payload bytes (variable length)
 ```
 
 **Data Type / Transport Mapping**:
-- `0xFF` (`DATA_TYPE_CUSTOM`) must be used for custom-protocol binary datagrams.
-- `0x00` is invalid for this command.
-- Values other than `0xFF` are reserved for official protocol extensions.
+- `0x0000` is invalid for this command.
+- `0xFFFF` (`DATA_TYPE_CUSTOM`) is the generic custom-app namespace.
+- Other non-zero values can be used as assigned application/community namespaces.
 
 **Note**: Applications that need a timestamp should encode it inside the binary payload.
 
 **Limits**:
-- Maximum payload length is `166` bytes.
+- Maximum payload length is `163` bytes.
 - Larger payloads are rejected with `PACKET_ERROR`.
 
 **Response**: `PACKET_OK` (0x00) on success

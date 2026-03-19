@@ -94,7 +94,7 @@
 #define RESP_ALLOWED_REPEAT_FREQ      26
 #define RESP_CODE_CHANNEL_DATA_RECV   27
 
-#define MAX_CHANNEL_DATA_LENGTH       (MAX_FRAME_SIZE - 8)
+#define MAX_CHANNEL_DATA_LENGTH       (MAX_FRAME_SIZE - 9)
 
 #define SEND_TIMEOUT_BASE_MILLIS        500
 #define FLOOD_SEND_TIMEOUT_FACTOR       16.0f
@@ -569,7 +569,7 @@ void MyMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packe
 #endif
 }
 
-void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint8_t data_type,
+void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint16_t data_type,
                                const uint8_t *data, size_t data_len) {
   if (data_len > MAX_CHANNEL_DATA_LENGTH) {
     MESH_DEBUG_PRINTLN("onChannelDataRecv: dropping payload_len=%d exceeds frame limit=%d",
@@ -586,7 +586,8 @@ void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *
   uint8_t channel_idx = findChannelIdx(channel);
   out_frame[i++] = channel_idx;
   out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
-  out_frame[i++] = data_type;
+  out_frame[i++] = (uint8_t)(data_type & 0xFF);
+  out_frame[i++] = (uint8_t)(data_type >> 8);
   out_frame[i++] = (uint8_t)data_len;
 
   int copy_len = (int)data_len;
@@ -1091,8 +1092,13 @@ void MyMesh::handleCmdFrame(size_t len) {
       }
     }
   } else if (cmd_frame[0] == CMD_SEND_CHANNEL_DATA) { // send GroupChannel datagram
+    if (len < 4) {
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+      return;
+    }
     int i = 1;
-    uint8_t data_type = cmd_frame[i++];
+    uint16_t data_type = ((uint16_t)cmd_frame[i]) | (((uint16_t)cmd_frame[i + 1]) << 8);
+    i += 2;
     uint8_t channel_idx = cmd_frame[i++];
     const uint8_t *payload = &cmd_frame[i];
     int payload_len = (len > (size_t)i) ? (int)(len - i) : 0;
@@ -1100,8 +1106,8 @@ void MyMesh::handleCmdFrame(size_t len) {
     ChannelDetails channel;
     if (!getChannel(channel_idx, channel)) {
       writeErrFrame(ERR_CODE_NOT_FOUND); // bad channel_idx
-    } else if (data_type != DATA_TYPE_CUSTOM) {
-      writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
+    } else if (data_type == 0) {
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
     } else if (payload_len > MAX_CHANNEL_DATA_LENGTH) {
       MESH_DEBUG_PRINTLN("CMD_SEND_CHANNEL_DATA payload too long: %d > %d", payload_len, MAX_CHANNEL_DATA_LENGTH);
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
