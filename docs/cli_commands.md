@@ -250,7 +250,7 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 **Default:** `on`
 
-**Temporary Note:** In release 1.14.1 this setting is `off` by default.
+**Note:** If you upgraded from an older version to 1.14.1 without erasing flash, this setting is `off`.
 
 ---
 
