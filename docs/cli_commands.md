@@ -238,6 +238,22 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 **Note:** Requires reboot to apply
 **Serial Only:** `set freq <frequency>`
 
+---
+
+#### View or change this node's rx boosted gain mode (SX12xx only, v1.14.1+)
+**Usage:**
+- `get radio.rxgain`
+- `set radio.rxgain <state>`
+
+**Parameters:**
+  - `state`: `on`|`off`
+
+**Default:** `on`
+
+**Temporary Note:** In release 1.14.1 this setting is `off` by default.
+
+---
+
 ### System
 
 #### View or change this node's name
