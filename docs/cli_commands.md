@@ -106,6 +106,13 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 ---
 
+### Discover zero hop neighbors
+
+**Usage:** 
+- `discover.neighbors`
+
+---
+
 ## Statistics
 
 ### Clear Stats
