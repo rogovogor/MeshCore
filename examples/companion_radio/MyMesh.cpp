@@ -292,7 +292,7 @@ bool MyMesh::shouldAutoAddContactType(uint8_t contact_type) const {
   if ((_prefs.manual_add_contacts & 1) == 0) {
     return true;
   }
-  
+
   uint8_t type_bit = 0;
   switch (contact_type) {
     case ADV_TYPE_CHAT:
@@ -310,7 +310,7 @@ bool MyMesh::shouldAutoAddContactType(uint8_t contact_type) const {
     default:
       return false;  // Unknown type, don't auto-add
   }
-  
+
   return (_prefs.autoadd_config & type_bit) != 0;
 }
 
@@ -859,7 +859,7 @@ void MyMesh::begin(bool has_display) {
   // sanitise bad pref values
   _prefs.rx_delay_base = constrain(_prefs.rx_delay_base, 0, 20.0f);
   _prefs.airtime_factor = constrain(_prefs.airtime_factor, 0, 9.0f);
-  _prefs.freq = constrain(_prefs.freq, 400.0f, 2500.0f);
+  _prefs.freq = constrain(_prefs.freq, 150.0f, 2500.0f);
   _prefs.bw = constrain(_prefs.bw, 7.8f, 500.0f);
   _prefs.sf = constrain(_prefs.sf, 5, 12);
   _prefs.cr = constrain(_prefs.cr, 5, 8);
@@ -1264,7 +1264,7 @@ void MyMesh::handleCmdFrame(size_t len) {
 
     if (repeat && !isValidClientRepeatFreq(freq)) {
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
-    } else if (freq >= 300000 && freq <= 2500000 && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7000 &&
+    } else if (freq >= 150000 && freq <= 2500000 && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7000 &&
         bw <= 500000) {
       _prefs.sf = sf;
       _prefs.cr = cr;
@@ -1620,7 +1620,7 @@ void MyMesh::handleCmdFrame(size_t len) {
   } else if (cmd_frame[0] == CMD_SEND_TRACE_PATH && len > 10 && len - 10 < MAX_PACKET_PAYLOAD-5) {
     uint8_t path_len = len - 10;
     uint8_t flags = cmd_frame[9];
-    uint8_t path_sz = flags & 0x03;  // NEW v1.11+ 
+    uint8_t path_sz = flags & 0x03;  // NEW v1.11+
     if ((path_len >> path_sz) > MAX_PATH_SIZE || (path_len % (1 << path_sz)) != 0) { // make sure is multiple of path_sz
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
     } else {
@@ -1927,7 +1927,7 @@ void MyMesh::checkCLIRescueCmd() {
 
       // get path from command e.g: "cat /contacts3"
       const char *path = &cli_command[4];
-      
+
       bool is_fs2 = false;
       if (memcmp(path, "UserData/", 9) == 0) {
         path += 8; // skip "UserData"
