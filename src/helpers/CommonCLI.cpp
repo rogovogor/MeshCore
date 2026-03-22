@@ -95,7 +95,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     _prefs->tx_delay_factor = constrain(_prefs->tx_delay_factor, 0, 2.0f);
     _prefs->direct_tx_delay_factor = constrain(_prefs->direct_tx_delay_factor, 0, 2.0f);
     _prefs->airtime_factor = constrain(_prefs->airtime_factor, 0, 9.0f);
-    _prefs->freq = constrain(_prefs->freq, 400.0f, 2500.0f);
+    _prefs->freq = constrain(_prefs->freq, 150.0f, 2500.0f);
     _prefs->bw = constrain(_prefs->bw, 7.8f, 500.0f);
     _prefs->sf = constrain(_prefs->sf, 5, 12);
     _prefs->cr = constrain(_prefs->cr, 5, 8);
@@ -275,7 +275,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       uint8_t sf  = num > 2 ? atoi(parts[2]) : 0;
       uint8_t cr  = num > 3 ? atoi(parts[3]) : 0;
       int temp_timeout_mins  = num > 4 ? atoi(parts[4]) : 0;
-      if (freq >= 300.0f && freq <= 2500.0f && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f && temp_timeout_mins > 0) {
+      if (freq >= 150.0f && freq <= 2500.0f && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f && temp_timeout_mins > 0) {
         _callbacks->applyTempRadioParams(freq, bw, sf, cr, temp_timeout_mins);
         sprintf(reply, "OK - temp params for %d mins", temp_timeout_mins);
       } else {
@@ -535,7 +535,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         float bw    = num > 1 ? strtof(parts[1], nullptr) : 0.0f;
         uint8_t sf  = num > 2 ? atoi(parts[2]) : 0;
         uint8_t cr  = num > 3 ? atoi(parts[3]) : 0;
-        if (freq >= 300.0f && freq <= 2500.0f && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f) {
+        if (freq >= 150.0f && freq <= 2500.0f && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f) {
           _prefs->sf = sf;
           _prefs->cr = cr;
           _prefs->freq = freq;
@@ -720,7 +720,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
       }
     } else if (memcmp(command, "sensor set ", 11) == 0) {
       strcpy(tmp, &command[11]);
-      const char *parts[2]; 
+      const char *parts[2];
       int num = mesh::Utils::parseTextParts(tmp, parts, 2, ' ');
       const char *key = (num > 0) ? parts[0] : "";
       const char *value = (num > 1) ? parts[1] : "null";
@@ -743,7 +743,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         dp = strchr(dp, 0);
         int i;
         for (i = start; i < end && (dp-reply < 134); i++) {
-          sprintf(dp, "%s=%s\n", 
+          sprintf(dp, "%s=%s\n",
             _sensors->getSettingName(i),
             _sensors->getSettingValue(i));
           dp = strchr(dp, 0);
@@ -823,8 +823,8 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         bool active = !strcmp(_sensors->getSettingByKey("gps"), "1");
         if (enabled) {
           sprintf(reply, "on, %s, %s, %d sats",
-            active?"active":"deactivated", 
-            fix?"fix":"no fix", 
+            active?"active":"deactivated",
+            fix?"fix":"no fix",
             sats);
         } else {
           strcpy(reply, "off");
