@@ -481,7 +481,7 @@ bool BaseChatMesh::sendGroupMessage(uint32_t timestamp, mesh::GroupChannel& chan
   return false;
 }
 
-bool BaseChatMesh::sendGroupData(mesh::GroupChannel& channel, uint16_t data_type, const uint8_t* data, int data_len) {
+bool BaseChatMesh::sendGroupData(mesh::GroupChannel& channel, uint8_t* path, uint8_t path_len, uint16_t data_type, const uint8_t* data, int data_len) {
   if (data_len < 0) {
     MESH_DEBUG_PRINTLN("sendGroupData: invalid negative data_len=%d", data_len);
     return false;
@@ -502,7 +502,13 @@ bool BaseChatMesh::sendGroupData(mesh::GroupChannel& channel, uint16_t data_type
     MESH_DEBUG_PRINTLN("sendGroupData: unable to create group datagram, data_len=%d", data_len);
     return false;
   }
-  sendFloodScoped(channel, pkt);
+
+  if (path_len == OUT_PATH_UNKNOWN) {
+    sendFloodScoped(channel, pkt);
+  } else {
+    sendDirect(pkt, path, path_len);
+  }
+
   return true;
 }
 

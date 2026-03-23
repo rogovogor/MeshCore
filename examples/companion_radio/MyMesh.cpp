@@ -1107,21 +1107,36 @@ void MyMesh::handleCmdFrame(size_t len) {
       return;
     }
     int i = 1;
+    uint8_t channel_idx = cmd_frame[i++];
+    uint8_t path_len = cmd_frame[i++];
+
+    // validate path len, allowing 0xFF for flood
+    if (!mesh::Packet::isValidPathLen(path_len) && path_len != OUT_PATH_UNKNOWN) {
+      MESH_DEBUG_PRINTLN("CMD_SEND_CHANNEL_DATA invalid path size: %d", path_len);
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+      return;
+    }
+
+    // parse provided path if not flood
+    uint8_t path[MAX_PATH_SIZE];
+    if (path_len != OUT_PATH_UNKNOWN) {
+      i += mesh::Packet::writePath(path, &cmd_frame[i], path_len);
+    }
+
     uint16_t data_type = ((uint16_t)cmd_frame[i]) | (((uint16_t)cmd_frame[i + 1]) << 8);
     i += 2;
-    uint8_t channel_idx = cmd_frame[i++];
     const uint8_t *payload = &cmd_frame[i];
     int payload_len = (len > (size_t)i) ? (int)(len - i) : 0;
 
     ChannelDetails channel;
     if (!getChannel(channel_idx, channel)) {
       writeErrFrame(ERR_CODE_NOT_FOUND); // bad channel_idx
-    } else if (data_type == 0) {
+    } else if (data_type == DATA_TYPE_RESERVED) {
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
     } else if (payload_len > MAX_CHANNEL_DATA_LENGTH) {
       MESH_DEBUG_PRINTLN("CMD_SEND_CHANNEL_DATA payload too long: %d > %d", payload_len, MAX_CHANNEL_DATA_LENGTH);
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
-    } else if (sendGroupData(channel.channel, data_type, payload, payload_len)) {
+    } else if (sendGroupData(channel.channel, path, path_len, data_type, payload, payload_len)) {
       writeOKFrame();
     } else {
       writeErrFrame(ERR_CODE_TABLE_FULL);
