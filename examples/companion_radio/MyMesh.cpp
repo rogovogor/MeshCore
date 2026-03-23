@@ -1107,8 +1107,6 @@ void MyMesh::handleCmdFrame(size_t len) {
       return;
     }
     int i = 1;
-    uint16_t data_type = ((uint16_t)cmd_frame[i]) | (((uint16_t)cmd_frame[i + 1]) << 8);
-    i += 2;
     uint8_t channel_idx = cmd_frame[i++];
     uint8_t path_len = cmd_frame[i++];
 
@@ -1125,6 +1123,8 @@ void MyMesh::handleCmdFrame(size_t len) {
       i += mesh::Packet::writePath(path, &cmd_frame[i], path_len);
     }
 
+    uint16_t data_type = ((uint16_t)cmd_frame[i]) | (((uint16_t)cmd_frame[i + 1]) << 8);
+    i += 2;
     const uint8_t *payload = &cmd_frame[i];
     int payload_len = (len > (size_t)i) ? (int)(len - i) : 0;
 
