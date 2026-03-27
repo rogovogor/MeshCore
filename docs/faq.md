@@ -833,7 +833,7 @@ Currently, the following boards are supported:
 - Seeed Studio Wio Tracker L1
 - Seeed Studio XIAO nRF52840 BLE
 - Seeed Studio XIAO nRF52840 BLE SENSE
-- RAK 4631 (See note)
+- RAK 4631 
 - RAK WisMesh Tag (new 28/11/2025)
 
 ### 7.4. Q: are the MeshCore logo and font available?
