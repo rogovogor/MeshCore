@@ -11,7 +11,7 @@
 #ifndef PIN_ADC_CTRL              // set in platformio.ini for Heltec Wireless Tracker (2)
   #define  PIN_ADC_CTRL    37
 #endif
-#ifndef ADC_MULTIPLIER  //default ADC multiplier
+#ifndef ADC_MULTIPLIER            //default ADC multiplier
   #define ADC_MULTIPLIER 5.42
 #endif
 #define  PIN_ADC_CTRL_ACTIVE    LOW
