@@ -1,4 +1,7 @@
 #include "SH1106Display.h"
+#ifdef CYRILLIC
+  #include "glcdfont6x8.h"
+#endif
 #include <Adafruit_GrayOLED.h>
 #include "Adafruit_SH110X.h"
 
@@ -36,6 +39,9 @@ void SH1106Display::startFrame(Color bkg)
 {
   display.clearDisplay(); // TODO: apply 'bkg'
   _color = SH110X_WHITE;
+#ifdef CYRILLIC
+  display.setFont(&glcdfont6x8);
+#endif
   display.setTextColor(_color);
   display.setTextSize(1);
   display.cp437(true); // Use full 256 char 'Code Page 437' font

@@ -1,5 +1,8 @@
 
 #include "GxEPDDisplay.h"
+#ifdef CYRILLIC
+  #include "glcdfont6x8.h"
+#endif
 
 #ifdef EXP_PIN_BACKLIGHT
   #include <PCA9557.h>
@@ -24,6 +27,9 @@ bool GxEPDDisplay::begin() {
   display.init(115200, true, 2, false);
   display.setRotation(DISPLAY_ROTATION);
   setTextSize(1);  // Default to size 1
+#ifdef CYRILLIC
+  display.cp437(true);
+#endif
   display.setPartialWindow(0, 0, display.width(), display.height());
 
   display.fillScreen(GxEPD_WHITE);
@@ -63,12 +69,20 @@ void GxEPDDisplay::clear() {
 
 void GxEPDDisplay::startFrame(Color bkg) {
   display.fillScreen(GxEPD_WHITE);
+#ifdef CYRILLIC
+  display.setFont(&glcdfont6x8);
+  display.cp437(true);
+#endif
   display.setTextColor(_curr_color = GxEPD_BLACK);
   display_crc.reset();
 }
 
 void GxEPDDisplay::setTextSize(int sz) {
   display_crc.update<int>(sz);
+#ifdef CYRILLIC
+  display.setFont(&glcdfont6x8);
+  display.setTextSize(sz);
+#else
   switch(sz) {
     case 1:  // Small
       display.setFont(&FreeSans9pt7b);
@@ -83,6 +97,7 @@ void GxEPDDisplay::setTextSize(int sz) {
       display.setFont(&FreeSans9pt7b);
       break;
   }
+#endif
 }
 
 void GxEPDDisplay::setColor(Color c) {
@@ -102,8 +117,15 @@ void GxEPDDisplay::setCursor(int x, int y) {
 }
 
 void GxEPDDisplay::print(const char* str) {
+#ifdef CYRILLIC
+  char buf[256];
+  translateUTF8ToBlocks(buf, str, sizeof(buf));
+  display_crc.update<char>(buf, strlen(buf));
+  display.print(buf);
+#else
   display_crc.update<char>(str, strlen(str));
   display.print(str);
+#endif
 }
 
 void GxEPDDisplay::fillRect(int x, int y, int w, int h) {
@@ -164,6 +186,11 @@ void GxEPDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
 }
 
 uint16_t GxEPDDisplay::getTextWidth(const char* str) {
+#ifdef CYRILLIC
+  char buf[256];
+  translateUTF8ToBlocks(buf, str, sizeof(buf));
+  str = buf;
+#endif
   int16_t x1, y1;
   uint16_t w, h;
   display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
