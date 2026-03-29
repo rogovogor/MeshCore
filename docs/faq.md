@@ -81,7 +81,6 @@ A list of frequently-asked questions and answers for MeshCore
     - [7.5. Q: What is the format of a contact or channel QR code?](#75-q-what-is-the-format-of-a-contact-or-channel-qr-code)
     - [7.6. Q: How do I connect to the companion via WIFI, e.g. using a heltec v3?](#76-q-how-do-i-connect-to-the-companion-via-wifi-eg-using-a-heltec-v3)
     - [7.7. Q: I have a Station G2, or a Heltec V4, or an Ikoka Stick, or a radio with a EByte E22-900M30S or a E22-900M33S module, what should their transmit power be set to?](#77-q-i-have-a-station-g2-or-a-heltec-v4-or-an-ikoka-stick-or-a-radio-with-a-ebyte-e22-900m30s-or-a-e22-900m33s-module-what-should-their-transmit-power-be-set-to)
-    - [⚠️ **WARNING: Set these values at your own risk. Incorrect power settings can permanently damage your radio hardware.**](#️-warning-set-these-values-at-your-own-risk-incorrect-power-settings-can-permanently-damage-your-radio-hardware)
 
 ## 1. Introduction
 
@@ -822,7 +821,7 @@ Edit WIFI_SSID and WIFI_PWD in `./variants/heltec_v3/platformio.ini` and then fl
 For companion radios, you can set these radios' transmit power in the smartphone app.  For repeater and room server radios, you can set their transmit power using the command line command `set tx`.  You can get their current value using command line comand `get tx`
 
 
- ### ⚠️ **WARNING: Set these values at your own risk. Incorrect power settings can permanently damage your radio hardware.**
+  ⚠️ **WARNING: Set these values at your own risk. Incorrect power settings can permanently damage your radio hardware.**
 
 | Device / Model | Region / Description | In-App Setting (dBm) | Target Radio Output | Notes |
 | :--- | :--- | :--- | :--- | :--- |
