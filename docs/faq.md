@@ -30,7 +30,9 @@ A list of frequently-asked questions and answers for MeshCore
     - [3.9.1. Q: **What path hash sizes will my repeater forward?**](#391-q-what-path-hash-sizes-will-my-repeater-forward)
     - [3.9.2. Q: **What determines a packet's path hash size?**](#392-q-what-determines-a-packets-path-hash-size)
     - [3.9.3. Q: **How do I change my companion's path hash size?**](#393-q-how-do-i-change-my-companions-path-hash-size)
-    - [3.9.4. Q: **What does `path.hash.mode` on a repeater do?**](#394-q-what-does-pathhashmode-on-a-repeater-do)
+    - [3.9.4. Q: **What does the CLI command `path.hash.mode` do on a repeater?**](#394-q-what-does-the-cli-command-pathhashmode-do-on-a-repeater)
+    - [3.9.5. Q: **Why use 2- or 3-byte path hash for adverts?**](#395-q-why-use-2--or-3-byte-path-hash-for-adverts)
+    - [3.9.6. Q: **When can we move away from 1-byte path hash for channel and direct messages?**](#396-q-when-can-we-move-away-from-1-byte-path-hash-for-channel-and-direct-messages)
   - [4. T-Deck Related](#4-t-deck-related)
     - [4.1. Q: Is there a user guide for T-Deck, T-Pager, T-Watch, or T-Display Pro?](#41-q-is-there-a-user-guide-for-t-deck-t-pager-t-watch-or-t-display-pro)
     - [4.2. Q: What are the steps to get a T-Deck into DFU (Device Firmware Update) mode?](#42-q-what-are-the-steps-to-get-a-t-deck-into-dfu-device-firmware-update-mode)
@@ -297,31 +299,31 @@ This is a very low cost operation.  AGC reset is done by simply setting `state =
 ### 3.9. Q: What is multi-byte support?  What do 1-byte, 2-byte, 3-byte adverts and messages mean?
 
 **A:**
-
-**Background:**
-The orginal MeshCore protocol design uses the first byte of a repeater's public key to denote the repeater in a path.  And with 1 byte for each repeater in the path, MeshCore packets can travel as many as 64 hops.  
+The original MeshCore protocol design uses the first byte of a repeater's public key to denote the repeater in a path.  And with 1 byte for each repeater in the path, MeshCore packets can travel as many as 64 hops.  
 
 However, with 1 byte, there are only 254 unique IDs (exclude 00 and FF which are reserved).  Many meshes group have multiple repeaters with the same first byte in their public keys. Packets continue to pass through repeaters and the mesh is not harmed in anyway.  It does make it harder for tools to analyze paths with duplicated repeater IDs.  
 
-Firmware version 1.14 and newer introduces the ability for repeaters to advert with 1-, 2-, or 3-byte adverts.  Companions can also send out channel and direct messages 1-, 2-, or 3-byte path.  Adverts and messages sent in 1-byte path is compatible with repeater firmware older or newer than 1.14.  They will travel up to 64 hops.  2-byte adverts and messages will travel up to 32 hops.  3-byte adverts and messages will travel up to 21 hops.
+Firmware version 1.14 and newer introduces the ability for repeaters to advert with 1-, 2-, or 3-byte adverts.  Companions can also send out channel and direct messages with 1-, 2-, or 3-byte path.  Adverts and messages sent in 1-byte path is compatible with repeater firmware older or newer than 1.14.  They will travel up to 64 hops.  2-byte adverts and messages will travel up to 32 hops.  3-byte adverts and messages will travel up to 21 hops.
 
 ### 3.9.1. Q: **What path hash sizes will my repeater forward?**
 
-Repeaters running firmware 1.14+ will repeat packets with 1-, 2-, or 3-byte path hash. Repeaters on firmware older than 1.14 will only repeat 1-byte path hash packets and will silently drop 2- and 3-byte packets.
+Repeaters running firmware 1.14+ repeat packets sent with 1-, 2-, or 3-byte path hash. Repeaters on firmware older than 1.14 only repeat 1-byte path hash packets and silently drop 2- and 3-byte packets.
 
 ### 3.9.2. Q: **What determines a packet's path hash size?**
 
-The original sender. The most common original sender is a companion app. The other common original sender is a repeater, when it broadcasts its advert.
+The original packet sender determines the path hash size. The most common original sender is a companion app. The other common original sender is a repeater, when it broadcasts its advert.
 
 ### 3.9.3. Q: **How do I change my companion's path hash size?**
 
-As of firmware 1.14, you can set your companion's message path hash size in the Experimental settings section of the app. Until your regional mesh has the vast majority of the repeaters updated to 1.14+ firmware, it is recommended to keep your companion at the default 1-byte because pre-1.14 repeaters will silently drop messages with larger path hashes.
+As of firmware version 1.14 and MeshCore app version 1.41.0, in the MeshCore app, you can set your companion's message path hash size in `Settings (gear icon)`, `Experimental Settings`. 
 
-### 3.9.4. Q: **What does `path.hash.mode` on a repeater do?**
+Until your regional mesh has the vast majority of the repeaters updated to 1.14+ firmware, it is recommended to keep your companion at the default 1-byte because pre-1.14 repeaters will silently drop messages with larger path hashes.
 
-It *only* controls the path hash size used in that repeater's own advert broadcasts. It does **not** affect which packets the repeater forwards. A 1.14+ repeater will always forward 1-, 2-, and 3-byte packets regardless of this setting.
+### 3.9.4. Q: **What does the CLI command `path.hash.mode` do on a repeater?**
 
-You can set it with `set path.hash.mode {0|1|2}`:
+This CLI command `path.hash.mode` *only* controls the path hash size used in a repeater's own advert broadcasts. It does **NOT** affect which packets the repeater forwards. A repeater with firmware 1.14+ always forward 1-, 2-, and 3-byte packets regardless of this setting.
+
+Usage: `set path.hash.mode {0|1|2}`:
 
 ```
 ┌────────────────┬───────────────────────┐
@@ -337,13 +339,13 @@ You can set it with `set path.hash.mode {0|1|2}`:
 
 It is safe to set your 1.14+ repeaters to mode 1 or 2.
 
-**Why use 2- or 3-byte path hash for adverts?**
+### 3.9.5. Q: **Why use 2- or 3-byte path hash for adverts?**
 
-A longer path hash helps tools like the LetsMesh Analyzer and MeshMapper disambiguate repeaters more reliably. With only 1 byte, the chance of different repeaters have the same first byte in their public key is high, making it harder to tell them apart in network analysis. Since this only affects adverts, there's no downside.  2- and 3-byte adverts don't travel as far, but it is not important for MechCore nodes to hear a repeater's advert that is 21 or 32 hops away.
+A longer path hash helps tools like the LetsMesh.net Analyzer and MeshMapper disambiguate repeaters more reliably. With only 1 byte, the chance of different repeaters having the same first byte in their public key is high, making it harder to tell them apart in mesh network analysis. Since this only affects adverts, there's no downside.  2- and 3-byte adverts don't travel as far as 1-byte adverts, but it is not important for MeshCore nodes to hear a repeater's advert that are 21 or 32 hops away.
 
-**When can we move away from 1-byte path hash?**
+### 3.9.6. Q: **When can we move away from 1-byte path hash for channel and direct messages?**
 
-You should move to send 2-byte or 3-byte channel and direct messages when the vast majority of the repeaters in your regional mesh are updated to firmware version 1.14 or newer.  Setting your repeater's `path.hash.mode` to 1 (for 2-byte path) or 2 (for 3-byte path) helps the community gauge how many repeaters have updated to 1.14+.  Please work with your MeshCore community together to decide when to switch to 2-byte path or 3-byte path for messages.
+You should move to send 2-byte or 3-byte channel and direct messages when the vast majority of the repeaters in your regional mesh are updated to firmware version 1.14 or newer.  Setting your repeater's `path.hash.mode` to 1 (for 2-byte path hash) or 2 (for 3-byte path hash) now helps the community gauge to how many repeaters have updated to 1.14+.  Please work with your MeshCore community together to decide when to switch to 2-byte path or 3-byte path for channel and direct messages.
 
 
 ---
