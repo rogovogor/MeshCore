@@ -11,8 +11,7 @@ GAT56MeshWatch13Board board;
 
 #ifdef DISPLAY_CLASS
   DISPLAY_CLASS display;
-  MomentaryButton user_btn(PIN_USER_BTN, 1000, true, false, false);
-  MomentaryButton back_btn(PIN_BACK_BTN, 1000, true, false, true);
+  MomentaryButton user_btn(PIN_USER_BTN, 1000, true, false, true);
 #endif
 
 
