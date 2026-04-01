@@ -2,6 +2,10 @@
 
 #include "../../MeshCore.h"
 
+#ifdef CYRILLIC_SUPPORT
+  #include "glcdfont6x8.h"
+#endif
+
 bool E290Display::begin() {
   if (_init) return true;
 
@@ -71,11 +75,16 @@ void E290Display::startFrame(Color bkg) {
     // Fill with black if light background requested (inverted for e-ink)
     display.fillRect(0, 0, width(), height(), BLACK);
   }
+#ifdef CYRILLIC_SUPPORT
+  display.setFont(&glcdfont6x8);
+#endif
 }
 
 void E290Display::setTextSize(int sz) {
   display_crc.update<int>(sz);
-  // The library handles text size internally
+#ifdef CYRILLIC_SUPPORT
+  _font_size = sz;
+#endif
   display.setTextSize(sz);
 }
 
@@ -87,7 +96,12 @@ void E290Display::setColor(Color c) {
 void E290Display::setCursor(int x, int y) {
   display_crc.update<int>(x);
   display_crc.update<int>(y);
+#ifdef CYRILLIC_SUPPORT
+  _cursor_y_raw = y;
+  display.setCursor(x, y + (_font_size * 7));
+#else
   display.setCursor(x, y);
+#endif
 }
 
 void E290Display::print(const char *str) {
