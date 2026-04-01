@@ -517,6 +517,7 @@ public:
 
     display.setCursor(0, 25);
     display.setColor(DisplayDriver::LIGHT);
+    display.setTextSize(2);
     char filtered_msg[sizeof(p->msg)];
     display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
     display.printWordWrap(filtered_msg, display.width());
