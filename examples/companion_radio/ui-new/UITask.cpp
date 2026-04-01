@@ -488,10 +488,12 @@ public:
 
   int render(DisplayDriver& display) override {
     char tmp[16];
-    display.setCursor(0, 0);
+
     display.setTextSize(1);
     display.setColor(DisplayDriver::GREEN);
+    display.setCursor(0, 0);
     sprintf(tmp, "Unread: %d", num_unread);
+    display.setCursor(0, 0);
     display.print(tmp);
 
     auto p = &unread[head];
@@ -506,11 +508,10 @@ public:
     }
     display.setCursor(display.width() - display.getTextWidth(tmp) - 2, 0);
     display.print(tmp);
-
-    display.drawRect(0, 11, display.width(), 1);  // horiz line
-
     char filtered_origin[sizeof(p->origin)];
     display.translateUTF8ToBlocks(filtered_origin, p->origin, sizeof(filtered_origin));
+    display.setCursor(12, 0);
+    display.drawRect(0, 11, display.width(), 1);  // horiz line
     char filtered_msg[sizeof(p->msg)];
     display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
 
