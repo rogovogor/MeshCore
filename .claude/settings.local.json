@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(xargs grep:*)",
-      "Bash(grep -E \"\\\\.\\(h|cpp\\)$\")",
-      "Bash(grep -E \"DisplayDriver\\\\\\(\" /c/Users/Ruslan/CODE/MeshCore/src/helpers/ui/*.h)"
-    ]
-  }
-}
