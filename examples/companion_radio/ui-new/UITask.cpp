@@ -462,7 +462,7 @@ class MsgPreviewScreen : public UIScreen {
   struct MsgEntry {
     uint32_t timestamp;
     char origin[62];
-    char msg[78];
+    char msg[MAX_TEXT_LEN];  // UTF-8 Cyrillic takes 2 bytes/char; need full protocol capacity
   };
   #define MAX_UNREAD_MSGS   32
   int num_unread;
@@ -509,17 +509,33 @@ public:
 
     display.drawRect(0, 11, display.width(), 1);  // horiz line
 
-    display.setCursor(0, 14);
-    display.setColor(DisplayDriver::YELLOW);
     char filtered_origin[sizeof(p->origin)];
     display.translateUTF8ToBlocks(filtered_origin, p->origin, sizeof(filtered_origin));
-    display.print(filtered_origin);
-
-    display.setCursor(0, 25);
-    display.setColor(DisplayDriver::LIGHT);
     char filtered_msg[sizeof(p->msg)];
     display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
+
+#ifdef EINK_RU
+    // Pick the largest font size whose capacity fits the full message.
+    // msg_y is placed 3px below the origin text baseline (origin always at y=13).
+    int msg_len = strlen(filtered_msg);
+    int txt_size, msg_y;
+    if (msg_len <= 39)       { txt_size = 3; msg_y = 40; }  // 13 chars/line × 3 lines
+    else if (msg_len <= 100) { txt_size = 2; msg_y = 31; }  // 20 chars/line × 5 lines
+    else                     { txt_size = 1; msg_y = 23; }  // 41 chars/line × 10 lines
+    display.setTextSize(txt_size);
+    display.setColor(DisplayDriver::YELLOW);
+    display.drawTextEllipsized(0, 13, display.width(), filtered_origin);
+    display.setColor(DisplayDriver::LIGHT);
+    display.setCursor(0, msg_y);
     display.printWordWrap(filtered_msg, display.width());
+#else
+    display.setCursor(0, 14);
+    display.setColor(DisplayDriver::YELLOW);
+    display.print(filtered_origin);
+    display.setCursor(0, 25);
+    display.setColor(DisplayDriver::LIGHT);
+    display.printWordWrap(filtered_msg, display.width());
+#endif
 
 #if AUTO_OFF_MILLIS==0 // probably e-ink
     return 10000; // 10 s

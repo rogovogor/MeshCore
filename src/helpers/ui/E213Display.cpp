@@ -144,11 +144,55 @@ void E213Display::setCursor(int x, int y) {
   display_crc.update<int>(x);
   display_crc.update<int>(y);
 #ifdef EINK_RU
+  _cursor_y_raw = y;
   // GFXfont positions cursor at text baseline, not top-left.
   // Shift down by (size * font_ascent) so callers use top-left semantics.
   display->setCursor(x, y + (_size * 7));
 #else
   display->setCursor(x, y);
+#endif
+}
+
+void E213Display::printWordWrap(const char* str, int max_width) {
+#ifdef EINK_RU
+  // glcdfont6x8 is monospace: all glyphs are 6 px wide (×_size for textsize scaling)
+  const int char_w = 6 * _size;
+  const int line_h = 8 * _size;
+  const int max_chars = max_width / char_w;
+
+  int len = (int)strlen(str);
+  int pos = 0;
+  char line_buf[64];  // one line: max ~41 chars + null
+
+  while (pos < len && _cursor_y_raw < height()) {
+    if (len - pos <= max_chars) {
+      print(str + pos);
+      break;
+    }
+
+    // find last space within max_chars to avoid mid-word breaks
+    int break_at = pos + max_chars;
+    for (int i = pos + max_chars; i > pos; i--) {
+      if (str[i] == ' ') { break_at = i; break; }
+    }
+
+    int seg_len = break_at - pos;
+    if (seg_len > (int)sizeof(line_buf) - 1) seg_len = sizeof(line_buf) - 1;
+    memcpy(line_buf, str + pos, seg_len);
+    line_buf[seg_len] = 0;
+    print(line_buf);
+
+    // skip the space separator
+    pos = break_at + (str[break_at] == ' ' ? 1 : 0);
+
+    // advance to the next line
+    _cursor_y_raw += line_h;
+    if (_cursor_y_raw < height()) {
+      setCursor(0, _cursor_y_raw);
+    }
+  }
+#else
+  print(str);
 #endif
 }
 

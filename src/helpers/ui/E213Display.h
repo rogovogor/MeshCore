@@ -18,6 +18,7 @@ class E213Display : public DisplayDriver {
   uint32_t last_display_crc_value = 0;
 #ifdef EINK_RU
   uint8_t _size = 1;
+  int _cursor_y_raw = 0;  // logical y passed to setCursor (for printWordWrap line tracking)
 #endif
 
 public:
@@ -37,6 +38,7 @@ public:
   void setColor(Color c) override;
   void setCursor(int x, int y) override;
   void print(const char *str) override;
+  void printWordWrap(const char* str, int max_width) override;
   void fillRect(int x, int y, int w, int h) override;
   void drawRect(int x, int y, int w, int h) override;
   void drawXbm(int x, int y, const uint8_t *bits, int w, int h) override;
