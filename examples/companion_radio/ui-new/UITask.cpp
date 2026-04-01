@@ -462,7 +462,7 @@ class MsgPreviewScreen : public UIScreen {
   struct MsgEntry {
     uint32_t timestamp;
     char origin[62];
-    char msg[78];
+    char msg[MAX_TEXT_LEN];  // full protocol capacity; Cyrillic UTF-8 uses 2 bytes/char
   };
   #define MAX_UNREAD_MSGS   32
   int num_unread;
@@ -509,17 +509,39 @@ public:
 
     display.drawRect(0, 11, display.width(), 1);  // horiz line
 
-    display.setCursor(0, 14);
-    display.setColor(DisplayDriver::YELLOW);
     char filtered_origin[sizeof(p->origin)];
     display.translateUTF8ToBlocks(filtered_origin, p->origin, sizeof(filtered_origin));
-    display.print(filtered_origin);
-
-    display.setCursor(0, 25);
-    display.setColor(DisplayDriver::LIGHT);
     char filtered_msg[sizeof(p->msg)];
     display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
+
+#ifdef CYRILLIC_SUPPORT
+    // Choose the largest font size whose capacity fits the full message.
+    // Layout Y positions are tuned per display size to keep origin visible.
+    int msg_len = (int)strlen(filtered_msg);
+    int txt_size, msg_y, origin_y;
+    if (display.width() >= 200) {
+      // Large display (e.g. E-ink 250×122): use adaptive sizing
+      if      (msg_len <= 39)  { txt_size = 3; msg_y = 40; origin_y = 13; }
+      else if (msg_len <= 100) { txt_size = 2; msg_y = 31; origin_y = 13; }
+      else                     { txt_size = 1; msg_y = 23; origin_y = 13; }
+    } else {
+      // Small display (e.g. OLED 128×64): fixed size 1
+      txt_size = 1; msg_y = 25; origin_y = 14;
+    }
+    display.setTextSize(txt_size);
+    display.setColor(DisplayDriver::YELLOW);
+    display.drawTextEllipsized(0, origin_y, display.width(), filtered_origin);
+    display.setColor(DisplayDriver::LIGHT);
+    display.setCursor(0, msg_y);
     display.printWordWrap(filtered_msg, display.width());
+#else
+    display.setCursor(0, 14);
+    display.setColor(DisplayDriver::YELLOW);
+    display.print(filtered_origin);
+    display.setCursor(0, 25);
+    display.setColor(DisplayDriver::LIGHT);
+    display.printWordWrap(filtered_msg, display.width());
+#endif
 
 #if AUTO_OFF_MILLIS==0 // probably e-ink
     return 10000; // 10 s
