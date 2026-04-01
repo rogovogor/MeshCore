@@ -2,6 +2,10 @@
 
 #include "../../MeshCore.h"
 
+#ifdef EINK_RU
+  #include "glcdfont6x8.h"
+#endif
+
 BaseDisplay* E213Display::detectEInk()
 {
     // Test 1: Logic of BUSY pin
@@ -118,12 +122,17 @@ void E213Display::startFrame(Color bkg) {
     // Fill with black if light background requested (inverted for e-ink)
     display->fillRect(0, 0, width(), height(), BLACK);
   }
+#ifdef EINK_RU
+  display->setFont(&glcdfont6x8);
+#endif
 }
 
 void E213Display::setTextSize(int sz) {
   display_crc.update<int>(sz);
-  // The library handles text size internally
-    display->setTextSize(sz);
+#ifdef EINK_RU
+  _size = sz;
+#endif
+  display->setTextSize(sz);
 }
 
 void E213Display::setColor(Color c) {
@@ -134,7 +143,13 @@ void E213Display::setColor(Color c) {
 void E213Display::setCursor(int x, int y) {
   display_crc.update<int>(x);
   display_crc.update<int>(y);
-    display->setCursor(x, y);
+#ifdef EINK_RU
+  // GFXfont positions cursor at text baseline, not top-left.
+  // Shift down by (size * font_ascent) so callers use top-left semantics.
+  display->setCursor(x, y + (_size * 7));
+#else
+  display->setCursor(x, y);
+#endif
 }
 
 void E213Display::print(const char *str) {

@@ -16,6 +16,9 @@ class E213Display : public DisplayDriver {
   RefCountedDigitalPin* _periph_power;
   CRC32 display_crc;
   uint32_t last_display_crc_value = 0;
+#ifdef EINK_RU
+  uint8_t _size = 1;
+#endif
 
 public:
   E213Display(RefCountedDigitalPin* periph_power = NULL) : DisplayDriver(250, 122), _periph_power(periph_power) {}

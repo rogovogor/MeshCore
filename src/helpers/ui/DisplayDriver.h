@@ -45,13 +45,56 @@ public:
   // convert UTF-8 characters to displayable block characters for compatibility
   virtual void translateUTF8ToBlocks(char* dest, const char* src, size_t dest_size) {
     size_t j = 0;
+#ifdef EINK_RU
+    char last_char = 0;
+    char cc = 0;
+#endif
     for (size_t i = 0; src[i] != 0 && j < dest_size - 1; i++) {
       unsigned char c = (unsigned char)src[i];
       if (c >= 32 && c <= 126) {
+#ifdef EINK_RU
+        last_char = 0;
+        dest[j++] = c;  // ASCII printable
+      } else if (c == 0xC2 || c == 0xC3 || c == 0xD0 || c == 0xD1 || c == 0xD2) { // UTF-8 Cyrillic lead byte
+        last_char = c;
+        cc = 0;
+        c = src[++i]; // get continuation byte
+
+        if (c != 0) {
+          switch (last_char) {
+            case 0xC3:
+              cc = (c | 0xC0);
+              break;
+            case 0xD0:
+              if (c == 129)  cc = 168; // Ё
+              else if (c == 132) cc = 170; // Є
+              else if (c == 134) cc = 178; // І
+              else if (c == 135) cc = 175; // Ї
+              else if (c > 143 && c < 192) cc = (c + 48);
+              break;
+            case 0xD1:
+              if (c == 145)  cc = 184; // ё
+              else if (c == 148) cc = 186; // є
+              else if (c == 150) cc = 179; // і
+              else if (c == 151) cc = 191; // ї
+              else if (c > 127 && c < 144) cc = (c + 112);
+              break;
+            case 0xD2:
+              if (c == 144) cc = 165; // Ґ
+              else if (c == 145) cc = 180; // ґ
+              break;
+          }
+          dest[j++] = (cc > 0) ? cc : '\xAE'; // fallback: smile in CP1251
+        }
+      } else if (c >= 0x80) {
+        last_char = 0;
+        dest[j++] = '\xAE'; // non-Cyrillic non-ASCII: smile placeholder
+#else
         dest[j++] = c;  // ASCII printable
       } else if (c >= 0x80) {
         dest[j++] = '\xDB';  // CP437 full block █
-        while (src[i+1] && (src[i+1] & 0xC0) == 0x80) 
+#endif
+        while (src[i+1] && (src[i+1] & 0xC0) == 0x80)
           i++;  // skip UTF-8 continuation bytes
       }
     }
