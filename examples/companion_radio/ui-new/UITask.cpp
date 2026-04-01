@@ -462,7 +462,7 @@ class MsgPreviewScreen : public UIScreen {
   struct MsgEntry {
     uint32_t timestamp;
     char origin[62];
-    char msg[78];
+    char msg[MAX_TEXT_LEN];
   };
   #define MAX_UNREAD_MSGS   32
   int num_unread;
