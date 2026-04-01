@@ -1,5 +1,8 @@
 
 #include "GxEPDDisplay.h"
+#ifdef CYRILLIC_SUPPORT
+  #include "glcdfont6x8.h"
+#endif
 
 #ifdef EXP_PIN_BACKLIGHT
   #include <PCA9557.h>
@@ -65,10 +68,17 @@ void GxEPDDisplay::startFrame(Color bkg) {
   display.fillScreen(GxEPD_WHITE);
   display.setTextColor(_curr_color = GxEPD_BLACK);
   display_crc.reset();
+#ifdef CYRILLIC_SUPPORT
+  display.setFont(&glcdfont6x8);
+#endif
 }
 
 void GxEPDDisplay::setTextSize(int sz) {
   display_crc.update<int>(sz);
+#ifdef CYRILLIC_SUPPORT
+  _font_size = sz;
+  display.setTextSize(sz);
+#else
   switch(sz) {
     case 1:  // Small
       display.setFont(&FreeSans9pt7b);
@@ -83,6 +93,7 @@ void GxEPDDisplay::setTextSize(int sz) {
       display.setFont(&FreeSans9pt7b);
       break;
   }
+#endif
 }
 
 void GxEPDDisplay::setColor(Color c) {
@@ -98,7 +109,12 @@ void GxEPDDisplay::setColor(Color c) {
 void GxEPDDisplay::setCursor(int x, int y) {
   display_crc.update<int>(x);
   display_crc.update<int>(y);
+#ifdef CYRILLIC_SUPPORT
+  _cursor_y_raw = y;
+  display.setCursor((x+offset_x)*scale_x, (y + (_font_size * 7) + offset_y)*scale_y);
+#else
   display.setCursor((x+offset_x)*scale_x, (y+offset_y)*scale_y);
+#endif
 }
 
 void GxEPDDisplay::print(const char* str) {
