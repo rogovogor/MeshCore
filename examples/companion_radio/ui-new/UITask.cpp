@@ -488,9 +488,9 @@ public:
 
   int render(DisplayDriver& display) override {
     char tmp[16];
-    display.setCursor(0, 0);
     display.setTextSize(1);
     display.setColor(DisplayDriver::GREEN);
+    display.setCursor(0, 0);
     sprintf(tmp, "Unread: %d", num_unread);
     display.print(tmp);
 
