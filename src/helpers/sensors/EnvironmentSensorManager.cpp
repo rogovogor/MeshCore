@@ -12,7 +12,7 @@
 #endif
 #define TELEM_BME680_SEALEVELPRESSURE_HPA (1013.25)
 #include <Adafruit_BME680.h>
-static Adafruit_BME680 BME680;
+static Adafruit_BME680 BME680(TELEM_WIRE);
 #endif
 
 #ifdef ENV_INCLUDE_BMP085
@@ -180,7 +180,7 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
   #if ENV_INCLUDE_BME680
-  if (BME680.begin(TELEM_BME680_ADDRESS, TELEM_WIRE)) {
+  if (BME680.begin(TELEM_BME680_ADDRESS)) {
     MESH_DEBUG_PRINTLN("Found BME680 at address: %02X", TELEM_BME680_ADDRESS);
     BME680_initialized = true;
   } else {
