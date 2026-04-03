@@ -37,7 +37,7 @@ public:
     int pos = 0;
     char line_buf[64];   // one line: up to ~41 chars + NUL at size 1
 
-    while (pos < len && _cursor_y_raw < height()) {
+    while (pos < len && _cursor_y_raw + line_h <= height()) {
       if (len - pos <= max_chars) {
         print(str + pos);
         break;
@@ -55,7 +55,7 @@ public:
 
       pos = break_at + (str[break_at] == ' ' ? 1 : 0);
       _cursor_y_raw += line_h;
-      if (_cursor_y_raw < height()) setCursor(0, _cursor_y_raw);
+      if (_cursor_y_raw + line_h <= height()) setCursor(0, _cursor_y_raw);
     }
 #else
     print(str);

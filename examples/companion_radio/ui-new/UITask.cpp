@@ -461,8 +461,9 @@ class MsgPreviewScreen : public UIScreen {
 
   struct MsgEntry {
     uint32_t timestamp;
-    char origin[62];
-    char msg[MAX_TEXT_LEN];  // full protocol capacity; Cyrillic UTF-8 uses 2 bytes/char
+    uint8_t  path_len;       // 0xFF = direct, otherwise hop count (group)
+    char     from_name[32];  // sender name (direct) or channel name (group)
+    char     msg[MAX_TEXT_LEN];
   };
   #define MAX_UNREAD_MSGS   32
   int num_unread;
@@ -475,79 +476,97 @@ public:
   void addPreview(uint8_t path_len, const char* from_name, const char* msg) {
     head = (head + 1) % MAX_UNREAD_MSGS;
     if (num_unread < MAX_UNREAD_MSGS) num_unread++;
-
     auto p = &unread[head];
     p->timestamp = _rtc->getCurrentTime();
-    if (path_len == 0xFF) {
-      sprintf(p->origin, "(D) %s:", from_name);
-    } else {
-      sprintf(p->origin, "(%d) %s:", (uint32_t) path_len, from_name);
-    }
+    p->path_len  = path_len;
+    strncpy(p->from_name, from_name, sizeof(p->from_name) - 1);
+    p->from_name[sizeof(p->from_name) - 1] = '\0';
     StrHelper::strncpy(p->msg, msg, sizeof(p->msg));
   }
 
   int render(DisplayDriver& display) override {
-    char tmp[16];
-    display.setTextSize(1);
+    if (num_unread == 0) return 1000;
+    auto* p = &unread[head];
+
+    // 1. Metrics
+    int hdr_size    = (display.width() >= 200) ? 2 : 1;
+    int hdr_line_h  = 8 * hdr_size;
+    int msg_start_y = hdr_line_h + 3;
+
+    char filtered_msg[MAX_TEXT_LEN];
+    display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
+    int msg_len = (int)strlen(filtered_msg);
+
+    int body2_lines    = (display.height() - msg_start_y) / 16;
+    int body2_cpl      = display.width() / 12;
+    bool use2          = (body2_lines >= 4) && (msg_len <= body2_lines * body2_cpl);
+    int body_size      = use2 ? 2 : 1;
+    int body_line_h    = 8 * body_size;
+    int body_cpl       = display.width() / (6 * body_size);
+    int body_max_lines = (display.height() - msg_start_y) / body_line_h;
+
+    // 2. Time string
+    char time_str[8];
+    int secs = (int)(_rtc->getCurrentTime() - p->timestamp);
+    if (secs < 0) secs = 0;
+    if      (secs < 60)   snprintf(time_str, sizeof(time_str), "%ds",  secs);
+    else if (secs < 3600) snprintf(time_str, sizeof(time_str), "%dm",  secs / 60);
+    else                  snprintf(time_str, sizeof(time_str), "%dh",  secs / 3600);
+
+    // 3. Header left: "#N (D)name" for direct, "#N channel" for group
+    int hdr_ch_w    = 6 * hdr_size;
+    int hdr_total   = display.width() / hdr_ch_w;
+    int name_budget = hdr_total - (int)strlen(time_str) - 4;  // 4 = "#N " + gap
+    if (name_budget < 0) name_budget = 0;
+
+    char raw_name[36];
+    if (p->path_len == 0xFF)
+      snprintf(raw_name, sizeof(raw_name), "(D)%s", p->from_name);
+    else
+      strncpy(raw_name, p->from_name, sizeof(raw_name) - 1);
+    raw_name[sizeof(raw_name) - 1] = '\0';
+    if (name_budget < (int)sizeof(raw_name)) raw_name[name_budget] = '\0';
+
+    char filtered_name[36];
+    display.translateUTF8ToBlocks(filtered_name, raw_name, sizeof(filtered_name));
+
+    char hdr_left[64];
+    snprintf(hdr_left, sizeof(hdr_left), "#%d %s", num_unread, filtered_name);
+
+    // 4. Render header
+    display.setTextSize(hdr_size);
     display.setColor(DisplayDriver::GREEN);
     display.setCursor(0, 0);
-    sprintf(tmp, "Unread: %d", num_unread);
-    display.print(tmp);
+    display.print(hdr_left);
+    int time_x = display.width() - (int)strlen(time_str) * hdr_ch_w;
+    display.setCursor(time_x, 0);
+    display.print(time_str);
 
-    auto p = &unread[head];
-
-    int secs = _rtc->getCurrentTime() - p->timestamp;
-    if (secs < 60) {
-      sprintf(tmp, "%ds", secs);
-    } else if (secs < 60*60) {
-      sprintf(tmp, "%dm", secs / 60);
-    } else {
-      sprintf(tmp, "%dh", secs / (60*60));
-    }
-    display.setCursor(display.width() - display.getTextWidth(tmp) - 2, 0);
-    display.print(tmp);
-
-    display.drawRect(0, 11, display.width(), 1);  // horiz line
-
-    char filtered_origin[sizeof(p->origin)];
-    display.translateUTF8ToBlocks(filtered_origin, p->origin, sizeof(filtered_origin));
-    char filtered_msg[sizeof(p->msg)];
-    display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
-
-#ifdef CYRILLIC_SUPPORT
-    // Choose the largest font size whose capacity fits the full message.
-    // Layout Y positions are tuned per display size to keep origin visible.
-    int msg_len = (int)strlen(filtered_msg);
-    int txt_size, msg_y, origin_y;
-    if (display.width() >= 200) {
-      // Large display (e.g. E-ink 250×122): use adaptive sizing
-      if      (msg_len <= 39)  { txt_size = 3; msg_y = 40; origin_y = 13; }
-      else if (msg_len <= 100) { txt_size = 2; msg_y = 31; origin_y = 13; }
-      else                     { txt_size = 1; msg_y = 23; origin_y = 13; }
-    } else {
-      // Small display (e.g. OLED 128×64): fixed size 1
-      txt_size = 1; msg_y = 25; origin_y = 14;
-    }
-    display.setTextSize(txt_size);
-    display.setColor(DisplayDriver::YELLOW);
-    display.drawTextEllipsized(0, origin_y, display.width(), filtered_origin);
+    // 5. Divider
     display.setColor(DisplayDriver::LIGHT);
-    display.setCursor(0, msg_y);
-    display.printWordWrap(filtered_msg, display.width());
-#else
-    display.setCursor(0, 14);
-    display.setColor(DisplayDriver::YELLOW);
-    display.print(filtered_origin);
-    display.setCursor(0, 25);
-    display.setColor(DisplayDriver::LIGHT);
-    display.printWordWrap(filtered_msg, display.width());
-#endif
+    display.drawRect(0, hdr_line_h + 2, display.width(), 1);
 
-#if AUTO_OFF_MILLIS==0 // probably e-ink
-    return 10000; // 10 s
-#else
-    return 1000;  // next render after 1000 ms
-#endif
+    // 6. Message body — hard cut, no word wrap
+    display.setTextSize(body_size);
+
+    int pos = 0, cur_y = msg_start_y, lines_out = 0;
+    char line_buf[52];
+
+    while (pos < msg_len && lines_out < body_max_lines) {
+      if (cur_y + body_line_h > display.height()) break;
+      int take = msg_len - pos;
+      if (take > body_cpl) take = body_cpl;
+      if (take > (int)(sizeof(line_buf) - 1)) take = (int)(sizeof(line_buf) - 1);
+      memcpy(line_buf, filtered_msg + pos, take);
+      line_buf[take] = '\0';
+      display.setCursor(0, cur_y);
+      display.print(line_buf);
+      pos    += take;
+      cur_y  += body_line_h;
+      lines_out++;
+    }
+
+    return (AUTO_OFF_MILLIS == 0) ? 10000 : 1000;
   }
 
   bool handleInput(char c) override {
