@@ -423,9 +423,7 @@ public:
     }
     if (c == KEY_NEXT || c == KEY_RIGHT) {
       _page = (_page + 1) % HomePage::Count;
-      if (_page == HomePage::RECENT) {
-        _task->showAlert("Recent adverts", 800);
-      }
+      (void)0;
       return true;
     }
     if (c == KEY_ENTER && _page == HomePage::BLUETOOTH) {
