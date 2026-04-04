@@ -504,15 +504,10 @@ public:
 
     char filtered_msg[MAX_TEXT_LEN];
     display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
-    int msg_len = (int)strlen(filtered_msg);
 
-    int body2_lines    = (display.height() - msg_start_y) / 16;
-    int body2_cpl      = display.width() / 12;
-    bool use2          = (body2_lines >= 4);
-    int body_size      = use2 ? 2 : 1;
-    int body_line_h    = 8 * body_size;
-    int body_cpl       = display.width() / (6 * body_size);
-    int body_max_lines = (display.height() - msg_start_y) / body_line_h;
+    int body2_lines = (display.height() - msg_start_y) / 16;
+    bool use2       = (body2_lines >= 4);
+    int body_size   = use2 ? 2 : 1;
 
     // 2. Time string
     char time_str[8];
@@ -554,25 +549,10 @@ public:
     display.setColor(DisplayDriver::LIGHT);
     display.drawRect(0, hdr_line_h + 2, display.width(), 1);
 
-    // 6. Message body — hard cut, no word wrap
+    // 6. Message body — word wrap
     display.setTextSize(body_size);
-
-    int pos = 0, cur_y = msg_start_y, lines_out = 0;
-    char line_buf[52];
-
-    while (pos < msg_len && lines_out < body_max_lines) {
-      if (cur_y + body_line_h > display.height()) break;
-      int take = msg_len - pos;
-      if (take > body_cpl) take = body_cpl;
-      if (take > (int)(sizeof(line_buf) - 1)) take = (int)(sizeof(line_buf) - 1);
-      memcpy(line_buf, filtered_msg + pos, take);
-      line_buf[take] = '\0';
-      display.setCursor(0, cur_y);
-      display.print(line_buf);
-      pos    += take;
-      cur_y  += body_line_h;
-      lines_out++;
-    }
+    display.setCursor(0, msg_start_y);
+    display.printWordWrap(filtered_msg, display.width());
 
     return (AUTO_OFF_MILLIS == 0) ? 10000 : 1000;
   }
