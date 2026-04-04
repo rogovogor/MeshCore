@@ -532,8 +532,7 @@ public:
     if (p->path_len == 0xFF)
       snprintf(raw_name, sizeof(raw_name), "(D)%s", p->from_name);
     else
-      strncpy(raw_name, p->from_name, sizeof(raw_name) - 1);
-    raw_name[sizeof(raw_name) - 1] = '\0';
+      snprintf(raw_name, sizeof(raw_name), "[%d]%s", p->path_len, p->from_name);
     if (name_budget < (int)sizeof(raw_name)) raw_name[name_budget] = '\0';
 
     char filtered_name[36];
