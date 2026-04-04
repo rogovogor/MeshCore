@@ -1,6 +1,9 @@
 #ifdef ST7789
 
 #include "ST7789Display.h"
+#ifdef CYRILLIC_SUPPORT
+#include "OLEDDisplayFontsRU.h"
+#endif
 
 #ifndef X_OFFSET
 #define X_OFFSET 0  // No offset needed for landscape
@@ -80,19 +83,35 @@ void ST7789Display::startFrame(Color bkg) {
   display.clear();
   _color = ST77XX_WHITE;
   display.setRGB(_color);
+#ifdef CYRILLIC_SUPPORT
+  display.setFont(ArialMT_Plain_16_RU);
+#else
   display.setFont(ArialMT_Plain_16);
+#endif
 }
 
 void ST7789Display::setTextSize(int sz) {
   switch(sz) {
     case 1 :
+#ifdef CYRILLIC_SUPPORT
+      display.setFont(ArialMT_Plain_16_RU);
+#else
       display.setFont(ArialMT_Plain_16);
+#endif
       break;
     case 2 :
+#ifdef CYRILLIC_SUPPORT
+      display.setFont(ArialMT_Plain_24_RU);
+#else
       display.setFont(ArialMT_Plain_24);
+#endif
       break;
     default:
+#ifdef CYRILLIC_SUPPORT
+      display.setFont(ArialMT_Plain_16_RU);
+#else
       display.setFont(ArialMT_Plain_16);
+#endif
   }
 }
 
