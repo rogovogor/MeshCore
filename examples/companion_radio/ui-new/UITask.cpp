@@ -504,10 +504,26 @@ public:
 
     char filtered_msg[MAX_TEXT_LEN];
     display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
+    int msg_len = (int)strlen(filtered_msg);
 
     int body2_lines = (display.height() - msg_start_y) / 16;
-    bool use2       = (body2_lines >= 4);
-    int body_size   = use2 ? 2 : 1;
+    int body2_cpl   = display.width() / 12;
+    // Simulate word wrap at size 2 to get actual line count
+    int sim_lines = 0;
+    if (body2_lines >= 4) {
+      int pos = 0;
+      while (pos < msg_len) {
+        sim_lines++;
+        if (msg_len - pos <= body2_cpl) break;
+        int brk = pos + body2_cpl;
+        for (int i = pos + body2_cpl; i > pos; i--) {
+          if (filtered_msg[i] == ' ') { brk = i; break; }
+        }
+        pos = brk + (filtered_msg[brk] == ' ' ? 1 : 0);
+      }
+    }
+    bool use2     = (body2_lines >= 4) && (sim_lines <= body2_lines);
+    int body_size = use2 ? 2 : 1;
 
     // 2. Time string
     char time_str[8];
