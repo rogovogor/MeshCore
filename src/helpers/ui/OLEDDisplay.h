@@ -64,6 +64,9 @@ private:
 #endif
 
 #include "OLEDDisplayFonts.h"
+#ifdef CYRILLIC_SUPPORT
+#include "OLEDDisplayFontsRU.h"
+#endif
 
 //#define DEBUG_OLEDDISPLAY(...) Serial.printf( __VA_ARGS__ )
 //#define DEBUG_OLEDDISPLAY(...) dprintf("%s",  __VA_ARGS__ )
