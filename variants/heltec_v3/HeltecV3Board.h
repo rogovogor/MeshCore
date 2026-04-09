@@ -17,7 +17,7 @@
 #include <driver/rtc_io.h>
 
 class HeltecV3Board : public ESP32Board {
-private:
+protected:
   bool adc_active_state;
 
 public:
