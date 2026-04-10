@@ -207,6 +207,12 @@ private:
   uint32_t sign_data_len;
   unsigned long dirty_contacts_expiry;
 
+#if defined(ADAPTIVE_RX_GAIN) && (defined(USE_SX1262) || defined(USE_SX1268))
+  int16_t _rx_rssi_ema;       // EMA of received packet RSSI (0 = uninitialized)
+  unsigned long _next_gain_check;
+  void adaptRxGain();
+#endif
+
   TransportKey send_scope;
 
   uint8_t cmd_frame[MAX_FRAME_SIZE + 1];
