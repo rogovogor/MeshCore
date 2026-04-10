@@ -196,6 +196,7 @@ void setup() {
 #ifdef WIFI_SSID
   board.setInhibitSleep(true);   // prevent sleep when WiFi is active
   WiFi.begin(WIFI_SSID, WIFI_PWD);
+  WiFi.setSleep(true);           // enable modem sleep between DTIM beacons
   serial_interface.begin(TCP_PORT);
 #elif defined(BLE_PIN_CODE)
   serial_interface.begin(BLE_NAME_PREFIX, the_mesh.getNodePrefs()->node_name, the_mesh.getBLEPin());
