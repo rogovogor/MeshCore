@@ -810,6 +810,22 @@ void UITask::loop() {
   vibration.loop();
 #endif
 
+#if defined(ESP_PLATFORM) && defined(ESP32_CPU_FREQ)
+  {
+    // Scale CPU frequency: full speed when display on or connected, reduced when idle
+    static unsigned long next_cpu_check = 0;
+    if (millis() > next_cpu_check) {
+      next_cpu_check = millis() + 1000;
+      bool display_on = (_display != NULL && _display->isOn());
+      if (!display_on && !_connected) {
+        setCpuFrequencyMhz(40);
+      } else {
+        setCpuFrequencyMhz(ESP32_CPU_FREQ);
+      }
+    }
+  }
+#endif
+
 #ifdef AUTO_SHUTDOWN_MILLIVOLTS
   if (millis() > next_batt_chck) {
     uint16_t milliVolts = getBattMilliVolts();

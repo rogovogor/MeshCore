@@ -8,7 +8,17 @@
 #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-#define ADVERT_RESTART_DELAY  1000   // millis
+#define ADVERT_RESTART_DELAY     1000   // millis
+
+// Tiered BLE advertising: fast for first BLE_FAST_ADV_TIMEOUT_MS, then slow
+// Units are in 0.625ms steps (BLE spec)
+#define BLE_FAST_ADV_MIN          160   // 100ms
+#define BLE_FAST_ADV_MAX          320   // 200ms
+#define BLE_SLOW_ADV_MIN          800   // 500ms
+#define BLE_SLOW_ADV_MAX         1600   // 1000ms
+#ifndef BLE_FAST_ADV_TIMEOUT_MS
+  #define BLE_FAST_ADV_TIMEOUT_MS 60000 // switch to slow after 60s without connection
+#endif
 
 void SerialBLEInterface::begin(const char* prefix, char* name, uint32_t pin_code) {
   _pin_code = pin_code;
@@ -32,7 +42,10 @@ void SerialBLEInterface::begin(const char* prefix, char* name, uint32_t pin_code
   sec.setStaticPIN(pin_code);
   sec.setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
 
-  //BLEDevice::setPower(ESP_PWR_LVL_N8);
+#ifndef BLE_TX_POWER
+  #define BLE_TX_POWER  ESP_PWR_LVL_P3   // +3 dBm: sufficient for phone in pocket, saves ~0.5 mA vs default +9 dBm
+#endif
+  BLEDevice::setPower(BLE_TX_POWER);
 
   // Create the BLE Server
   pServer = BLEDevice::createServer();
@@ -140,11 +153,11 @@ void SerialBLEInterface::enable() {
 
   // Start advertising
 
-  //pServer->getAdvertising()->setMinInterval(500);
-  //pServer->getAdvertising()->setMaxInterval(1000);
-
+  pServer->getAdvertising()->setMinInterval(BLE_FAST_ADV_MIN);
+  pServer->getAdvertising()->setMaxInterval(BLE_FAST_ADV_MAX);
   pServer->getAdvertising()->start();
   adv_restart_time = 0;
+  adv_slow_time = millis() + BLE_FAST_ADV_TIMEOUT_MS;
 }
 
 void SerialBLEInterface::disable() {
@@ -157,6 +170,7 @@ void SerialBLEInterface::disable() {
   pService->stop();
   oldDeviceConnected = deviceConnected = false;
   adv_restart_time = 0;
+  adv_slow_time = 0;
 }
 
 size_t SerialBLEInterface::writeFrame(const uint8_t src[], size_t len) {
@@ -223,10 +237,8 @@ size_t SerialBLEInterface::checkRecvFrame(uint8_t dest[]) {
 
       BLE_DEBUG_PRINTLN("SerialBLEInterface -> disconnecting...");
 
-      //pServer->getAdvertising()->setMinInterval(500);
-      //pServer->getAdvertising()->setMaxInterval(1000);
-
       adv_restart_time = millis() + ADVERT_RESTART_DELAY;
+      adv_slow_time = 0;  // reset: will restart fast on reconnect window
     } else {
       BLE_DEBUG_PRINTLN("SerialBLEInterface -> stopping advertising");
       BLE_DEBUG_PRINTLN("SerialBLEInterface -> connecting...");
@@ -234,16 +246,30 @@ size_t SerialBLEInterface::checkRecvFrame(uint8_t dest[]) {
       // do stuff here on connecting
       pServer->getAdvertising()->stop();
       adv_restart_time = 0;
+      adv_slow_time = 0;
     }
     oldDeviceConnected = deviceConnected;
   }
 
   if (adv_restart_time && millis() >= adv_restart_time) {
     if (pServer->getConnectedCount() == 0) {
-      BLE_DEBUG_PRINTLN("SerialBLEInterface -> re-starting advertising");
-      pServer->getAdvertising()->start();  // re-Start advertising
+      BLE_DEBUG_PRINTLN("SerialBLEInterface -> re-starting advertising (fast)");
+      pServer->getAdvertising()->setMinInterval(BLE_FAST_ADV_MIN);
+      pServer->getAdvertising()->setMaxInterval(BLE_FAST_ADV_MAX);
+      pServer->getAdvertising()->start();
+      adv_slow_time = millis() + BLE_FAST_ADV_TIMEOUT_MS;
     }
     adv_restart_time = 0;
+  }
+
+  // After fast window expires with no connection — switch to slow advertising
+  if (adv_slow_time && millis() >= adv_slow_time && pServer->getConnectedCount() == 0) {
+    BLE_DEBUG_PRINTLN("SerialBLEInterface -> switching to slow advertising");
+    pServer->getAdvertising()->stop();
+    pServer->getAdvertising()->setMinInterval(BLE_SLOW_ADV_MIN);
+    pServer->getAdvertising()->setMaxInterval(BLE_SLOW_ADV_MAX);
+    pServer->getAdvertising()->start();
+    adv_slow_time = 0;
   }
   return 0;
 }
