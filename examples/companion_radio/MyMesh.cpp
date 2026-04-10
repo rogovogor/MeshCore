@@ -479,27 +479,26 @@ bool MyMesh::allowPacketForward(const mesh::Packet* packet) {
   return _prefs.client_repeat != 0;
 }
 
-void MyMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis) {
-  // TODO: dynamic send_scope, depending on recipient and current 'home' Region
-  if (send_scope.isNull()) {
+void MyMesh::sendFloodScoped(const TransportKey& scope, mesh::Packet* pkt, uint32_t delay_millis) {
+  if (scope.isNull()) {
     sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
   } else {
     uint16_t codes[2];
-    codes[0] = send_scope.calcTransportCode(pkt);
+    codes[0] = scope.calcTransportCode(pkt);
     codes[1] = 0;  // REVISIT: set to 'home' Region, for sender/return region?
     sendFlood(pkt, codes, delay_millis, _prefs.path_hash_mode + 1);
   }
 }
+
+void MyMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis) {
+  // TODO: dynamic send_scope, depending on recipient and current 'home' Region
+  auto scope = send_scope.isNull() ? &default_scope : &send_scope;
+  sendFloodScoped(*scope, pkt, delay_millis);
+}
 void MyMesh::sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t delay_millis) {
   // TODO: have per-channel send_scope
-  if (send_scope.isNull()) {
-    sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
-  } else {
-    uint16_t codes[2];
-    codes[0] = send_scope.calcTransportCode(pkt);
-    codes[1] = 0;  // REVISIT: set to 'home' Region, for sender/return region?
-    sendFlood(pkt, codes, delay_millis, _prefs.path_hash_mode + 1);
-  }
+  auto scope = send_scope.isNull() ? &default_scope : &send_scope;
+  sendFloodScoped(*scope, pkt, delay_millis);
 }
 
 void MyMesh::onMessageRecv(const ContactInfo &from, mesh::Packet *pkt, uint32_t sender_timestamp,
@@ -848,6 +847,7 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   dirty_contacts_expiry = 0;
   memset(advert_paths, 0, sizeof(advert_paths));
   memset(send_scope.key, 0, sizeof(send_scope.key));
+  memset(default_scope.key, 0, sizeof(default_scope.key));
 
   // defaults
   memset(&_prefs, 0, sizeof(_prefs));
@@ -1210,7 +1210,7 @@ void MyMesh::handleCmdFrame(size_t len) {
     if (pkt) {
       if (len >= 2 && cmd_frame[1] == 1) { // optional param (1 = flood, 0 = zero hop)
         unsigned long delay_millis = 0;
-        sendFlood(pkt, delay_millis, _prefs.path_hash_mode + 1);
+        sendFloodScoped(default_scope, pkt, delay_millis);
       } else {
         sendZeroHop(pkt);
       }
@@ -1867,6 +1867,13 @@ void MyMesh::handleCmdFrame(size_t len) {
       memcpy(send_scope.key, &cmd_frame[2], sizeof(send_scope.key));  // set curr scope TransportKey
     } else {
       memset(send_scope.key, 0, sizeof(send_scope.key));  // set scope to null
+    }
+    writeOKFrame();
+  } else if (cmd_frame[0] == CMD_SET_FLOOD_SCOPE && len >= 2 && cmd_frame[1] == 1) {
+    if (len >= 2 + 16) {
+      memcpy(default_scope.key, &cmd_frame[2], sizeof(default_scope.key));  // set default scope TransportKey
+    } else {
+      memset(default_scope.key, 0, sizeof(default_scope.key));  // set default scope to null
     }
     writeOKFrame();
   } else if (cmd_frame[0] == CMD_SEND_CONTROL_DATA && len >= 2 && (cmd_frame[1] & 0x80) != 0) {
