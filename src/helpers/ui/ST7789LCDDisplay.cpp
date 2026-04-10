@@ -1,4 +1,7 @@
 #include "ST7789LCDDisplay.h"
+#ifdef CYRILLIC_SUPPORT
+  #include "glcdfont6x8.h"
+#endif
 
 #ifndef DISPLAY_ROTATION
   #define DISPLAY_ROTATION 3
@@ -84,10 +87,17 @@ void ST7789LCDDisplay::startFrame(Color bkg) {
   display.fillScreen(ST77XX_BLACK);
   display.setTextColor(ST77XX_WHITE);
   display.setTextSize(1 * DISPLAY_SCALE_X); // This one affects size of Please wait... message
+#ifdef CYRILLIC_SUPPORT
+  display.setFont(&glcdfont6x8);
+#else
   display.cp437(true); // Use full 256 char 'Code Page 437' font
+#endif
 }
 
 void ST7789LCDDisplay::setTextSize(int sz) {
+#ifdef CYRILLIC_SUPPORT
+  _font_size = sz;
+#endif
   display.setTextSize(sz * DISPLAY_SCALE_X);
 }
 
@@ -122,7 +132,12 @@ void ST7789LCDDisplay::setColor(Color c) {
 }
 
 void ST7789LCDDisplay::setCursor(int x, int y) {
+#ifdef CYRILLIC_SUPPORT
+  _cursor_y_raw = y;
+  display.setCursor(x * DISPLAY_SCALE_X, (y + (_font_size * 7)) * DISPLAY_SCALE_Y);
+#else
   display.setCursor(x * DISPLAY_SCALE_X, y * DISPLAY_SCALE_Y);
+#endif
 }
 
 void ST7789LCDDisplay::print(const char* str) {
