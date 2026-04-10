@@ -277,6 +277,15 @@ uint8_t MyMesh::getExtraAckTransmitCount() const {
 }
 
 void MyMesh::logRxRaw(float snr, float rssi, const uint8_t raw[], int len) {
+#if defined(ADAPTIVE_RX_GAIN) && (defined(USE_SX1262) || defined(USE_SX1268))
+  // Update EMA of received RSSI (alpha = 1/8)
+  int16_t rssi_i = (int16_t)rssi;
+  if (_rx_rssi_ema == 0) {
+    _rx_rssi_ema = rssi_i;  // first sample: initialize directly
+  } else {
+    _rx_rssi_ema += (rssi_i - _rx_rssi_ema) / 8;
+  }
+#endif
   if (_serial->isConnected() && len + 3 <= MAX_FRAME_SIZE) {
     int i = 0;
     out_frame[i++] = PUSH_CODE_LOG_RX_DATA;
@@ -846,6 +855,10 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   next_ack_idx = 0;
   sign_data = NULL;
   dirty_contacts_expiry = 0;
+#if defined(ADAPTIVE_RX_GAIN) && (defined(USE_SX1262) || defined(USE_SX1268))
+  _rx_rssi_ema = 0;
+  _next_gain_check = 60000;  // first check after 1 min (let noise floor calibrate)
+#endif
   memset(advert_paths, 0, sizeof(advert_paths));
   memset(send_scope.key, 0, sizeof(send_scope.key));
 
@@ -2110,6 +2123,56 @@ void MyMesh::checkSerialInterface() {
   }
 }
 
+#if defined(ADAPTIVE_RX_GAIN) && (defined(USE_SX1262) || defined(USE_SX1268))
+// Thresholds for switching (with hysteresis to prevent oscillation)
+#ifndef ADAPTIVE_GAIN_ON_RSSI
+  #define ADAPTIVE_GAIN_ON_RSSI    -105  // enable boosted gain if EMA RSSI below this
+#endif
+#ifndef ADAPTIVE_GAIN_OFF_RSSI
+  #define ADAPTIVE_GAIN_OFF_RSSI    -95  // disable boosted gain if EMA RSSI above this
+#endif
+#ifndef ADAPTIVE_GAIN_NOISE_ON
+  #define ADAPTIVE_GAIN_NOISE_ON   -100  // enable if measured noise floor above this
+#endif
+#ifndef ADAPTIVE_GAIN_NOISE_OFF
+  #define ADAPTIVE_GAIN_NOISE_OFF  -110  // allow disable if noise floor below this
+#endif
+#ifndef ADAPTIVE_GAIN_CHECK_MS
+  #define ADAPTIVE_GAIN_CHECK_MS  300000 // re-evaluate every 5 minutes
+#endif
+
+void MyMesh::adaptRxGain() {
+  bool boosted = radio_driver.getRxBoostedGainMode();
+  bool should_boost = boosted;  // default: keep current state
+
+  int noise_floor = radio_driver.getNoiseFloor();  // 0 if not yet calibrated
+
+  if (_rx_rssi_ema != 0) {
+    // Primary decision: based on received packet signal strength
+    if (!boosted && _rx_rssi_ema < ADAPTIVE_GAIN_ON_RSSI) {
+      should_boost = true;   // weak signals → enable for better sensitivity
+    } else if (boosted && _rx_rssi_ema > ADAPTIVE_GAIN_OFF_RSSI) {
+      should_boost = false;  // strong signals → disable to save power
+    }
+  }
+
+  // Secondary: noise floor override (takes precedence when calibrated)
+  if (noise_floor != 0) {
+    if (noise_floor > ADAPTIVE_GAIN_NOISE_ON) {
+      should_boost = true;   // high ambient noise → boost always helps
+    } else if (noise_floor < ADAPTIVE_GAIN_NOISE_OFF && _rx_rssi_ema == 0) {
+      should_boost = false;  // very quiet + no packets heard → no need to boost
+    }
+  }
+
+  if (should_boost != boosted) {
+    radio_driver.setRxBoostedGainMode(should_boost);
+    MESH_DEBUG_PRINTLN("AdaptRxGain: %s (RSSI_EMA=%d, noise_floor=%d)",
+                       should_boost ? "ON" : "OFF", (int)_rx_rssi_ema, noise_floor);
+  }
+}
+#endif
+
 void MyMesh::loop() {
   BaseChatMesh::loop();
 
@@ -2118,6 +2181,13 @@ void MyMesh::loop() {
   } else {
     checkSerialInterface();
   }
+
+#if defined(ADAPTIVE_RX_GAIN) && (defined(USE_SX1262) || defined(USE_SX1268))
+  if (millisHasNowPassed(_next_gain_check)) {
+    adaptRxGain();
+    _next_gain_check = millis() + ADAPTIVE_GAIN_CHECK_MS;
+  }
+#endif
 
   // is there are pending dirty contacts write needed?
   if (dirty_contacts_expiry && millisHasNowPassed(dirty_contacts_expiry)) {
