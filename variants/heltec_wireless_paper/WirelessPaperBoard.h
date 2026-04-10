@@ -12,9 +12,11 @@ public:
 
     digitalWrite(PIN_ADC_CTRL, PIN_ADC_CTRL_INACTIVE);
 
-    // Q3 (AO3401) + R21=10k/R26=10k voltage divider → multiplier = 2
+    // R21=10k/R26=10k voltage divider, theoretical multiplier = 2,
+    // corrected to 1.826 for ESP32-S3 ADC ~9.5% overcalibration at 11dB atten (~2V input).
+    // Empirically derived: 3.9V actual -> 4.27V firmware -> factor = 2/1.095 = 1.826
     // Ref: https://resource.heltec.cn/download/Wireless_Paper/Wireless_Paper_V0.4_Schematic_Diagram.pdf
-    return mv * 2;
+    return (mv * 1826) / 1000;
   }
 
   const char* getManufacturerName() const override {
