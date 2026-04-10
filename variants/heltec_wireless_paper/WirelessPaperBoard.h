@@ -4,18 +4,17 @@
 class WirelessPaperBoard : public HeltecV3Board {
 public:
   uint16_t getBattMilliVolts() override {
-    analogReadResolution(10);
     digitalWrite(PIN_ADC_CTRL, PIN_ADC_CTRL_ACTIVE);
 
-    uint32_t raw = 0;
-    for (int i = 0; i < 8; i++) raw += analogRead(PIN_VBAT_READ);
-    raw /= 8;
+    uint32_t mv = 0;
+    for (int i = 0; i < 8; i++) mv += analogReadMilliVolts(PIN_VBAT_READ);
+    mv /= 8;
 
     digitalWrite(PIN_ADC_CTRL, PIN_ADC_CTRL_INACTIVE);
 
-    // Voltage divider R1=10k, R2=10k → multiplier = (R1+R2)/R2 = 2.0
+    // Q3 (AO3401) + R21=10k/R26=10k voltage divider → multiplier = 2
     // Ref: https://resource.heltec.cn/download/Wireless_Paper/Wireless_Paper_V0.4_Schematic_Diagram.pdf
-    return (2.0 * (3.3 / 1024.0) * raw) * 1000;
+    return mv * 2;
   }
 
   const char* getManufacturerName() const override {
