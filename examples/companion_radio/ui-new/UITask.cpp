@@ -34,19 +34,28 @@
 class SplashScreen : public UIScreen {
   UITask* _task;
   unsigned long dismiss_after;
-  char _version_info[12];
+  char _version_info[12];   // e.g. "v1.14.1"
+  char _commit_info[12];    // e.g. "#abc1234" or "" if no GIT_COMMIT
 
 public:
   SplashScreen(UITask* task) : _task(task) {
-    // strip off dash and commit hash by changing dash to null terminator
-    // e.g: v1.2.3-abcdef -> v1.2.3
     const char *ver = FIRMWARE_VERSION;
     const char *dash = strchr(ver, '-');
 
+    // version part: "v1.14.1"
     int len = dash ? dash - ver : strlen(ver);
-    if (len >= sizeof(_version_info)) len = sizeof(_version_info) - 1;
+    if (len >= (int)sizeof(_version_info)) len = sizeof(_version_info) - 1;
     memcpy(_version_info, ver, len);
     _version_info[len] = 0;
+
+    // commit part: "#abc1234" (from the part after '-')
+    if (dash) {
+      _commit_info[0] = '#';
+      strncpy(_commit_info + 1, dash + 1, sizeof(_commit_info) - 2);
+      _commit_info[sizeof(_commit_info) - 1] = 0;
+    } else {
+      _commit_info[0] = 0;
+    }
 
     dismiss_after = millis() + BOOT_SCREEN_MILLIS;
   }
@@ -62,8 +71,13 @@ public:
     display.setTextSize(2);
     display.drawTextCentered(display.width()/2, 22, _version_info);
 
+    // commit hash (small, between version and date)
     display.setTextSize(1);
-    display.drawTextCentered(display.width()/2, 42, FIRMWARE_BUILD_DATE);
+    if (_commit_info[0]) {
+      display.drawTextCentered(display.width()/2, 36, _commit_info);
+    }
+
+    display.drawTextCentered(display.width()/2, 46, FIRMWARE_BUILD_DATE);
 
     return 1000;
   }
