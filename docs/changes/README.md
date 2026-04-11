@@ -12,3 +12,4 @@
 | [firmware-version-convention.md](firmware-version-convention.md) | `git_version.py`, `platformio.ini`, `MyMesh.h` | Версия прошивки включает короткий git-хеш (`v1.14.1-abc1234`) |
 | [power-optimization-esp32-companions.md](power-optimization-esp32-companions.md) | `src/helpers/esp32/`, `examples/companion_radio/`, `variants/*/platformio.ini` | BLE tiered ads, adaptive RX gain, CPU scaling, WiFi modem sleep — все ESP32-S3 companions |
 | [light-sleep-esp32.md](light-sleep-esp32.md) | `src/helpers/ESP32Board.h`, `examples/companion_radio/`, `variants/*/platformio.ini` | Light sleep при бездействии — wakeup по LoRa/кнопке/BLE, 20 ESP32-S3 платформ |
+| [ble-crash-fix-cpu-scaling.md](ble-crash-fix-cpu-scaling.md) | `ui-new/UITask.cpp`, `MyMesh.cpp` | Fix: BLE crash (Interrupt WDT) при CPU 40 MHz и disable() перед light sleep |
