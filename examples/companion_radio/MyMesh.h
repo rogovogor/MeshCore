@@ -12,7 +12,11 @@
 #endif
 
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "v1.14.1"
+  #ifdef GIT_COMMIT
+    #define FIRMWARE_VERSION "v1.14.1-" GIT_COMMIT
+  #else
+    #define FIRMWARE_VERSION "v1.14.1"
+  #endif
 #endif
 
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
