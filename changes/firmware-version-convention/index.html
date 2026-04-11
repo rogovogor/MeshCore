@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://meshcore-dev.github.io/meshcore/changes/build/">
+        <link rel="canonical" href="https://meshcore-dev.github.io/meshcore/changes/firmware-version-convention/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../cyrillic-support/">
       
       
-        <link rel="next" href="../cyrillic-support/">
+        <link rel="next" href="../heltec-v4-lorafem/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>build.sh — суффиксы companion-сборок - MeshCore Docs</title>
+        <title>Конвенция: Версия прошивки с git-коммитом - MeshCore Docs</title>
       
     
     
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#buildsh-companion-" class="md-skip">
+        <a href="#git-" class="md-skip">
           Skip to content
         </a>
       
@@ -105,7 +105,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              build.sh — суффиксы companion-сборок
+              Конвенция: Версия прошивки с git-коммитом
             
           </span>
         </div>
@@ -624,37 +624,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    build.sh — суффиксы companion-сборок
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../build/" class="md-nav__link">
         
   
   
@@ -670,48 +643,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вектор изменений
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Изменение
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -749,10 +680,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../firmware-version-convention/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Конвенция: Версия прошивки с git-коммитом
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -768,6 +726,109 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Правило
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Реализация
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Реализация">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#git_versionpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        git_version.py (корень репозитория)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#platformioini" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        platformio.ini
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examplescompanion_radiomymeshh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        examples/companion_radio/MyMesh.h
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Отображение
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Правило при обновлении версии
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -894,7 +955,7 @@
   <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Вектор изменений
+        Правило
       
     </span>
   </a>
@@ -905,7 +966,68 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Изменение
+        Реализация
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Реализация">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#git_versionpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        git_version.py (корень репозитория)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#platformioini" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        platformio.ini
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examplescompanion_radiomymeshh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        examples/companion_radio/MyMesh.h
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Отображение
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Правило при обновлении версии
       
     </span>
   </a>
@@ -929,7 +1051,7 @@
 
 
   
-    <a href="https://github.com/meshcore-dev/meshcore/edit/main/docs/changes/build.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/meshcore-dev/meshcore/edit/main/docs/changes/firmware-version-convention.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -937,23 +1059,74 @@
   
 
 
-<h1 id="buildsh-companion-">build.sh — суффиксы companion-сборок</h1>
-<p><strong>Файл:</strong> <code>build.sh</code></p>
-<h2 id="_1">Вектор изменений</h2>
-<p>Расширение <code>build_companion_firmwares()</code> для сборки прошивок с укороченными суффиксами.</p>
-<hr />
-<h2 id="_2">Изменение</h2>
-<pre><code class="language-bash"># было:
-build_all_firmwares_by_suffix &quot;_companion_radio_usb&quot;
-build_all_firmwares_by_suffix &quot;_companion_radio_ble&quot;
-
-# стало:
-build_all_firmwares_by_suffix &quot;_companion_radio_usb&quot;
-build_all_firmwares_by_suffix &quot;_companion_radio_ble&quot;
-build_all_firmwares_by_suffix &quot;_companion_usb&quot;      # + новый
-build_all_firmwares_by_suffix &quot;_companion_ble&quot;      # + новый
+<h1 id="git-">Конвенция: Версия прошивки с git-коммитом</h1>
+<h2 id="_1">Правило</h2>
+<p>Строка версии прошивки <strong>всегда включает короткий хеш git-коммита</strong>, по которому была сделана сборка:</p>
+<pre><code>v1.14.1-abc1234
 </code></pre>
-<p>Добавлены суффиксы <code>_companion_usb</code> и <code>_companion_ble</code> для поддержки вариантов, в <code>platformio.ini</code> которых конфигурации называются без <code>_radio</code> в суффиксе.</p>
+<p>Это позволяет точно определить, какой код прошит в устройство, без дополнительных записей.</p>
+<hr />
+<h2 id="_2">Реализация</h2>
+<h3 id="git_versionpy"><code>git_version.py</code> (корень репозитория)</h3>
+<p>Pre-build скрипт PlatformIO. Запускается перед каждой сборкой, получает хеш текущего коммита и передаёт его как C define:</p>
+<pre><code class="language-python">commit = subprocess.check_output([&quot;git&quot;, &quot;rev-parse&quot;, &quot;--short&quot;, &quot;HEAD&quot;]).decode().strip()
+env.Append(CPPDEFINES=[(&quot;GIT_COMMIT&quot;, '\\&quot;' + commit + '\\&quot;')])
+</code></pre>
+<p>Результат: <code>-D GIT_COMMIT="abc1234"</code> передаётся компилятору.</p>
+<h3 id="platformioini"><code>platformio.ini</code></h3>
+<p>Скрипт подключён к каждой базовой платформе:</p>
+<table>
+<thead>
+<tr>
+<th>Base</th>
+<th>extra_scripts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>arduino_base</code></td>
+<td><code>pre:git_version.py</code></td>
+</tr>
+<tr>
+<td><code>esp32_base</code></td>
+<td><code>pre:git_version.py</code>, <code>merge-bin.py</code></td>
+</tr>
+<tr>
+<td><code>nrf52_base</code></td>
+<td><code>pre:git_version.py</code>, <code>create-uf2.py</code>, <code>patch_bluefruit.py</code></td>
+</tr>
+<tr>
+<td><code>stm32_base</code></td>
+<td><code>pre:git_version.py</code>, <code>arch/stm32/build_hex.py</code></td>
+</tr>
+<tr>
+<td><code>rp2040_base</code></td>
+<td>наследует из <code>arduino_base</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="examplescompanion_radiomymeshh"><code>examples/companion_radio/MyMesh.h</code></h3>
+<pre><code class="language-cpp">#ifndef FIRMWARE_VERSION
+  #ifdef GIT_COMMIT
+    #define FIRMWARE_VERSION &quot;v1.14.1-&quot; GIT_COMMIT
+  #else
+    #define FIRMWARE_VERSION &quot;v1.14.1&quot;
+  #endif
+#endif
+</code></pre>
+<p>C конкатенирует соседние строковые литералы: <code>"v1.14.1-" "abc1234"</code> → <code>"v1.14.1-abc1234"</code>.</p>
+<hr />
+<h2 id="_3">Отображение</h2>
+<ul>
+<li><strong>Companion app</strong>: отображает полную строку <code>v1.14.1-abc1234</code></li>
+<li><strong>Дисплей устройства</strong> (<code>UITask.cpp</code>): стрипает хеш по <code>-</code> → показывает <code>v1.14.1</code>
+  (код уже был рассчитан на этот формат)</li>
+</ul>
+<hr />
+<h2 id="_4">Правило при обновлении версии</h2>
+<p>При смене <code>FIRMWARE_VERSION</code> в <code>MyMesh.h</code> — обновлять только числовую часть (<code>v1.14.1</code>).
+Хеш подставляется автоматически при сборке.</p>
+<p><strong>Не нужно</strong> вручную вписывать хеш в <code>FIRMWARE_VERSION</code>.</p>
 
 
 
