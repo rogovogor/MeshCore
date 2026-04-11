@@ -18,6 +18,7 @@ class SerialBLEInterface : public BaseSerialInterface, BLESecurityCallbacks, BLE
   unsigned long _last_write;
   unsigned long adv_restart_time;
   unsigned long adv_slow_time;
+  bool _slow_adv_pending;
 
   struct Frame {
     uint8_t len;
@@ -57,6 +58,7 @@ public:
     oldDeviceConnected = false;
     adv_restart_time = 0;
     adv_slow_time = 0;
+    _slow_adv_pending = false;
     _isEnabled = false;
     _last_write = 0;
     last_conn_id = 0;

@@ -171,6 +171,7 @@ void SerialBLEInterface::disable() {
   oldDeviceConnected = deviceConnected = false;
   adv_restart_time = 0;
   adv_slow_time = 0;
+  _slow_adv_pending = false;
 }
 
 size_t SerialBLEInterface::writeFrame(const uint8_t src[], size_t len) {
@@ -251,25 +252,32 @@ size_t SerialBLEInterface::checkRecvFrame(uint8_t dest[]) {
     oldDeviceConnected = deviceConnected;
   }
 
-  if (adv_restart_time && millis() >= adv_restart_time) {
-    if (pServer->getConnectedCount() == 0) {
-      BLE_DEBUG_PRINTLN("SerialBLEInterface -> re-starting advertising (fast)");
-      pServer->getAdvertising()->setMinInterval(BLE_FAST_ADV_MIN);
-      pServer->getAdvertising()->setMaxInterval(BLE_FAST_ADV_MAX);
-      pServer->getAdvertising()->start();
-      adv_slow_time = millis() + BLE_FAST_ADV_TIMEOUT_MS;
-    }
-    adv_restart_time = 0;
+  // After fast window expires — schedule a stop so adv_restart_time does the actual restart
+  if (adv_slow_time && millis() >= adv_slow_time && pServer->getConnectedCount() == 0) {
+    BLE_DEBUG_PRINTLN("SerialBLEInterface -> scheduling switch to slow advertising");
+    pServer->getAdvertising()->stop();
+    adv_slow_time = 0;
+    _slow_adv_pending = true;
+    adv_restart_time = millis() + ADVERT_RESTART_DELAY;  // let BLE stack settle before restart
   }
 
-  // After fast window expires with no connection — switch to slow advertising
-  if (adv_slow_time && millis() >= adv_slow_time && pServer->getConnectedCount() == 0) {
-    BLE_DEBUG_PRINTLN("SerialBLEInterface -> switching to slow advertising");
-    pServer->getAdvertising()->stop();
-    pServer->getAdvertising()->setMinInterval(BLE_SLOW_ADV_MIN);
-    pServer->getAdvertising()->setMaxInterval(BLE_SLOW_ADV_MAX);
-    pServer->getAdvertising()->start();
-    adv_slow_time = 0;
+  if (adv_restart_time && millis() >= adv_restart_time) {
+    if (pServer->getConnectedCount() == 0) {
+      if (_slow_adv_pending) {
+        BLE_DEBUG_PRINTLN("SerialBLEInterface -> re-starting advertising (slow)");
+        pServer->getAdvertising()->setMinInterval(BLE_SLOW_ADV_MIN);
+        pServer->getAdvertising()->setMaxInterval(BLE_SLOW_ADV_MAX);
+        // adv_slow_time stays 0: no further switch needed
+      } else {
+        BLE_DEBUG_PRINTLN("SerialBLEInterface -> re-starting advertising (fast)");
+        pServer->getAdvertising()->setMinInterval(BLE_FAST_ADV_MIN);
+        pServer->getAdvertising()->setMaxInterval(BLE_FAST_ADV_MAX);
+        adv_slow_time = millis() + BLE_FAST_ADV_TIMEOUT_MS;
+      }
+      pServer->getAdvertising()->start();
+    }
+    adv_restart_time = 0;
+    _slow_adv_pending = false;
   }
   return 0;
 }
