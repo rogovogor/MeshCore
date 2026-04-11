@@ -2104,18 +2104,13 @@ void MyMesh::checkLightSleep() {
   if (board.getInhibitSleep()) return;   // WiFi/OTA active — do not sleep
   if (millis() - _last_activity_ms < COMPANION_IDLE_BEFORE_SLEEP_MS) return;
 
-  // When disconnected — stop advertising (no point advertising during sleep)
-  bool was_connected = _serial && _serial->isConnected();
-  if (!was_connected && _serial) _serial->disable();
-
   #ifndef COMPANION_LIGHT_SLEEP_SECS
     #define COMPANION_LIGHT_SLEEP_SECS 30
   #endif
-  board.sleep(COMPANION_LIGHT_SLEEP_SECS);  // CPU halts here
-                                            // Wakeup sources: LoRa DIO1 / BLE event / button / timer
-                                            // When connected: BLE connection is maintained during sleep
+  // BLE stack manages itself during light sleep — no explicit disable/enable needed.
+  // Calling disable() while BLE controller is active causes Interrupt WDT on ESP32-S3.
+  board.sleep(COMPANION_LIGHT_SLEEP_SECS);  // CPU halts; resumes here on wakeup
   _last_activity_ms = millis();
-  if (!was_connected && _serial) _serial->enable();  // restart advertising if was disconnected
 }
 #endif
 
