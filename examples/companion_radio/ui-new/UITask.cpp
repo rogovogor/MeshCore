@@ -812,13 +812,18 @@ void UITask::loop() {
 
 #if defined(ESP_PLATFORM) && defined(ESP32_CPU_FREQ)
   {
-    // Scale CPU frequency: full speed when display on or connected, reduced when idle
+    // Scale CPU frequency: full speed when display on or connected, reduced when idle.
+    // BLE on ESP32-S3 requires minimum 80 MHz — never scale below that when BLE is active.
     static unsigned long next_cpu_check = 0;
     if (millis() > next_cpu_check) {
       next_cpu_check = millis() + 1000;
       bool display_on = (_display != NULL && _display->isOn());
       if (!display_on && !_connected) {
+#ifdef BLE_PIN_CODE
+        setCpuFrequencyMhz(80);   // BLE minimum on ESP32-S3; 40 MHz crashes BLE stack
+#else
         setCpuFrequencyMhz(40);
+#endif
       } else {
         setCpuFrequencyMhz(ESP32_CPU_FREQ);
       }
