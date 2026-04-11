@@ -21,7 +21,7 @@
 |---|---|---|
 | LoRa пакет | `P_LORA_DIO_1` (GPIO14) | DIO1 HIGH — немедленный выход из sleep |
 | Кнопка пользователя | `PIN_USER_BTN` (GPIO0) | любой HIGH — выход из sleep |
-| BLE connection event | — | BLE стек просыпается по расписанию connection interval |
+| BLE connection event | — | ESP32-S3 автоматически просыпается по connection interval (без явной регистрации) |
 | Таймер | — | fallback через `COMPANION_LIGHT_SLEEP_SECS` секунд |
 
 При подключённом телефоне BLE соединение **сохраняется** во время sleep —
@@ -53,7 +53,7 @@
 
 Добавлены wakeup источники:
 - `PIN_USER_BTN` в ext1 маску (если определён и RTC-capable)
-- `esp_sleep_enable_bt_wakeup()` — BLE соединение сохраняется во время sleep
+- BLE connection events будят чип автоматически (ESP32-S3 light sleep — без явного вызова `esp_sleep_enable_bt_wakeup`, которого нет в Arduino framework)
 
 ### `examples/companion_radio/MyMesh.h`
 
