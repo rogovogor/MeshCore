@@ -60,13 +60,25 @@ public:
 #if defined(CONFIG_IDF_TARGET_ESP32S3) && defined(P_LORA_DIO_1) // Supported ESP32 variants
     if (rtc_gpio_is_valid_gpio((gpio_num_t)P_LORA_DIO_1)) { // Only enter sleep mode if P_LORA_DIO_1 is RTC pin
       esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-      esp_sleep_enable_ext1_wakeup((1L << P_LORA_DIO_1), ESP_EXT1_WAKEUP_ANY_HIGH); // To wake up when receiving a LoRa packet
+
+      // Wakeup on LoRa packet (DIO1 goes HIGH when packet received)
+      uint64_t wakeup_mask = (1ULL << P_LORA_DIO_1);
+#if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
+      // Wakeup on button press
+      if (rtc_gpio_is_valid_gpio((gpio_num_t)PIN_USER_BTN)) {
+        wakeup_mask |= (1ULL << PIN_USER_BTN);
+      }
+#endif
+      esp_sleep_enable_ext1_wakeup(wakeup_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
+
+      // Wakeup on BLE connection events (maintains connection during sleep)
+      esp_sleep_enable_bt_wakeup();
 
       if (secs > 0) {
-        esp_sleep_enable_timer_wakeup(secs * 1000000); // To wake up every hour to do periodically jobs
+        esp_sleep_enable_timer_wakeup(secs * 1000000ULL);
       }
 
-      esp_light_sleep_start(); // CPU enters light sleep
+      esp_light_sleep_start(); // CPU enters light sleep, resumes here on wakeup
     }
 #endif
   }

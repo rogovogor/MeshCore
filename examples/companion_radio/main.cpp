@@ -230,4 +230,7 @@ void loop() {
   ui_task.loop();
 #endif
   rtc_clock.tick();
+#if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
+  the_mesh.checkLightSleep();
+#endif
 }

@@ -286,6 +286,9 @@ void MyMesh::logRxRaw(float snr, float rssi, const uint8_t raw[], int len) {
     _rx_rssi_ema += (rssi_i - _rx_rssi_ema) / 8;
   }
 #endif
+#if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
+  _last_activity_ms = millis();  // LoRa activity — reset sleep timer
+#endif
   if (_serial->isConnected() && len + 3 <= MAX_FRAME_SIZE) {
     int i = 0;
     out_frame[i++] = PUSH_CODE_LOG_RX_DATA;
@@ -858,6 +861,9 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
 #if defined(ADAPTIVE_RX_GAIN) && (defined(USE_SX1262) || defined(USE_SX1268))
   _rx_rssi_ema = 0;
   _next_gain_check = 60000;  // first check after 1 min (let noise floor calibrate)
+#endif
+#if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
+  _last_activity_ms = 0;
 #endif
   memset(advert_paths, 0, sizeof(advert_paths));
   memset(send_scope.key, 0, sizeof(send_scope.key));
@@ -2170,6 +2176,26 @@ void MyMesh::adaptRxGain() {
     MESH_DEBUG_PRINTLN("AdaptRxGain: %s (RSSI_EMA=%d, noise_floor=%d)",
                        should_boost ? "ON" : "OFF", (int)_rx_rssi_ema, noise_floor);
   }
+}
+#endif
+
+#if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
+void MyMesh::checkLightSleep() {
+  if (board.inhibit_sleep) return;   // WiFi/OTA active — do not sleep
+  if (millis() - _last_activity_ms < COMPANION_IDLE_BEFORE_SLEEP_MS) return;
+
+  // When disconnected — stop advertising (no point advertising during sleep)
+  bool was_connected = _serial && _serial->isConnected();
+  if (!was_connected && _serial) _serial->disable();
+
+  #ifndef COMPANION_LIGHT_SLEEP_SECS
+    #define COMPANION_LIGHT_SLEEP_SECS 30
+  #endif
+  board.sleep(COMPANION_LIGHT_SLEEP_SECS);  // CPU halts here
+                                            // Wakeup sources: LoRa DIO1 / BLE event / button / timer
+                                            // When connected: BLE connection is maintained during sleep
+  _last_activity_ms = millis();
+  if (!was_connected && _serial) _serial->enable();  // restart advertising if was disconnected
 }
 #endif
 

@@ -226,6 +226,11 @@ private:
   void adaptRxGain();
 #endif
 
+#if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
+  unsigned long _last_activity_ms;
+  void checkLightSleep();
+#endif
+
   TransportKey send_scope;
 
   uint8_t cmd_frame[MAX_FRAME_SIZE + 1];
