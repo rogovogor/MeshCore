@@ -9,3 +9,4 @@
 | [heltec-wireless-paper.md](heltec-wireless-paper.md) | `variants/heltec_wireless_paper/` | Новый `WirelessPaperBoard` с корректным измерением батареи |
 | [heltec-v4-lorafem.md](heltec-v4-lorafem.md) | `variants/heltec_v4/` | Класс `LoRaFEMControl` — авто-детекция GC1109/KCT8103L (V4.2/V4.3) |
 | [build.md](build.md) | `build.sh` | Добавлены суффиксы `_companion_usb` / `_companion_ble` |
+| [firmware-version-convention.md](firmware-version-convention.md) | `git_version.py`, `platformio.ini`, `MyMesh.h` | Версия прошивки включает короткий git-хеш (`v1.14.1-abc1234`) |
