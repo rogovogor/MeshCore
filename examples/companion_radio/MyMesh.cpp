@@ -2101,7 +2101,7 @@ void MyMesh::adaptRxGain() {
 
 #if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
 void MyMesh::checkLightSleep() {
-  if (board.inhibit_sleep) return;   // WiFi/OTA active — do not sleep
+  if (board.getInhibitSleep()) return;   // WiFi/OTA active — do not sleep
   if (millis() - _last_activity_ms < COMPANION_IDLE_BEFORE_SLEEP_MS) return;
 
   // When disconnected — stop advertising (no point advertising during sleep)

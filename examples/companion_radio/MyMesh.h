@@ -163,6 +163,10 @@ protected:
 public:
   void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
 
+#if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
+  void checkLightSleep();
+#endif
+
 private:
   void writeOKFrame();
   void writeErrFrame(uint8_t err_code);
@@ -215,7 +219,6 @@ private:
 
 #if defined(COMPANION_IDLE_BEFORE_SLEEP_MS) && defined(ESP32)
   unsigned long _last_activity_ms;
-  void checkLightSleep();
 #endif
 
   TransportKey send_scope;

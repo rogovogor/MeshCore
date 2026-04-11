@@ -71,9 +71,6 @@ public:
 #endif
       esp_sleep_enable_ext1_wakeup(wakeup_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
 
-      // Wakeup on BLE connection events (maintains connection during sleep)
-      esp_sleep_enable_bt_wakeup();
-
       if (secs > 0) {
         esp_sleep_enable_timer_wakeup(secs * 1000000ULL);
       }
@@ -137,6 +134,10 @@ public:
 
   void setInhibitSleep(bool inhibit) {
     inhibit_sleep = inhibit;
+  }
+
+  bool getInhibitSleep() const {
+    return inhibit_sleep;
   }
 };
 
