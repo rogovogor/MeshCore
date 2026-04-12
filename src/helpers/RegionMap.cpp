@@ -42,7 +42,8 @@ private:
 
 
 RegionMap::RegionMap(TransportKeyStore& store) : _store(&store) {
-  next_id = 1; num_regions = 0; home_id = 0;
+  next_id = 1; num_regions = 0;
+  default_id = home_id = 0;
   wildcard.id = wildcard.parent = 0;
   wildcard.flags = 0;  // default behaviour, allow flood and direct
   strcpy(wildcard.name, "*");
@@ -79,9 +80,11 @@ bool RegionMap::load(FILESYSTEM* _fs, const char* path) {
     if (file) {
       uint8_t pad[128];
 
-      num_regions = 0; next_id = 1; home_id = 0;
+      num_regions = 0; next_id = 1;
+      default_id = home_id = 0;
 
-      bool success = file.read(pad, 5) == 5;  // reserved header
+      bool success = file.read(pad, 3) == 3;  // reserved header
+      success = success && file.read((uint8_t *) &default_id, sizeof(default_id)) == sizeof(default_id);
       success = success && file.read((uint8_t *) &home_id, sizeof(home_id)) == sizeof(home_id);
       success = success && file.read((uint8_t *) &wildcard.flags, sizeof(wildcard.flags)) == sizeof(wildcard.flags);
       success = success && file.read((uint8_t *) &next_id, sizeof(next_id)) == sizeof(next_id);
@@ -117,7 +120,8 @@ bool RegionMap::save(FILESYSTEM* _fs, const char* path) {
     uint8_t pad[128];
     memset(pad, 0, sizeof(pad));
 
-    bool success = file.write(pad, 5) == 5;  // reserved header
+    bool success = file.write(pad, 3) == 3;  // reserved header
+    success = success && file.write((uint8_t *) &default_id, sizeof(default_id)) == sizeof(default_id);
     success = success && file.write((uint8_t *) &home_id, sizeof(home_id)) == sizeof(home_id);
     success = success && file.write((uint8_t *) &wildcard.flags, sizeof(wildcard.flags)) == sizeof(wildcard.flags);
     success = success && file.write((uint8_t *) &next_id, sizeof(next_id)) == sizeof(next_id);
@@ -235,6 +239,14 @@ RegionEntry* RegionMap::getHomeRegion() {
 
 void RegionMap::setHomeRegion(const RegionEntry* home) {
   home_id = home ? home->id : 0;
+}
+
+RegionEntry* RegionMap::getDefaultRegion() {
+  return findById(default_id);
+}
+
+void RegionMap::setDefaultRegion(const RegionEntry* def) {
+  default_id = def ? def->id : 0;
 }
 
 bool RegionMap::removeRegion(const RegionEntry& region) {
