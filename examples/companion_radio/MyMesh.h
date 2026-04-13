@@ -221,7 +221,7 @@ private:
   uint32_t sign_data_len;
   unsigned long dirty_contacts_expiry;
 
-  TransportKey send_scope, default_scope;
+  TransportKey send_scope;
 
   uint8_t cmd_frame[MAX_FRAME_SIZE + 1];
   uint8_t out_frame[MAX_FRAME_SIZE + 1];

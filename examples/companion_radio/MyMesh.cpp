@@ -60,6 +60,7 @@
 #define CMD_SET_PATH_HASH_MODE        61
 #define CMD_SEND_CHANNEL_DATA         62
 #define CMD_SET_DEFAULT_FLOOD_SCOPE   63
+#define CMD_GET_DEFAULT_FLOOD_SCOPE   64
 
 // Stats sub-types for CMD_GET_STATS
 #define STATS_TYPE_CORE               0
@@ -94,6 +95,7 @@
 #define RESP_CODE_AUTOADD_CONFIG      25
 #define RESP_ALLOWED_REPEAT_FREQ      26
 #define RESP_CODE_CHANNEL_DATA_RECV   27
+#define RESP_CODE_DEFAULT_FLOOD_SCOPE 28
 
 #define MAX_CHANNEL_DATA_LENGTH       (MAX_FRAME_SIZE - 9)
 
@@ -493,11 +495,17 @@ void MyMesh::sendFloodScoped(const TransportKey& scope, mesh::Packet* pkt, uint3
 
 void MyMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt, uint32_t delay_millis) {
   // TODO: dynamic send_scope, depending on recipient and current 'home' Region
+  TransportKey default_scope;
+  memcpy(&default_scope.key, _prefs.default_scope_key, sizeof(default_scope.key));
+
   auto scope = send_scope.isNull() ? &default_scope : &send_scope;
   sendFloodScoped(*scope, pkt, delay_millis);
 }
 void MyMesh::sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t delay_millis) {
   // TODO: have per-channel send_scope
+  TransportKey default_scope;
+  memcpy(&default_scope.key, _prefs.default_scope_key, sizeof(default_scope.key));
+
   auto scope = send_scope.isNull() ? &default_scope : &send_scope;
   sendFloodScoped(*scope, pkt, delay_millis);
 }
@@ -848,7 +856,6 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   dirty_contacts_expiry = 0;
   memset(advert_paths, 0, sizeof(advert_paths));
   memset(send_scope.key, 0, sizeof(send_scope.key));
-  memset(default_scope.key, 0, sizeof(default_scope.key));
 
   // defaults
   memset(&_prefs, 0, sizeof(_prefs));
@@ -892,6 +899,17 @@ void MyMesh::begin(bool has_display) {
   char pub_key_hex[10];
   mesh::Utils::toHex(pub_key_hex, self_id.pub_key, 4);
   strcpy(_prefs.node_name, pub_key_hex);
+#endif
+
+  // if build provides default-scope, init with that
+#ifdef DEFAULT_FLOOD_SCOPE_NAME
+  strcpy(_prefs.default_scope_name, DEFAULT_FLOOD_SCOPE_NAME);
+  {
+    TransportKeyStore temp;
+    TransportKey key;
+    temp.getAutoKeyFor(0, "#" DEFAULT_FLOOD_SCOPE_NAME, key);
+    memcpy(_prefs.default_scope_key, key.key, sizeof(key.key));
+  }
 #endif
 
   // load persisted prefs
@@ -938,25 +956,6 @@ void MyMesh::begin(bool has_display) {
   radio_driver.setRxBoostedGainMode(_prefs.rx_boosted_gain);
   MESH_DEBUG_PRINTLN("RX Boosted Gain Mode: %s",
                      radio_driver.getRxBoostedGainMode() ? "Enabled" : "Disabled");
-
-  {
-    RegionEntry* r = _store->getRegions().getDefaultRegion();
-    if (r) {
-      _store->getRegions().getTransportKeysFor(*r, &default_scope, 1);
-    } else {
-#ifdef DEFAULT_FLOOD_SCOPE
-      r = _store->getRegions().findByName(DEFAULT_FLOOD_SCOPE);
-      if (r == NULL) {
-        r = _store->getRegions().putRegion(DEFAULT_FLOOD_SCOPE, 0);  // auto-create the default scope region
-        if (r) { r->flags = 0; }   // Allow-flood
-      }
-      if (r) {
-        _store->getRegions().setDefaultRegion(r);
-        _store->getRegions().getTransportKeysFor(*r, &default_scope, 1);
-      }
-#endif
-    }
-  }
 }
 
 const char *MyMesh::getNodeName() {
@@ -1230,6 +1229,8 @@ void MyMesh::handleCmdFrame(size_t len) {
     if (pkt) {
       if (len >= 2 && cmd_frame[1] == 1) { // optional param (1 = flood, 0 = zero hop)
         unsigned long delay_millis = 0;
+        TransportKey default_scope;
+        memcpy(&default_scope.key, _prefs.default_scope_key, sizeof(default_scope.key));
         sendFloodScoped(default_scope, pkt, delay_millis);
       } else {
         sendZeroHop(pkt);
@@ -1890,26 +1891,31 @@ void MyMesh::handleCmdFrame(size_t len) {
     }
     writeOKFrame();
   } else if (cmd_frame[0] == CMD_SET_DEFAULT_FLOOD_SCOPE && len >= 1) {
-    if (len > 1) {
-      cmd_frame[len] = 0;  // make C string
-      RegionEntry* r = _store->getRegions().findByName((char *) &cmd_frame[1]);
-      if (r == NULL) {
-        r = _store->getRegions().putRegion((char *) &cmd_frame[1], 0);  // auto-create region
-        if (r) { r->flags = 0; }   // Allow-flood
-      }
-      if (r) {
-        _store->getRegions().setDefaultRegion(r);
-        _store->getRegions().getTransportKeysFor(*r, &default_scope, 1);
+    if (len >= 1+31+16) {
+      int n = strlen((char *) &cmd_frame[1]);
+      if (n > 0 && n < 31) {
+        strcpy(_prefs.default_scope_name, (char *) &cmd_frame[1]);
+        memcpy(_prefs.default_scope_key, &cmd_frame[1+31], 16);
+        savePrefs();
         writeOKFrame();
       } else {
-        writeErrFrame(ERR_CODE_NOT_FOUND);
+        writeErrFrame(ERR_CODE_ILLEGAL_ARG);
       }
     } else {
-      _store->getRegions().setDefaultRegion(NULL);
-      memset(default_scope.key, 0, sizeof(default_scope.key));  // set default scope to null
+      memset(_prefs.default_scope_name, 0, sizeof(_prefs.default_scope_name));  // set default scope to null
+      memset(_prefs.default_scope_key, 0, sizeof(_prefs.default_scope_key));
+      savePrefs();
       writeOKFrame();
     }
-    _store->saveRegions();
+  } else if (cmd_frame[0] == CMD_GET_DEFAULT_FLOOD_SCOPE) {
+    out_frame[0] = RESP_CODE_DEFAULT_FLOOD_SCOPE;
+    if (strlen(_prefs.default_scope_name) > 0) {
+      memcpy(&out_frame[1], _prefs.default_scope_name, 31);
+      memcpy(&out_frame[1+31], _prefs.default_scope_key, 16);
+      _serial->writeFrame(out_frame, 1+31+16);
+    } else {
+      _serial->writeFrame(out_frame, 1);   // no name or key means null
+    }
   } else if (cmd_frame[0] == CMD_SEND_CONTROL_DATA && len >= 2 && (cmd_frame[1] & 0x80) != 0) {
     auto resp = createControlData(&cmd_frame[1], len - 1);
     if (resp) {
