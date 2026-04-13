@@ -15,6 +15,7 @@ DataStore::DataStore(FILESYSTEM& fs, mesh::RTCClock& clock) : _fs(&fs), _fsExtra
 #else
     identity_store(fs, "/identity")
 #endif
+    , regions(keystore)
 {
 }
 
@@ -27,6 +28,7 @@ DataStore::DataStore(FILESYSTEM& fs, FILESYSTEM& fsExtra, mesh::RTCClock& clock)
 #else
     identity_store(fs, "/identity")
 #endif
+    , regions(keystore)
 {
 }
 #endif
@@ -61,6 +63,8 @@ void DataStore::begin() {
   // init 'blob store' support
   _fs->mkdir("/bl");
 #endif
+
+  regions.load(_fs);
 }
 
 #if defined(ESP32)

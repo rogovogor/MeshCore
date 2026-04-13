@@ -50,7 +50,7 @@
 #define CMD_SEND_BINARY_REQ           50
 #define CMD_FACTORY_RESET             51
 #define CMD_SEND_PATH_DISCOVERY_REQ   52
-#define CMD_SET_FLOOD_SCOPE           54   // v8+
+#define CMD_SET_FLOOD_SCOPE_KEY       54   // v8+
 #define CMD_SEND_CONTROL_DATA         55   // v8+
 #define CMD_GET_STATS                 56   // v8+, second byte is stats type
 #define CMD_SEND_ANON_REQ             57
@@ -59,6 +59,7 @@
 #define CMD_GET_ALLOWED_REPEAT_FREQ   60
 #define CMD_SET_PATH_HASH_MODE        61
 #define CMD_SEND_CHANNEL_DATA         62
+#define CMD_SET_DEFAULT_FLOOD_SCOPE   63
 
 // Stats sub-types for CMD_GET_STATS
 #define STATS_TYPE_CORE               0
@@ -937,6 +938,25 @@ void MyMesh::begin(bool has_display) {
   radio_driver.setRxBoostedGainMode(_prefs.rx_boosted_gain);
   MESH_DEBUG_PRINTLN("RX Boosted Gain Mode: %s",
                      radio_driver.getRxBoostedGainMode() ? "Enabled" : "Disabled");
+
+  {
+    RegionEntry* r = _store->getRegions().getDefaultRegion();
+    if (r) {
+      _store->getRegions().getTransportKeysFor(*r, &default_scope, 1);
+    } else {
+#ifdef DEFAULT_FLOOD_SCOPE
+      r = _store->getRegions().findByName(DEFAULT_FLOOD_SCOPE);
+      if (r == NULL) {
+        r = _store->getRegions().putRegion(DEFAULT_FLOOD_SCOPE, 0);  // auto-create the default scope region
+        if (r) { r->flags = 0; }   // Allow-flood
+      }
+      if (r) {
+        _store->getRegions().setDefaultRegion(r);
+        _store->getRegions().getTransportKeysFor(*r, &default_scope, 1);
+      }
+#endif
+    }
+  }
 }
 
 const char *MyMesh::getNodeName() {
@@ -1862,20 +1882,34 @@ void MyMesh::handleCmdFrame(size_t len) {
     } else {
       writeErrFrame(ERR_CODE_FILE_IO_ERROR);
     }
-  } else if (cmd_frame[0] == CMD_SET_FLOOD_SCOPE && len >= 2 && cmd_frame[1] == 0) {
+  } else if (cmd_frame[0] == CMD_SET_FLOOD_SCOPE_KEY && len >= 2 && cmd_frame[1] == 0) {
     if (len >= 2 + 16) {
       memcpy(send_scope.key, &cmd_frame[2], sizeof(send_scope.key));  // set curr scope TransportKey
     } else {
       memset(send_scope.key, 0, sizeof(send_scope.key));  // set scope to null
     }
     writeOKFrame();
-  } else if (cmd_frame[0] == CMD_SET_FLOOD_SCOPE && len >= 2 && cmd_frame[1] == 1) {
-    if (len >= 2 + 16) {
-      memcpy(default_scope.key, &cmd_frame[2], sizeof(default_scope.key));  // set default scope TransportKey
+  } else if (cmd_frame[0] == CMD_SET_DEFAULT_FLOOD_SCOPE && len >= 1) {
+    if (len > 1) {
+      cmd_frame[len] = 0;  // make C string
+      RegionEntry* r = _store->getRegions().findByName((char *) &cmd_frame[1]);
+      if (r == NULL) {
+        r = _store->getRegions().putRegion((char *) &cmd_frame[1], 0);  // auto-create region
+        if (r) { r->flags = 0; }   // Allow-flood
+      }
+      if (r) {
+        _store->getRegions().setDefaultRegion(r);
+        _store->getRegions().getTransportKeysFor(*r, &default_scope, 1);
+        writeOKFrame();
+      } else {
+        writeErrFrame(ERR_CODE_NOT_FOUND);
+      }
     } else {
+      _store->getRegions().setDefaultRegion(NULL);
       memset(default_scope.key, 0, sizeof(default_scope.key));  // set default scope to null
+      writeOKFrame();
     }
-    writeOKFrame();
+    _store->saveRegions();
   } else if (cmd_frame[0] == CMD_SEND_CONTROL_DATA && len >= 2 && (cmd_frame[1] & 0x80) != 0) {
     auto resp = createControlData(&cmd_frame[1], len - 1);
     if (resp) {

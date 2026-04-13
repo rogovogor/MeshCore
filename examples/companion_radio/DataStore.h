@@ -3,6 +3,7 @@
 #include <helpers/IdentityStore.h>
 #include <helpers/ContactInfo.h>
 #include <helpers/ChannelDetails.h>
+#include <helpers/RegionMap.h>
 #include "NodePrefs.h"
 
 class DataStoreHost {
@@ -18,6 +19,8 @@ class DataStore {
   FILESYSTEM* _fsExtra;
   mesh::RTCClock* _clock;
   IdentityStore identity_store;
+  TransportKeyStore keystore;
+  RegionMap regions;
 
   void loadPrefsInt(const char *filename, NodePrefs& prefs, double& node_lat, double& node_lon);
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
@@ -49,6 +52,8 @@ public:
   bool removeFile(FILESYSTEM* fs, const char* filename);
   uint32_t getStorageUsedKb() const;
   uint32_t getStorageTotalKb() const;
+  RegionMap& getRegions() { return regions; }
+  bool saveRegions() { return regions.save(_fs); }
 
 private:
   FILESYSTEM* _getContactsChannelsFS() const { if (_fsExtra) return _fsExtra; return _fs;};

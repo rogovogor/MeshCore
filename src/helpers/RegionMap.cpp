@@ -168,24 +168,29 @@ RegionEntry* RegionMap::putRegion(const char* name, uint16_t parent_id, uint16_t
   return region;
 }
 
+int RegionMap::getTransportKeysFor(const RegionEntry& src, TransportKey dest[], int max_num) {
+  int num;
+  if (src.name[0] == '$') {   // private region
+    num = _store->loadKeysFor(src.id, dest, max_num);
+  } else if (src.name[0] == '#') {   // auto hashtag region
+    _store->getAutoKeyFor(src.id, src.name, dest[0]);
+    num = 1;
+  } else {   // new: implicit auto hashtag region
+    char tmp[sizeof(src.name)];
+    tmp[0] = '#';
+    strcpy(&tmp[1], src.name);
+    _store->getAutoKeyFor(src.id, tmp, dest[0]);
+    num = 1;
+  }
+  return num;
+}
+
 RegionEntry* RegionMap::findMatch(mesh::Packet* packet, uint8_t mask) {
   for (int i = 0; i < num_regions; i++) {
     auto region = &regions[i];
     if ((region->flags & mask) == 0) {   // does region allow this? (per 'mask' param)
       TransportKey keys[4];
-      int num;
-      if (region->name[0] == '$') {   // private region
-        num = _store->loadKeysFor(region->id, keys, 4);
-      } else if (region->name[0] == '#') {   // auto hashtag region
-        _store->getAutoKeyFor(region->id, region->name, keys[0]);
-        num = 1;
-      } else {   // new: implicit auto hashtag region
-        char tmp[sizeof(region->name)];
-        tmp[0] = '#';
-        strcpy(&tmp[1], region->name);
-        _store->getAutoKeyFor(region->id, tmp, keys[0]);
-        num = 1;
-      }
+      int num = getTransportKeysFor(*region, keys, 4);
       for (int j = 0; j < num; j++) {
         uint16_t code = keys[j].calcTransportCode(packet);
         if (packet->transport_codes[0] == code) {   // a match!!
