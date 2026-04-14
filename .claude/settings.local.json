@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/Ruslan/CODE/MeshCore/variants -type f -name \"variant.h\" -exec grep -l \"nrf52840\\\\|NRF52840\\\\|promicro\\\\|ProMicro\" {} \\\\;)",
+      "WebFetch(domain:github.com)",
+      "Bash(grep -B5 -A5 \"SX126X_REGISTER_PATCH\" /c/Users/Ruslan/CODE/MeshCore/variants/*/platformio.ini)",
+      "Bash(grep -B 5 -A 5 \"DIO2_AS_RF_SWITCH\" /c/Users/Ruslan/CODE/MeshCore/variants/*/platformio.ini)",
+      "Bash(pio run:*)"
+    ]
+  }
+}
