@@ -34,19 +34,28 @@
 class SplashScreen : public UIScreen {
   UITask* _task;
   unsigned long dismiss_after;
-  char _version_info[12];
+  char _version_info[12];   // e.g. "v1.14.1"
+  char _commit_info[12];    // e.g. "#abc1234" or "" if no GIT_COMMIT
 
 public:
   SplashScreen(UITask* task) : _task(task) {
-    // strip off dash and commit hash by changing dash to null terminator
-    // e.g: v1.2.3-abcdef -> v1.2.3
     const char *ver = FIRMWARE_VERSION;
     const char *dash = strchr(ver, '-');
 
+    // version part: "v1.14.1"
     int len = dash ? dash - ver : strlen(ver);
-    if (len >= sizeof(_version_info)) len = sizeof(_version_info) - 1;
+    if (len >= (int)sizeof(_version_info)) len = sizeof(_version_info) - 1;
     memcpy(_version_info, ver, len);
     _version_info[len] = 0;
+
+    // commit part: "#abc1234" (from the part after '-')
+    if (dash) {
+      _commit_info[0] = '#';
+      strncpy(_commit_info + 1, dash + 1, sizeof(_commit_info) - 2);
+      _commit_info[sizeof(_commit_info) - 1] = 0;
+    } else {
+      _commit_info[0] = 0;
+    }
 
     dismiss_after = millis() + BOOT_SCREEN_MILLIS;
   }
@@ -62,8 +71,13 @@ public:
     display.setTextSize(2);
     display.drawTextCentered(display.width()/2, 22, _version_info);
 
+    // commit hash (small, between version and date)
     display.setTextSize(1);
-    display.drawTextCentered(display.width()/2, 42, FIRMWARE_BUILD_DATE);
+    if (_commit_info[0]) {
+      display.drawTextCentered(display.width()/2, 36, _commit_info);
+    }
+
+    display.drawTextCentered(display.width()/2, 46, FIRMWARE_BUILD_DATE);
 
     return 1000;
   }
@@ -78,6 +92,7 @@ public:
 class HomeScreen : public UIScreen {
   enum HomePage {
     FIRST,
+    CLOCK,     // eInk only: large clock + PM preview inline
     RECENT,
     RADIO,
     BLUETOOTH,
@@ -98,6 +113,7 @@ class HomeScreen : public UIScreen {
   NodePrefs* _node_prefs;
   uint8_t _page;
   bool _shutdown_init;
+  int _clock_pm_pending;   // PMs queued for inline display on CLOCK page
   AdvertPath recent[UI_RECENT_LIST_SIZE];
 
 
@@ -170,8 +186,11 @@ class HomeScreen : public UIScreen {
 
 public:
   HomeScreen(UITask* task, mesh::RTCClock* rtc, SensorManager* sensors, NodePrefs* node_prefs)
-     : _task(task), _rtc(rtc), _sensors(sensors), _node_prefs(node_prefs), _page(0), 
-       _shutdown_init(false), sensors_lpp(200) {  }
+     : _task(task), _rtc(rtc), _sensors(sensors), _node_prefs(node_prefs), _page(0),
+       _shutdown_init(false), _clock_pm_pending(0), sensors_lpp(200) {  }
+
+  bool isOnClockPage() const { return _page == CLOCK; }
+  void incrementClockPM() { _clock_pm_pending++; }
 
   void poll() override {
     if (_shutdown_init && !_task->isButtonPressed()) {  // must wait for USR button to be released
@@ -187,6 +206,71 @@ public:
     int content_y  = hdr_line_h + 14;
     int line_h     = 8 * hdr_size + 3;
 
+    // CLOCK + pending PM: render full-screen like MsgPreviewScreen (no node/battery header)
+    if (_page == HomePage::CLOCK && _clock_pm_pending > 0) {
+      UITask::ClockPMInfo info;
+      if (_task->peekTopMsg(info)) {
+        int msg_start_y = hdr_line_h + 3;
+
+        // Translate message body
+        char filtered_msg[sizeof(info.msg)];
+        display.translateUTF8ToBlocks(filtered_msg, info.msg, sizeof(filtered_msg));
+        int msg_len = (int)strlen(filtered_msg);
+
+        // Dynamic body font selection (same algorithm as MsgPreviewScreen)
+        int body2_lines = (display.height() - msg_start_y) / 16;
+        int body2_cpl   = display.width() / 12;
+        int sim_lines   = 0;
+        if (body2_lines >= 4) {
+          int pos = 0;
+          while (pos < msg_len) {
+            sim_lines++;
+            if (msg_len - pos <= body2_cpl) break;
+            int brk = pos + body2_cpl;
+            for (int j = pos + body2_cpl; j > pos; j--) {
+              if (filtered_msg[j] == ' ') { brk = j; break; }
+            }
+            pos = brk + (filtered_msg[brk] == ' ' ? 1 : 0);
+          }
+        }
+        int body_size = ((body2_lines >= 4) && (sim_lines <= body2_lines)) ? 2 : 1;
+
+        // Header: "#N (D)name" or "#N [hops]name"
+        int hdr_ch_w    = 6 * hdr_size;
+        int hdr_total   = display.width() / hdr_ch_w;
+        int name_budget = hdr_total - 4;   // "#N " + gap
+        if (name_budget < 0) name_budget = 0;
+
+        char raw_name[36];
+        if (info.path_len == 0xFF)
+          snprintf(raw_name, sizeof(raw_name), "(D)%s", info.from_name);
+        else
+          snprintf(raw_name, sizeof(raw_name), "[%d]%s", info.path_len, info.from_name);
+        if (name_budget < (int)sizeof(raw_name)) raw_name[name_budget] = '\0';
+
+        char filtered_pm_name[36];
+        display.translateUTF8ToBlocks(filtered_pm_name, raw_name, sizeof(filtered_pm_name));
+
+        char hdr_left[64];
+        snprintf(hdr_left, sizeof(hdr_left), "#%d %s", _clock_pm_pending, filtered_pm_name);
+
+        display.setTextSize(hdr_size);
+        display.setColor(DisplayDriver::GREEN);
+        display.setCursor(0, 0);
+        display.print(hdr_left);
+
+        // Divider
+        display.setColor(DisplayDriver::LIGHT);
+        display.drawRect(0, hdr_line_h + 2, display.width(), 1);
+
+        // Message body with dynamic font
+        display.setTextSize(body_size);
+        display.setCursor(0, msg_start_y);
+        display.printWordWrap(filtered_msg, display.width());
+      }
+      return 60000;
+    }
+
     // node name
     display.setTextSize(hdr_size);
     display.setColor(DisplayDriver::GREEN);
@@ -198,14 +282,18 @@ public:
     // battery voltage
     renderBatteryIndicator(display, _task->getBattMilliVolts());
 
-    // curr page indicator
-    int x = display.width() / 2 - 5 * (HomePage::Count-1);
-    for (uint8_t i = 0; i < HomePage::Count; i++, x += 10) {
+    // curr page indicator (CLOCK page is hidden on non-eInk devices)
+    bool show_clock_page = _task->isEinkDisplay();
+    int visible_count = HomePage::Count - (show_clock_page ? 0 : 1);
+    int x = display.width() / 2 - 5 * (visible_count - 1);
+    for (uint8_t i = 0; i < HomePage::Count; i++) {
+      if (i == HomePage::CLOCK && !show_clock_page) continue;
       if (i == _page) {
         display.fillRect(x-1, dot_y-1, 3, 3);
       } else {
         display.fillRect(x, dot_y, 1, 1);
       }
+      x += 10;
     }
 
     if (_page == HomePage::FIRST) {
@@ -230,6 +318,18 @@ public:
         sprintf(tmp, "Pin:%d", the_mesh.getBLEPin());
         display.drawTextCentered(display.width() / 2, content_y + 24, tmp);
       }
+    } else if (_page == HomePage::CLOCK) {
+      // --- Large clock display (PM case handled above as early return) ---
+      _clock_pm_pending = 0;
+      time_t now = time(nullptr);
+      struct tm timeinfo;
+      localtime_r(&now, &timeinfo);
+      char timeBuf[6];
+      strftime(timeBuf, sizeof(timeBuf), "%H:%M", &timeinfo);
+      display.setTextSize(8);
+      display.drawTextCentered(display.width() / 2, display.height() / 2 - 32, timeBuf);
+      display.setTextSize(1);
+      return 60000;  // refresh once per minute
     } else if (_page == HomePage::RECENT) {
       the_mesh.getRecentlyHeard(recent, UI_RECENT_LIST_SIZE);
       display.setColor(DisplayDriver::GREEN);
@@ -417,13 +517,28 @@ public:
   }
 
   bool handleInput(char c) override {
+    // On CLOCK page: intercept navigation while PMs are being read
+    if (_page == HomePage::CLOCK && _clock_pm_pending > 0) {
+      if (c == KEY_NEXT || c == KEY_RIGHT) {
+        _task->consumeTopMsg();
+        _clock_pm_pending--;
+        return true;
+      }
+      if (c == KEY_LEFT || c == KEY_PREV) {
+        return true;  // block page nav while reading PMs
+      }
+    }
+
     if (c == KEY_LEFT || c == KEY_PREV) {
       _page = (_page + HomePage::Count - 1) % HomePage::Count;
+      if (_page == HomePage::CLOCK && !_task->isEinkDisplay())
+        _page = (_page + HomePage::Count - 1) % HomePage::Count;
       return true;
     }
     if (c == KEY_NEXT || c == KEY_RIGHT) {
       _page = (_page + 1) % HomePage::Count;
-      (void)0;
+      if (_page == HomePage::CLOCK && !_task->isEinkDisplay())
+        _page = (_page + 1) % HomePage::Count;
       return true;
     }
     if (c == KEY_ENTER && _page == HomePage::BLUETOOTH) {
@@ -468,20 +583,24 @@ class MsgPreviewScreen : public UIScreen {
   UITask* _task;
   mesh::RTCClock* _rtc;
 
+  #define MAX_UNREAD_MSGS   32
+  int num_unread;
+  int head = MAX_UNREAD_MSGS - 1; // index of latest unread message
+
+public:
   struct MsgEntry {
     uint32_t timestamp;
     uint8_t  path_len;       // 0xFF = direct, otherwise hop count (group)
     char     from_name[32];  // sender name (direct) or channel name (group)
     char     msg[MAX_TEXT_LEN];
   };
-  #define MAX_UNREAD_MSGS   32
-  int num_unread;
-  int head = MAX_UNREAD_MSGS - 1; // index of latest unread message
+
+  MsgPreviewScreen(UITask* task, mesh::RTCClock* rtc) : _task(task), _rtc(rtc) { num_unread = 0; }
+
+private:
   MsgEntry unread[MAX_UNREAD_MSGS];
 
 public:
-  MsgPreviewScreen(UITask* task, mesh::RTCClock* rtc) : _task(task), _rtc(rtc) { num_unread = 0; }
-
   void addPreview(uint8_t path_len, const char* from_name, const char* msg) {
     head = (head + 1) % MAX_UNREAD_MSGS;
     if (num_unread < MAX_UNREAD_MSGS) num_unread++;
@@ -492,6 +611,21 @@ public:
     p->from_name[sizeof(p->from_name) - 1] = '\0';
     StrHelper::strncpy(p->msg, msg, sizeof(p->msg));
   }
+
+  // Peek at the current (latest) unread message without consuming it
+  const MsgEntry* peekCurrent() const {
+    if (num_unread == 0) return nullptr;
+    return &unread[head];
+  }
+
+  // Advance past the current message (mark as read) without switching screens
+  void consumeOne() {
+    if (num_unread == 0) return;
+    head = (head + MAX_UNREAD_MSGS - 1) % MAX_UNREAD_MSGS;
+    num_unread--;
+  }
+
+  int unreadCount() const { return num_unread; }
 
   int render(DisplayDriver& display) override {
     if (num_unread == 0) return 1000;
@@ -596,6 +730,11 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   _sensors = sensors;
   _auto_off = millis() + AUTO_OFF_MILLIS;
 
+#ifdef DISPLAY_TZ
+  setenv("TZ", DISPLAY_TZ, 1);
+  tzset();
+#endif
+
 #if defined(PIN_USER_BTN)
   user_btn.begin();
 #endif
@@ -681,21 +820,55 @@ void UITask::msgRead(int msgcount) {
   }
 }
 
-void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) {
+void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount, bool is_pm) {
   _msgcount = msgcount;
 
-  ((MsgPreviewScreen *) msg_preview)->addPreview(path_len, from_name, text);
-  setCurrScreen(msg_preview);
+  bool on_clock = isEinkDisplay() && (curr == home) &&
+                  ((HomeScreen*)home)->isOnClockPage();
+
+  ((MsgPreviewScreen*)msg_preview)->addPreview(path_len, from_name, text);
+
+  if (on_clock) {
+    if (is_pm) {
+      // PM on clock page: show it inline, stay on clock page
+      ((HomeScreen*)home)->incrementClockPM();
+      _next_refresh = 100;
+    }
+    // Channel message on clock page: silently queued in msg_preview, no page switch
+  } else {
+    setCurrScreen(msg_preview);
+  }
 
   if (_display != NULL) {
     if (!_display->isOn() && !hasConnection()) {
       _display->turnOn();
     }
     if (_display->isOn()) {
-    _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
-    _next_refresh = 100;  // trigger refresh
+      _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
+      _next_refresh = 100;  // trigger refresh
     }
   }
+}
+
+bool UITask::peekTopMsg(ClockPMInfo& out) const {
+  if (!msg_preview) return false;
+  const MsgPreviewScreen::MsgEntry* p = ((MsgPreviewScreen*)msg_preview)->peekCurrent();
+  if (!p) return false;
+  out.path_len = p->path_len;
+  strncpy(out.from_name, p->from_name, sizeof(out.from_name) - 1);
+  out.from_name[sizeof(out.from_name) - 1] = '\0';
+  strncpy(out.msg, p->msg, sizeof(out.msg) - 1);
+  out.msg[sizeof(out.msg) - 1] = '\0';
+  return true;
+}
+
+void UITask::consumeTopMsg() {
+  if (msg_preview) ((MsgPreviewScreen*)msg_preview)->consumeOne();
+}
+
+int UITask::getUnreadMsgCount() const {
+  if (!msg_preview) return 0;
+  return ((MsgPreviewScreen*)msg_preview)->unreadCount();
 }
 
 void UITask::userLedHandler() {
