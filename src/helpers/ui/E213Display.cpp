@@ -6,6 +6,10 @@
   #include "glcdfont6x8.h"
 #endif
 
+#ifndef DISPLAY_ROTATION
+  #define DISPLAY_ROTATION 3
+#endif
+
 BaseDisplay* E213Display::detectEInk()
 {
     // Test 1: Logic of BUSY pin
@@ -50,8 +54,8 @@ bool E213Display::begin() {
     display = detectEInk();
   }
   display->begin();
-  // Set to landscape mode rotated 180 degrees
-  display->setRotation(3);
+  // Set to landscape orientation by default unless overridden by build flag
+  display->setRotation(DISPLAY_ROTATION);
 
   _init = true;
   _isOn = true;

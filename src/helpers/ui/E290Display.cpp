@@ -6,14 +6,18 @@
   #include "glcdfont6x8.h"
 #endif
 
+#ifndef DISPLAY_ROTATION
+  #define DISPLAY_ROTATION 3
+#endif
+
 bool E290Display::begin() {
   if (_init) return true;
 
   powerOn();
   display.begin();
 
-  // Set to landscape mode rotated 180 degrees
-  display.setRotation(3);
+  // Set to landscape orientation by default unless overridden by build flag
+  display.setRotation(DISPLAY_ROTATION);
 
   _init = true;
   _isOn = true;
