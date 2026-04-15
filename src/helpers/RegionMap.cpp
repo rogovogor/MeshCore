@@ -247,7 +247,7 @@ void RegionMap::setHomeRegion(const RegionEntry* home) {
 }
 
 RegionEntry* RegionMap::getDefaultRegion() {
-  return findById(default_id);
+  return default_id == 0 ? NULL : findById(default_id);
 }
 
 void RegionMap::setDefaultRegion(const RegionEntry* def) {
