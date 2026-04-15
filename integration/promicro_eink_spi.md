@@ -47,28 +47,28 @@
 
 | nRF52840 | Arduino D | Назначение | Куда подключено |
 |---|---|---|---|
-| P0.02 | D15 | MOSI (SPI) | Радио SX1262 MOSI |
-| P0.06 | D1 | UART TX | GPS TX |
-| P0.08 | D0 | UART RX | GPS RX |
+| P0.02 | D15 | DISPLAY RST | Epaper RST |
+| P0.06 | D1 | SPI1 MOSI | Epaper MOSI |
+| P0.08 | D0 | SPI1 SCK | Epaper SCK |
 | P0.09 | D10 | RADIO RESET | SX1262 RESET |
 | P0.10 | D11 | RADIO DIO1 | SX1262 DIO1 |
-| P0.11 | D7 | DISPLAY RESET | Epaper RST |
-| P0.13 | D21 | GPIO | свободно / доп. сенсор |
-| P0.15 | D22 | GPIO | свободно / доп. функция |
-| P0.17 | D2 | GPS ENABLE | GPS PWR EN |
-| P0.20 | D3 | ENCODER LEFT | UI энкодер A |
-| P0.22 | D4 | ENCODER RIGHT | UI энкодер B |
-| P0.24 | D5 | DISPLAY CS | Epaper CS |
-| P0.29 | D16 | MISO (SPI) / RADIO BUSY | Радио SX1262 MISO, BUSY |
-| P0.31 | D17 | BUZZER | Buzzer (PIN_BUZZER) |
+| P0.11 | D7 | DISPLAY CS | Epaper CS |
+| P0.13 | D21 | GPS ENABLE | GPS PWR EN |
+| P0.15 | D22 | BUZZER | Buzzer (PIN_BUZZER) |
+| P0.17 | D2 | HF reserve / free | свободно / доп. сенсор |
+| P0.20 | D3 | RADIO SCLK | SX1262 SCLK |
+| P0.22 | D4 | RADIO MOSI | SX1262 MOSI |
+| P0.24 | D5 | RADIO MISO | SX1262 MISO |
+| P0.29 | D16 | RADIO CS | SX1262 NSS |
+| P0.31 | D17 | VBAT ADC | Battery monitor (AIN7) |
 | P1.00 | D6 | BUTTON BACK | BOOT как BACK |
-| P1.01 | D18 | SPI1 SCK | Epaper SCK |
-| P1.02 | D19 | SPI1 MISO | Epaper MISO |
+| P1.01 | D18 | GPS RX | Serial1 RX |
+| P1.02 | D19 | RADIO BUSY / SPI1 MISO | SX1262 BUSY / e-paper MISO |
 | P1.04 | D8 | DISPLAY BUSY | Epaper BUSY |
-| P1.05 | D20 | SPI1 MOSI | Epaper MOSI |
+| P1.05 | D20 | GPS TX | Serial1 TX |
 | P1.11 | D12 | DISPLAY DC | Epaper DC |
-| P1.13 | D13 | RADIO CS | SX1262 NSS |
-| P1.15 | D14 | RADIO SCK | SX1262 SCLK |
+| P1.13 | D13 | ENCODER LEFT | UI энкодер A |
+| P1.15 | D14 | ENCODER RIGHT | UI энкодер B |
 
 ---
 
@@ -76,39 +76,38 @@
 
 ### Радио E22 / E22P
 
-- Радио подключается через стандартную `SPI` шину, как в варианте `promicro`.
+- Радио подключается через стандартную `SPI` шину.
 - Пины радио:
-  - `SCLK` = D14 = P1.15
-  - `MOSI` = D15 = P0.02
-  - `MISO` = D16 = P0.29
-  - `NSS/CS` = D13 = P1.13
+  - `SCLK` = D3 = P0.20
+  - `MOSI` = D4 = P0.22
+  - `MISO` = D5 = P0.24
+  - `NSS/CS` = D16 = P0.29
   - `RESET` = D10 = P0.09
   - `DIO1` = D11 = P0.10
-  - `BUSY` = D16 = P0.29 (если используется как `P_LORA_BUSY`)
+  - `BUSY` = D19 = P1.02
 
 ### Дисплей WeAct Epaper 2.13"
 
-- Дисплей должен работать по `SPI1`, чтобы не мешать радио на `SPI`.
-- Используем простой программный вариант из текущего проекта: `GxEPDDisplay` + `GxEPD2_213_B74`.
+- Дисплей работает по отдельной шине `SPI1`, чтобы не мешать радио на `SPI`.
 - Пины дисплея:
-  - `CS` = D5 = P0.24
+  - `CS` = D7 = P0.11
   - `DC` = D12 = P1.11
-  - `RST` = D7 = P0.11
+  - `RST` = D15 = P0.02
   - `BUSY` = D8 = P1.04
 - SPI1 физические линии:
-  - `SCK` = D18 = P1.01
-  - `MOSI` = D20 = P1.05
-  - `MISO` = D19 = P1.02 (обычно для e-ink не обязательно, но лучше подключить)
+  - `SCK` = D0 = P0.08
+  - `MOSI` = D1 = P0.06
+  - `MISO` = D19 = P1.02 (для e-paper не используется)
 
 ### UI и GPS
 
-- `ENCODER_LEFT` = D3 = P0.20
-- `ENCODER_RIGHT` = D4 = P0.22
+- `ENCODER_LEFT` = D13 = P1.13
+- `ENCODER_RIGHT` = D14 = P1.15
 - `ENCODER_PRESS` = D9 = P1.06
 - `BOOT` как `BACK` = D6 = P1.00
-- `GPS_RX` = D0 = P0.08
-- `GPS_TX` = D1 = P0.06
-- `GPS_ENABLE` = D2 = P0.17
+- `GPS_RX` = D18 = P1.01
+- `GPS_TX` = D20 = P1.05
+- `GPS_ENABLE` = D21 = P0.13
 
 ---
 
@@ -166,21 +165,21 @@
 
 Добавить или проверить в вариантах следующие обозначения:
 
-- `PIN_DISPLAY_CS = D5`
+- `PIN_DISPLAY_CS = D7`
 - `PIN_DISPLAY_DC = D12`
-- `PIN_DISPLAY_RST = D7`
+- `PIN_DISPLAY_RST = D15`
 - `PIN_DISPLAY_BUSY = D8`
-- `PIN_SPI1_SCK = D18`
-- `PIN_SPI1_MOSI = D20`
+- `PIN_SPI1_SCK = D0`
+- `PIN_SPI1_MOSI = D1`
 - `PIN_SPI1_MISO = D19`
-- `PIN_BUZZER = D17`
-- `P_LORA_SCLK = D14`
-- `P_LORA_MOSI = D15`
-- `P_LORA_MISO = D16`
-- `P_LORA_NSS = D13`
+- `PIN_BUZZER = D22`
+- `P_LORA_SCLK = D3`
+- `P_LORA_MOSI = D4`
+- `P_LORA_MISO = D5`
+- `P_LORA_NSS = D16`
 - `P_LORA_RESET = D10`
 - `P_LORA_DIO_1 = D11`
-- `P_LORA_BUSY = D16`
+- `P_LORA_BUSY = D19`
 
 > `PIN_BUZZER` используется в других вариантах проекта (`rak_wismesh_tag` и другие), так что можно взять реализацию драйвера из существующих примеров.
 

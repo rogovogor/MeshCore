@@ -35,8 +35,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // UART pin definition
 
-#define PIN_SERIAL1_TX       (1)
-#define PIN_SERIAL1_RX       (0)
+#define PIN_SERIAL1_TX       (20)
+#define PIN_SERIAL1_RX       (18)
 
 ////////////////////////////////////////////////////////////////////////////////
 // I2C pin definition (defined for compatibility but Wire not used in this variant)
@@ -49,20 +49,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SPI pin definition
 // Note: main SPI pins are overridden at runtime via SPI.setPins() by CustomSX1262
-// using P_LORA_SCLK/MOSI/MISO defined in PromicroEinkBoard.h (D14/D15/D16).
-// SPI1 (D18/D19/D20) is used for the e-ink display.
+// using P_LORA_SCLK/MOSI/MISO defined in PromicroEinkBoard.h (D3/D4/D5).
+// SPI1 (D0/D19/D1) is used for the e-ink display.
 
 #define SPI_INTERFACES_COUNT 2
 
-#define PIN_SPI_SCK          (14)
-#define PIN_SPI_MISO         (16)
-#define PIN_SPI_MOSI         (15)
+#define PIN_SPI_SCK          (3)
+#define PIN_SPI_MISO         (5)
+#define PIN_SPI_MOSI         (4)
 
 #define PIN_SPI_NSS          (13)
 
-#define PIN_SPI1_SCK         (18)
+#define PIN_SPI1_SCK         (0)
 #define PIN_SPI1_MISO        (19)
-#define PIN_SPI1_MOSI        (20)
+#define PIN_SPI1_MOSI        (1)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Builtin LEDs
