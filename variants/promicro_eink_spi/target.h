@@ -4,7 +4,11 @@
 #include <RadioLib.h>
 #include <helpers/radiolib/RadioLibWrappers.h>
 #include <PromicroEinkBoard.h>
-#include <helpers/radiolib/CustomSX1262Wrapper.h>
+#if defined(USE_LLCC68)
+  #include <helpers/radiolib/CustomLLCC68Wrapper.h>
+#else
+  #include <helpers/radiolib/CustomSX1262Wrapper.h>
+#endif
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/sensors/EnvironmentSensorManager.h>
 
