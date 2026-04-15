@@ -4,12 +4,12 @@
 #include <Arduino.h>
 #include <helpers/NRF52Board.h>
 
-// LoRa SX1262 (E22/E22P) - SPI bus (D14/D15/D16)
+// LoRa SX1262 / LLCC68 - SPI bus (D14/D15/D16), BUSY on D19
 #define P_LORA_NSS    13  // D13 = P1.13
 #define P_LORA_DIO_1  11  // D11 = P0.10
 #define P_LORA_RESET  10  // D10 = P0.09
-#define P_LORA_BUSY   16  // D16 = P0.29
-#define P_LORA_MISO   16  // D16 = P0.29 (shared with BUSY)
+#define P_LORA_BUSY   19  // D19 = P1.02  (repurposed from SPI1 MISO — epaper is write-only)
+#define P_LORA_MISO   16  // D16 = P0.29
 #define P_LORA_SCLK   14  // D14 = P1.15
 #define P_LORA_MOSI   15  // D15 = P0.02
 
