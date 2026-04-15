@@ -844,7 +844,9 @@ void MyMesh::sendNodeDiscoverReq() {
 MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondClock &ms, mesh::RNG &rng,
                mesh::RTCClock &rtc, mesh::MeshTables &tables)
     : mesh::Mesh(radio, ms, rng, rtc, *new StaticPoolPacketManager(32), tables),
-      _cli(board, rtc, sensors, acl, &_prefs, this), telemetry(MAX_PACKET_PAYLOAD - 4), region_map(key_store), temp_map(key_store),
+      region_map(key_store), temp_map(key_store),
+      _cli(board, rtc, sensors, region_map, acl, &_prefs, this),
+      telemetry(MAX_PACKET_PAYLOAD - 4),
       discover_limiter(4, 120),  // max 4 every 2 minutes
       anon_limiter(4, 180)   // max 4 every 3 minutes
 #if defined(WITH_RS232_BRIDGE)
@@ -1112,6 +1114,25 @@ void MyMesh::removeNeighbor(const uint8_t *pubkey, int key_len) {
 #endif
 }
 
+void MyMesh::startRegionsLoad() {
+  temp_map.resetFrom(region_map);   // rebuild regions in a temp instance
+  memset(load_stack, 0, sizeof(load_stack));
+  load_stack[0] = &temp_map.getWildcard();
+  region_load_active = true;
+}
+
+bool MyMesh::saveRegions() {
+  return region_map.save(_fs);
+}
+
+void MyMesh::onDefaultRegionChanged(const RegionEntry* r) {
+  if (r) {
+    region_map.getTransportKeysFor(*r, &default_scope, 1);
+  } else {
+    memset(default_scope.key, 0, sizeof(default_scope.key));
+  }
+}
+
 void MyMesh::formatStatsReply(char *reply) {
   StatsFormatHelper::formatCoreStats(reply, board, *_ms, _err_flags, _mgr);
 }
@@ -1221,125 +1242,6 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       Serial.printf("\n");
     }
     reply[0] = 0;
-  } else if (memcmp(command, "region", 6) == 0) {
-    reply[0] = 0;
-
-    const char* parts[4];
-    int n = mesh::Utils::parseTextParts(command, parts, 4, ' ');
-    if (n == 1) {
-      region_map.exportTo(reply, 160);
-    } else if (n >= 2 && strcmp(parts[1], "load") == 0) {
-      temp_map.resetFrom(region_map);   // rebuild regions in a temp instance
-      memset(load_stack, 0, sizeof(load_stack));
-      load_stack[0] = &temp_map.getWildcard();
-      region_load_active = true;
-    } else if (n >= 2 && strcmp(parts[1], "save") == 0) {
-      _prefs.discovery_mod_timestamp = rtc_clock.getCurrentTime();   // this node is now 'modified' (for discovery info)
-      savePrefs();
-      bool success = region_map.save(_fs);
-      strcpy(reply, success ? "OK" : "Err - save failed");
-    } else if (n >= 3 && strcmp(parts[1], "allowf") == 0) {
-      auto region = region_map.findByNamePrefix(parts[2]);
-      if (region) {
-        region->flags &= ~REGION_DENY_FLOOD;
-        strcpy(reply, "OK");
-      } else {
-        strcpy(reply, "Err - unknown region");
-      }
-    } else if (n >= 3 && strcmp(parts[1], "denyf") == 0) {
-      auto region = region_map.findByNamePrefix(parts[2]);
-      if (region) {
-        region->flags |= REGION_DENY_FLOOD;
-        strcpy(reply, "OK");
-      } else {
-        strcpy(reply, "Err - unknown region");
-      }
-    } else if (n >= 3 && strcmp(parts[1], "get") == 0) {
-      auto region = region_map.findByNamePrefix(parts[2]);
-      if (region) {
-        auto parent = region_map.findById(region->parent);
-        if (parent && parent->id != 0) {
-          sprintf(reply, " %s (%s) %s", region->name, parent->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
-        } else {
-          sprintf(reply, " %s %s", region->name, (region->flags & REGION_DENY_FLOOD) ? "" : "F");
-        }
-      } else {
-        strcpy(reply, "Err - unknown region");
-      }
-    } else if (n >= 3 && strcmp(parts[1], "home") == 0) {
-      auto home = region_map.findByNamePrefix(parts[2]);
-      if (home) {
-        region_map.setHomeRegion(home);
-        sprintf(reply, " home is now %s", home->name);
-      } else {
-        strcpy(reply, "Err - unknown region");
-      }
-    } else if (n == 2 && strcmp(parts[1], "home") == 0) {
-      auto home = region_map.getHomeRegion();
-      sprintf(reply, " home is %s", home ? home->name : "*");
-    } else if (n >= 3 && strcmp(parts[1], "default") == 0) {
-      if (strcmp(parts[2], "<null>") == 0) {
-        region_map.setDefaultRegion(NULL);
-        memset(default_scope.key, 0, sizeof(default_scope.key));
-        sprintf(reply, " default scope is now <null>");
-      } else {
-        auto def = region_map.findByNamePrefix(parts[2]);
-        if (def) {
-          region_map.setDefaultRegion(def);
-          region_map.getTransportKeysFor(*def, &default_scope, 1);
-          sprintf(reply, " default scope is now %s", def->name);
-        } else {
-          strcpy(reply, "Err - unknown region");
-        }
-      }
-    } else if (n == 2 && strcmp(parts[1], "default") == 0) {
-      auto def = region_map.getDefaultRegion();
-      sprintf(reply, " default scope is %s", def ? def->name : "<null>");
-    } else if (n >= 3 && strcmp(parts[1], "put") == 0) {
-      auto parent = n >= 4 ? region_map.findByNamePrefix(parts[3]) : &region_map.getWildcard();
-      if (parent == NULL) {
-        strcpy(reply, "Err - unknown parent");
-      } else {
-        auto region = region_map.putRegion(parts[2], parent->id);
-        if (region == NULL) {
-          strcpy(reply, "Err - unable to put");
-        } else {
-          strcpy(reply, "OK");
-        }
-      }
-    } else if (n >= 3 && strcmp(parts[1], "remove") == 0) {
-      auto region = region_map.findByName(parts[2]);
-      if (region) {
-        if (region_map.removeRegion(*region)) {
-          strcpy(reply, "OK");
-        } else {
-          strcpy(reply, "Err - not empty");
-        }
-      } else {
-        strcpy(reply, "Err - not found");
-      }
-    } else if (n >= 3 && strcmp(parts[1], "list") == 0) {
-      uint8_t mask = 0;
-      bool invert = false;
-      
-      if (strcmp(parts[2], "allowed") == 0) {
-        mask = REGION_DENY_FLOOD;
-        invert = false;  // list regions that DON'T have DENY flag
-      } else if (strcmp(parts[2], "denied") == 0) {
-        mask = REGION_DENY_FLOOD;
-        invert = true;   // list regions that DO have DENY flag
-      } else {
-        strcpy(reply, "Err - use 'allowed' or 'denied'");
-        return;
-      }
-      
-      int len = region_map.exportNamesTo(reply, 160, mask, invert);
-      if (len == 0) {
-        strcpy(reply, "-none-");
-      }
-    } else {
-      strcpy(reply, "Err - ??");
-    }
   } else if (memcmp(command, "discover.neighbors", 18) == 0) {
     const char* sub = command + 18;
     while (*sub == ' ') sub++;

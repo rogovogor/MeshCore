@@ -193,6 +193,8 @@ public:
   }
 
   void sendFloodScoped(const TransportKey& scope, mesh::Packet* pkt, uint32_t delay_millis, uint8_t path_hash_size);
+
+  // CommonCLICallbacks
   void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override;
   bool formatFileSystem() override;
   void sendSelfAdvertisement(int delay_millis, bool flood) override;
@@ -212,11 +214,15 @@ public:
   void formatStatsReply(char *reply) override;
   void formatRadioStatsReply(char *reply) override;
   void formatPacketStatsReply(char *reply) override;
+  void startRegionsLoad() override;
+  bool saveRegions() override;
+  void onDefaultRegionChanged(const RegionEntry* r) override;
 
   mesh::LocalIdentity& getSelfId() override { return self_id; }
 
   void saveIdentity(const mesh::LocalIdentity& new_id) override;
   void clearStats() override;
+
   void handleCommand(uint32_t sender_timestamp, char* command, char* reply);
   void loop();
 
