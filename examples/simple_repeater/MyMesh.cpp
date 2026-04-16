@@ -416,13 +416,13 @@ bool MyMesh::isLooped(const mesh::Packet* packet, const uint8_t max_counters[]) 
 void MyMesh::sendFloodReply(mesh::Packet* packet, unsigned long delay_millis, uint8_t path_hash_size) {
   if (recv_pkt_region) {  // if _request_ packet scope is known, send reply with same scope
     TransportKey scope;
-    if (region_map.getTransportKeysFor(*recv_pkt_region, &scope, 1) == 0) {
-      sendFloodScoped(default_scope, packet, delay_millis, path_hash_size);
-    } else {
+    if (region_map.getTransportKeysFor(*recv_pkt_region, &scope, 1) > 0) {
       sendFloodScoped(scope, packet, delay_millis, path_hash_size);
+    } else {
+      sendFlood(packet, delay_millis, path_hash_size);  // send un-scoped
     }
   } else {
-    sendFloodScoped(default_scope, packet, delay_millis, path_hash_size);
+    sendFlood(packet, delay_millis, path_hash_size);  // send un-scoped
   }
 }
 
