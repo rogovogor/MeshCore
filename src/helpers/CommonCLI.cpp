@@ -977,7 +977,8 @@ void CommonCLI::handleRegionCmd(char* command, char* reply) {
       if (region == NULL) {
         strcpy(reply, "Err - unable to put");
       } else {
-        strcpy(reply, "OK");
+        region->flags = 0;   // New default: enable flood
+        strcpy(reply, "OK - (flood allowed)");
       }
     }
   } else if (n >= 3 && strcmp(parts[1], "remove") == 0) {
