@@ -16,6 +16,8 @@ struct RegionEntry {
   uint16_t parent;
   uint8_t flags;
   char name[31];
+
+  bool isWildcard() const { return id == 0; }
 };
 
 class RegionMap {

@@ -948,12 +948,14 @@ void CommonCLI::handleRegionCmd(char* command, char* reply) {
     if (strcmp(parts[2], "<null>") == 0) {
       _region_map->setDefaultRegion(NULL);
       _callbacks->onDefaultRegionChanged(NULL);
+      _callbacks->saveRegions();  // persist in one atomic step
       sprintf(reply, " default scope is now <null>");
     } else {
       auto def = _region_map->findByNamePrefix(parts[2]);
       if (def) {
         _region_map->setDefaultRegion(def);
         _callbacks->onDefaultRegionChanged(def);
+        _callbacks->saveRegions();  // persist in one atomic step
         sprintf(reply, " default scope is now %s", def->name);
       } else {
         strcpy(reply, "Err - unknown region");
