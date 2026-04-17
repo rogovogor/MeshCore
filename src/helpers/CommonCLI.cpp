@@ -952,13 +952,17 @@ void CommonCLI::handleRegionCmd(char* command, char* reply) {
       sprintf(reply, " default scope is now <null>");
     } else {
       auto def = _region_map->findByNamePrefix(parts[2]);
+      if (def == NULL) {
+        def = _region_map->putRegion(parts[2], 0);  // auto-create the default region
+      }
       if (def) {
+        def->flags = 0;   // make sure allow flood enabled
         _region_map->setDefaultRegion(def);
         _callbacks->onDefaultRegionChanged(def);
         _callbacks->saveRegions();  // persist in one atomic step
         sprintf(reply, " default scope is now %s", def->name);
       } else {
-        strcpy(reply, "Err - unknown region");
+        strcpy(reply, "Err - region table full");
       }
     }
   } else if (n == 2 && strcmp(parts[1], "default") == 0) {
