@@ -177,14 +177,16 @@ void SerialBLEInterface::begin(const char* prefix, char* name, uint32_t pin_code
 
   Bluefruit.setEventCallback(onBLEEvent);
 
+  bleuart.setPermission(SECMODE_ENC_WITH_MITM, SECMODE_ENC_WITH_MITM);
+  bleuart.begin();
+  bleuart.setRxCallback(onBleUartRX);
+
+
+
   // Register DFU on the main BLE stack so paired clients can discover it
   // without switching the device into a separate OTA-only BLE mode first.
   bledfu.setPermission(SECMODE_ENC_WITH_MITM, SECMODE_ENC_WITH_MITM);
   bledfu.begin();
-
-  bleuart.setPermission(SECMODE_ENC_WITH_MITM, SECMODE_ENC_WITH_MITM);
-  bleuart.begin();
-  bleuart.setRxCallback(onBleUartRX);
 
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
   Bluefruit.Advertising.addTxPower();
