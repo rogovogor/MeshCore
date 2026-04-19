@@ -74,10 +74,10 @@ public:
     // commit hash (small, between version and date)
     display.setTextSize(1);
     if (_commit_info[0]) {
-      display.drawTextCentered(display.width()/2, 36, _commit_info);
+      display.drawTextCentered(display.width()/2, 41, _commit_info);
     }
 
-    display.drawTextCentered(display.width()/2, 46, FIRMWARE_BUILD_DATE);
+    display.drawTextCentered(display.width()/2, 51, FIRMWARE_BUILD_DATE);
 
     return 1000;
   }
