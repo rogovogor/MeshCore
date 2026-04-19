@@ -123,9 +123,6 @@ build_firmware() {
   # get git commit sha
   COMMIT_HASH=$(git rev-parse --short HEAD)
 
-  # set firmware build date
-  FIRMWARE_BUILD_DATE=$(date '+%d-%b-%Y')
-
   # get FIRMWARE_VERSION, which should be provided by the environment
   if [ -z "$FIRMWARE_VERSION" ]; then
     echo "FIRMWARE_VERSION must be set in environment"
@@ -141,7 +138,7 @@ build_firmware() {
   FIRMWARE_FILENAME="$1-${FIRMWARE_VERSION_STRING}"
 
   # add firmware version info to end of existing platformio build flags in environment vars
-  export PLATFORMIO_BUILD_FLAGS="${PLATFORMIO_BUILD_FLAGS} -DFIRMWARE_BUILD_DATE='\"${FIRMWARE_BUILD_DATE}\"' -DFIRMWARE_VERSION='\"${FIRMWARE_VERSION_STRING}\"'"
+  export PLATFORMIO_BUILD_FLAGS="${PLATFORMIO_BUILD_FLAGS} -DFIRMWARE_VERSION='\"${FIRMWARE_VERSION_STRING}\"'"
 
   # disable debug flags if requested
   disable_debug_flags
