@@ -10,28 +10,28 @@
       
       
       
-        <link rel="canonical" href="https://meshcore-dev.github.io/meshcore/changes/build/">
+        <link rel="canonical" href="https://meshcore-dev.github.io/meshcore/number_allocations/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../nrf52_power_management/">
       
       
-        <link rel="next" href="../cyrillic-support/">
+        <link rel="next" href="../packet_format/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>build.sh — суффиксы companion-сборок - MeshCore Docs</title>
+        <title>Number Allocations - MeshCore Docs</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
       
 
@@ -50,9 +50,9 @@
       
     
     
-      <link rel="stylesheet" href="../../_stylesheets/extra.css">
+      <link rel="stylesheet" href="../_stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#buildsh-companion-" class="md-skip">
+        <a href="#number-allocations" class="md-skip">
           Skip to content
         </a>
       
@@ -86,9 +86,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="MeshCore Docs" class="md-header__button md-logo" aria-label="MeshCore Docs" data-md-component="logo">
+    <a href=".." title="MeshCore Docs" class="md-header__button md-logo" aria-label="MeshCore Docs" data-md-component="logo">
       
-  <img src="../../_assets/meshcore.svg" alt="logo">
+  <img src="../_assets/meshcore.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -105,7 +105,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              build.sh — суффиксы companion-сборок
+              Number Allocations
             
           </span>
         </div>
@@ -197,9 +197,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="MeshCore Docs" class="md-nav__button md-logo" aria-label="MeshCore Docs" data-md-component="logo">
+    <a href=".." title="MeshCore Docs" class="md-nav__button md-logo" aria-label="MeshCore Docs" data-md-component="logo">
       
-  <img src="../../_assets/meshcore.svg" alt="logo">
+  <img src="../_assets/meshcore.svg" alt="logo">
 
     </a>
     MeshCore Docs
@@ -226,7 +226,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -253,7 +253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli_commands/" class="md-nav__link">
+      <a href="../cli_commands/" class="md-nav__link">
         
   
   
@@ -280,7 +280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../companion_protocol/" class="md-nav__link">
+      <a href="../companion_protocol/" class="md-nav__link">
         
   
   
@@ -307,7 +307,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../docs/" class="md-nav__link">
+      <a href="../docs/" class="md-nav__link">
         
   
   
@@ -334,7 +334,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../faq/" class="md-nav__link">
+      <a href="../faq/" class="md-nav__link">
         
   
   
@@ -361,7 +361,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kiss_modem_protocol/" class="md-nav__link">
+      <a href="../kiss_modem_protocol/" class="md-nav__link">
         
   
   
@@ -388,7 +388,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../nrf52_power_management/" class="md-nav__link">
+      <a href="../nrf52_power_management/" class="md-nav__link">
         
   
   
@@ -412,10 +412,47 @@
       
   
   
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Number Allocations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
   
   
     <li class="md-nav__item">
-      <a href="../../packet_format/" class="md-nav__link">
+      <a href="../packet_format/" class="md-nav__link">
         
   
   
@@ -442,7 +479,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../payloads/" class="md-nav__link">
+      <a href="../payloads/" class="md-nav__link">
         
   
   
@@ -469,7 +506,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../qr_codes/" class="md-nav__link">
+      <a href="../qr_codes/" class="md-nav__link">
         
   
   
@@ -496,7 +533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stats_binary_frames/" class="md-nav__link">
+      <a href="../stats_binary_frames/" class="md-nav__link">
         
   
   
@@ -523,7 +560,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../terminal_chat_cli/" class="md-nav__link">
+      <a href="../terminal_chat_cli/" class="md-nav__link">
         
   
   
@@ -539,327 +576,6 @@
   
 
       </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changes
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_13">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Changes
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Changes vs upstream (branch: Cyrillic_supp4all → main)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    build.sh — суффиксы companion-сборок
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    build.sh — суффиксы companion-сборок
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вектор изменений
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Изменение
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cyrillic-support/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cyrillic Support (-D CYRILLIC_SUPPORT=1)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../firmware-version-convention/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Конвенция: Версия прошивки с git-коммитом
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../heltec-v4-lorafem/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Heltec V4 — абстракция управления LoRa FEM (GC1109 / KCT8103L)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../heltec-wireless-paper/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Heltec Wireless Paper — корректное измерение напряжения батареи
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ui-task/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    UITask.cpp — адаптивный UI и MsgPreview
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -884,36 +600,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вектор изменений
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Изменение
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -929,7 +615,7 @@
 
 
   
-    <a href="https://github.com/meshcore-dev/meshcore/edit/main/docs/changes/build.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/meshcore-dev/meshcore/edit/main/docs/number_allocations.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -937,23 +623,35 @@
   
 
 
-<h1 id="buildsh-companion-">build.sh — суффиксы companion-сборок</h1>
-<p><strong>Файл:</strong> <code>build.sh</code></p>
-<h2 id="_1">Вектор изменений</h2>
-<p>Расширение <code>build_companion_firmwares()</code> для сборки прошивок с укороченными суффиксами.</p>
-<hr />
-<h2 id="_2">Изменение</h2>
-<pre><code class="language-bash"># было:
-build_all_firmwares_by_suffix &quot;_companion_radio_usb&quot;
-build_all_firmwares_by_suffix &quot;_companion_radio_ble&quot;
-
-# стало:
-build_all_firmwares_by_suffix &quot;_companion_radio_usb&quot;
-build_all_firmwares_by_suffix &quot;_companion_radio_ble&quot;
-build_all_firmwares_by_suffix &quot;_companion_usb&quot;      # + новый
-build_all_firmwares_by_suffix &quot;_companion_ble&quot;      # + новый
-</code></pre>
-<p>Добавлены суффиксы <code>_companion_usb</code> и <code>_companion_ble</code> для поддержки вариантов, в <code>platformio.ini</code> которых конфигурации называются без <code>_radio</code> в суффиксе.</p>
+<h1 id="number-allocations">Number Allocations</h1>
+<p>This document lists unique numbers/identifiers used in various MeshCore protcol payloads.</p>
+<h1 id="group-data-types">Group Data Types</h1>
+<p>The <code>PAYLOAD_TYPE_GRP_DATA</code> payloads have a 16-bit data-type field, which identifies which application the packet is for.</p>
+<p>To make sure multiple applications can function without interfering with each other, the table below is for reserving various ranges of data-type values. Just modify this table, adding a row, then submit a PR to have it authorised/merged.</p>
+<p>NOTE: the range FF00 - FFFF is for use while you're developing, doing POC, and for these you don't need to request to use/allocate.</p>
+<p>Once you have a working app/project, you need to be able to demonstrate it exists/works, and THEN request type IDs. So, just use the testing/dev range while developing, then request IDs before you transition to publishing your project.</p>
+<table>
+<thead>
+<tr>
+<th>Data-Type range</th>
+<th>App name</th>
+<th>Contact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0000 - 00FF</td>
+<td>-reserved for internal use-</td>
+<td></td>
+</tr>
+<tr>
+<td>FF00 - FFFF</td>
+<td>-reserved for testing/dev-</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>(add rows, inside the range 0100 - FEFF for custom apps)</p>
 
 
 
@@ -1003,10 +701,10 @@ build_all_firmwares_by_suffix &quot;_companion_ble&quot;      # + новый
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.action.edit", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.action.edit", "content.code.copy", "search.highlight", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
