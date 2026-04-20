@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log *)",
+      "Bash(git ls-tree *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:patch-diff.githubusercontent.com)",
+      "Bash(grep -r \"\\\\.uf2\\\\|UF2\" /c/Users/Ruslan/CODE/MeshCore/.github/ /c/Users/Ruslan/CODE/MeshCore/variants/ /c/Users/Ruslan/CODE/MeshCore/*.ini)",
+      "Bash(grep -E \"^\\\\[env:.*companion.*\\\\]\" /c/Users/Ruslan/CODE/MeshCore/variants/*/platformio.ini)",
+      "Bash(curl -s \"https://api.github.com/repos/rogovogor/MeshCore/actions/runs?status=completed&branch=Cyrillic_supp4all\")",
+      "Bash(git checkout *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git stash *)",
+      "Bash(git reset *)",
+      "Bash(git merge *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git rm *)",
+      "Bash(git filter-branch *)",
+      "Bash(rm -rf .git/refs/original .git-rewrite)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --index-filter 'git rm -rf --cached --ignore-unmatch .claude/' --tag-name-filter cat -- Cyrillic_supp4all promicro_WeAct_Epaper south_edition)"
+    ]
+  }
+}

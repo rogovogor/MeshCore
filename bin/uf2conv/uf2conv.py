@@ -166,7 +166,7 @@ def convert_from_hex_to_uf2(buf):
     currblock = None
     blocks = []
     for line in buf.split('\n'):
-        if line[0] != ":":
+        if not line or line[0] != ":":
             continue
         i = 1
         rec = []

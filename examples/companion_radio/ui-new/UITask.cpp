@@ -2,6 +2,7 @@
 #include <helpers/TxtDataHelpers.h>
 #include "../MyMesh.h"
 #include "target.h"
+#include <time.h>
 #ifdef WIFI_SSID
   #include <WiFi.h>
 #endif
@@ -34,19 +35,28 @@
 class SplashScreen : public UIScreen {
   UITask* _task;
   unsigned long dismiss_after;
-  char _version_info[12];
+  char _version_info[12];   // e.g. "v1.14.1"
+  char _commit_info[12];    // e.g. "#abc1234" or "" if no GIT_COMMIT
 
 public:
   SplashScreen(UITask* task) : _task(task) {
-    // strip off dash and commit hash by changing dash to null terminator
-    // e.g: v1.2.3-abcdef -> v1.2.3
     const char *ver = FIRMWARE_VERSION;
     const char *dash = strchr(ver, '-');
 
+    // version part: "v1.14.1"
     int len = dash ? dash - ver : strlen(ver);
-    if (len >= sizeof(_version_info)) len = sizeof(_version_info) - 1;
+    if (len >= (int)sizeof(_version_info)) len = sizeof(_version_info) - 1;
     memcpy(_version_info, ver, len);
     _version_info[len] = 0;
+
+    // commit part: "#abc1234" (from the part after '-')
+    if (dash) {
+      _commit_info[0] = '#';
+      strncpy(_commit_info + 1, dash + 1, sizeof(_commit_info) - 2);
+      _commit_info[sizeof(_commit_info) - 1] = 0;
+    } else {
+      _commit_info[0] = 0;
+    }
 
     dismiss_after = millis() + BOOT_SCREEN_MILLIS;
   }
@@ -62,8 +72,13 @@ public:
     display.setTextSize(2);
     display.drawTextCentered(display.width()/2, 22, _version_info);
 
+    // commit hash (small, between version and date)
     display.setTextSize(1);
-    display.drawTextCentered(display.width()/2, 42, FIRMWARE_BUILD_DATE);
+    if (_commit_info[0]) {
+      display.drawTextCentered(display.width()/2, 41, _commit_info);
+    }
+
+    display.drawTextCentered(display.width()/2, 51, FIRMWARE_BUILD_DATE);
 
     return 1000;
   }
@@ -78,6 +93,7 @@ public:
 class HomeScreen : public UIScreen {
   enum HomePage {
     FIRST,
+    CLOCK,     // eInk only: large clock + PM preview inline
     RECENT,
     RADIO,
     BLUETOOTH,
@@ -98,6 +114,7 @@ class HomeScreen : public UIScreen {
   NodePrefs* _node_prefs;
   uint8_t _page;
   bool _shutdown_init;
+  int _clock_pm_pending;   // PMs queued for inline display on CLOCK page
   AdvertPath recent[UI_RECENT_LIST_SIZE];
 
 
@@ -170,8 +187,11 @@ class HomeScreen : public UIScreen {
 
 public:
   HomeScreen(UITask* task, mesh::RTCClock* rtc, SensorManager* sensors, NodePrefs* node_prefs)
-     : _task(task), _rtc(rtc), _sensors(sensors), _node_prefs(node_prefs), _page(0), 
-       _shutdown_init(false), sensors_lpp(200) {  }
+     : _task(task), _rtc(rtc), _sensors(sensors), _node_prefs(node_prefs), _page(0),
+       _shutdown_init(false), _clock_pm_pending(0), sensors_lpp(200) {  }
+
+  bool isOnClockPage() const { return _page == CLOCK; }
+  void incrementClockPM() { _clock_pm_pending++; }
 
   void poll() override {
     if (_shutdown_init && !_task->isButtonPressed()) {  // must wait for USR button to be released
@@ -181,8 +201,79 @@ public:
 
   int render(DisplayDriver& display) override {
     char tmp[80];
+    int hdr_size   = (display.width() >= 200) ? 2 : 1;
+    int hdr_line_h = 8 * hdr_size;
+    int dot_y      = hdr_line_h + 5;
+    int content_y  = hdr_line_h + 14;
+    int line_h     = 8 * hdr_size + 3;
+
+    // CLOCK + pending PM: render full-screen like MsgPreviewScreen (no node/battery header)
+    if (_page == HomePage::CLOCK && _clock_pm_pending > 0) {
+      UITask::ClockPMInfo info;
+      if (_task->peekTopMsg(info)) {
+        int msg_start_y = hdr_line_h + 3;
+
+        // Translate message body
+        char filtered_msg[sizeof(info.msg)];
+        display.translateUTF8ToBlocks(filtered_msg, info.msg, sizeof(filtered_msg));
+        int msg_len = (int)strlen(filtered_msg);
+
+        // Dynamic body font selection (same algorithm as MsgPreviewScreen)
+        int body2_lines = (display.height() - msg_start_y) / 16;
+        int body2_cpl   = display.width() / 12;
+        int sim_lines   = 0;
+        if (body2_lines >= 4) {
+          int pos = 0;
+          while (pos < msg_len) {
+            sim_lines++;
+            if (msg_len - pos <= body2_cpl) break;
+            int brk = pos + body2_cpl;
+            for (int j = pos + body2_cpl; j > pos; j--) {
+              if (filtered_msg[j] == ' ') { brk = j; break; }
+            }
+            pos = brk + (filtered_msg[brk] == ' ' ? 1 : 0);
+          }
+        }
+        int body_size = ((body2_lines >= 4) && (sim_lines <= body2_lines)) ? 2 : 1;
+
+        // Header: "#N (D)name" or "#N [hops]name"
+        int hdr_ch_w    = 6 * hdr_size;
+        int hdr_total   = display.width() / hdr_ch_w;
+        int name_budget = hdr_total - 4;   // "#N " + gap
+        if (name_budget < 0) name_budget = 0;
+
+        char raw_name[36];
+        if (info.path_len == 0xFF)
+          snprintf(raw_name, sizeof(raw_name), "(D)%s", info.from_name);
+        else
+          snprintf(raw_name, sizeof(raw_name), "[%d]%s", info.path_len, info.from_name);
+        if (name_budget < (int)sizeof(raw_name)) raw_name[name_budget] = '\0';
+
+        char filtered_pm_name[36];
+        display.translateUTF8ToBlocks(filtered_pm_name, raw_name, sizeof(filtered_pm_name));
+
+        char hdr_left[64];
+        snprintf(hdr_left, sizeof(hdr_left), "#%d %s", _clock_pm_pending, filtered_pm_name);
+
+        display.setTextSize(hdr_size);
+        display.setColor(DisplayDriver::GREEN);
+        display.setCursor(0, 0);
+        display.print(hdr_left);
+
+        // Divider
+        display.setColor(DisplayDriver::LIGHT);
+        display.drawRect(0, hdr_line_h + 2, display.width(), 1);
+
+        // Message body with dynamic font
+        display.setTextSize(body_size);
+        display.setCursor(0, msg_start_y);
+        display.printWordWrap(filtered_msg, display.width());
+      }
+      return 60000;
+    }
+
     // node name
-    display.setTextSize(1);
+    display.setTextSize(hdr_size);
     display.setColor(DisplayDriver::GREEN);
     char filtered_name[sizeof(_node_prefs->node_name)];
     display.translateUTF8ToBlocks(filtered_name, _node_prefs->node_name, sizeof(filtered_name));
@@ -192,45 +283,60 @@ public:
     // battery voltage
     renderBatteryIndicator(display, _task->getBattMilliVolts());
 
-    // curr page indicator
-    int y = 14;
-    int x = display.width() / 2 - 5 * (HomePage::Count-1);
-    for (uint8_t i = 0; i < HomePage::Count; i++, x += 10) {
+    // curr page indicator (CLOCK page is hidden on non-eInk devices)
+    bool show_clock_page = _task->isEinkDisplay();
+    int visible_count = HomePage::Count - (show_clock_page ? 0 : 1);
+    int x = display.width() / 2 - 5 * (visible_count - 1);
+    for (uint8_t i = 0; i < HomePage::Count; i++) {
+      if (i == HomePage::CLOCK && !show_clock_page) continue;
       if (i == _page) {
-        display.fillRect(x-1, y-1, 3, 3);
+        display.fillRect(x-1, dot_y-1, 3, 3);
       } else {
-        display.fillRect(x, y, 1, 1);
+        display.fillRect(x, dot_y, 1, 1);
       }
+      x += 10;
     }
 
     if (_page == HomePage::FIRST) {
       display.setColor(DisplayDriver::YELLOW);
       display.setTextSize(2);
       sprintf(tmp, "MSG: %d", _task->getMsgCount());
-      display.drawTextCentered(display.width() / 2, 20, tmp);
+      display.drawTextCentered(display.width() / 2, content_y, tmp);
 
       #ifdef WIFI_SSID
         IPAddress ip = WiFi.localIP();
         snprintf(tmp, sizeof(tmp), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
         display.setTextSize(1);
-        display.drawTextCentered(display.width() / 2, 54, tmp); 
+        display.drawTextCentered(display.width() / 2, display.height() - 10, tmp);
       #endif
       if (_task->hasConnection()) {
         display.setColor(DisplayDriver::GREEN);
-        display.setTextSize(1);
-        display.drawTextCentered(display.width() / 2, 43, "< Connected >");
-
+        display.setTextSize(hdr_size);
+        display.drawTextCentered(display.width() / 2, content_y + 24, "< Connected >");
       } else if (the_mesh.getBLEPin() != 0) { // BT pin
         display.setColor(DisplayDriver::RED);
         display.setTextSize(2);
         sprintf(tmp, "Pin:%d", the_mesh.getBLEPin());
-        display.drawTextCentered(display.width() / 2, 43, tmp);
+        display.drawTextCentered(display.width() / 2, content_y + 24, tmp);
       }
+    } else if (_page == HomePage::CLOCK) {
+      // --- Large clock display (PM case handled above as early return) ---
+      _clock_pm_pending = 0;
+      time_t now = time(nullptr);
+      struct tm timeinfo;
+      localtime_r(&now, &timeinfo);
+      char timeBuf[6];
+      strftime(timeBuf, sizeof(timeBuf), "%H:%M", &timeinfo);
+      display.setTextSize(8);
+      display.drawTextCentered(display.width() / 2, display.height() / 2 - 32, timeBuf);
+      display.setTextSize(1);
+      return 60000;  // refresh once per minute
     } else if (_page == HomePage::RECENT) {
       the_mesh.getRecentlyHeard(recent, UI_RECENT_LIST_SIZE);
       display.setColor(DisplayDriver::GREEN);
-      int y = 20;
-      for (int i = 0; i < UI_RECENT_LIST_SIZE; i++, y += 11) {
+      display.setTextSize(hdr_size);
+      int y = content_y;
+      for (int i = 0; i < UI_RECENT_LIST_SIZE; i++, y += line_h) {
         auto a = &recent[i];
         if (a->name[0] == 0) continue;  // empty slot
         int secs = _rtc->getCurrentTime() - a->recv_timestamp;
@@ -241,10 +347,10 @@ public:
         } else {
           sprintf(tmp, "%dh", secs / (60*60));
         }
-        
+
         int timestamp_width = display.getTextWidth(tmp);
         int max_name_width = display.width() - timestamp_width - 1;
-        
+
         char filtered_recent_name[sizeof(a->name)];
         display.translateUTF8ToBlocks(filtered_recent_name, a->name, sizeof(filtered_recent_name));
         display.drawTextEllipsized(0, y, max_name_width, filtered_recent_name);
@@ -253,39 +359,45 @@ public:
       }
     } else if (_page == HomePage::RADIO) {
       display.setColor(DisplayDriver::YELLOW);
-      display.setTextSize(1);
-      // freq / sf
-      display.setCursor(0, 20);
-      sprintf(tmp, "FQ: %06.3f   SF: %d", _node_prefs->freq, _node_prefs->sf);
-      display.print(tmp);
-
-      display.setCursor(0, 31);
-      sprintf(tmp, "BW: %03.2f     CR: %d", _node_prefs->bw, _node_prefs->cr);
-      display.print(tmp);
-
-      // tx power,  noise floor
-      display.setCursor(0, 42);
-      sprintf(tmp, "TX: %ddBm", _node_prefs->tx_power_dbm);
-      display.print(tmp);
-      display.setCursor(0, 53);
-      sprintf(tmp, "Noise floor: %d", radio_driver.getNoiseFloor());
-      display.print(tmp);
+      display.setTextSize(hdr_size);
+      int y = content_y;
+      if (hdr_size == 2) {
+        snprintf(tmp, sizeof(tmp), "FQ:%.3f SF:%d", _node_prefs->freq, _node_prefs->sf);
+        display.setCursor(0, y); display.print(tmp); y += line_h;
+        snprintf(tmp, sizeof(tmp), "BW:%.2f  CR:%d", _node_prefs->bw, _node_prefs->cr);
+        display.setCursor(0, y); display.print(tmp); y += line_h;
+        snprintf(tmp, sizeof(tmp), "TX:%ddBm", _node_prefs->tx_power_dbm);
+        display.setCursor(0, y); display.print(tmp); y += line_h;
+        snprintf(tmp, sizeof(tmp), "Noise:%d", radio_driver.getNoiseFloor());
+        display.setCursor(0, y); display.print(tmp);
+      } else {
+        snprintf(tmp, sizeof(tmp), "FQ: %06.3f   SF: %d", _node_prefs->freq, _node_prefs->sf);
+        display.setCursor(0, y); display.print(tmp); y += line_h;
+        snprintf(tmp, sizeof(tmp), "BW: %03.2f     CR: %d", _node_prefs->bw, _node_prefs->cr);
+        display.setCursor(0, y); display.print(tmp); y += line_h;
+        snprintf(tmp, sizeof(tmp), "TX: %ddBm", _node_prefs->tx_power_dbm);
+        display.setCursor(0, y); display.print(tmp); y += line_h;
+        snprintf(tmp, sizeof(tmp), "Noise floor: %d", radio_driver.getNoiseFloor());
+        display.setCursor(0, y); display.print(tmp);
+      }
     } else if (_page == HomePage::BLUETOOTH) {
       display.setColor(DisplayDriver::GREEN);
-      display.drawXbm((display.width() - 32) / 2, 18,
+      display.drawXbm((display.width() - 32) / 2, content_y,
           _task->isSerialEnabled() ? bluetooth_on : bluetooth_off,
           32, 32);
-      display.setTextSize(1);
-      display.drawTextCentered(display.width() / 2, 64 - 11, "toggle: " PRESS_LABEL);
+      display.setTextSize(hdr_size);
+      display.drawTextCentered(display.width() / 2, display.height() - 8*hdr_size - 2, "toggle: " PRESS_LABEL);
     } else if (_page == HomePage::ADVERT) {
       display.setColor(DisplayDriver::GREEN);
-      display.drawXbm((display.width() - 32) / 2, 18, advert_icon, 32, 32);
-      display.drawTextCentered(display.width() / 2, 64 - 11, "advert: " PRESS_LABEL);
+      display.drawXbm((display.width() - 32) / 2, content_y, advert_icon, 32, 32);
+      display.setTextSize(hdr_size);
+      display.drawTextCentered(display.width() / 2, display.height() - 8*hdr_size - 2, "advert: " PRESS_LABEL);
 #if ENV_INCLUDE_GPS == 1
     } else if (_page == HomePage::GPS) {
       LocationProvider* nmea = sensors.getLocationProvider();
       char buf[50];
-      int y = 18;
+      display.setTextSize(hdr_size);
+      int y = content_y;
       bool gps_state = _task->getGPSState();
 #ifdef PIN_GPS_SWITCH
       bool hw_gps_state = digitalRead(PIN_GPS_SWITCH);
@@ -299,30 +411,30 @@ public:
 #endif
       display.drawTextLeftAlign(0, y, buf);
       if (nmea == NULL) {
-        y = y + 12;
+        y += line_h;
         display.drawTextLeftAlign(0, y, "Can't access GPS");
       } else {
         strcpy(buf, nmea->isValid()?"fix":"no fix");
         display.drawTextRightAlign(display.width()-1, y, buf);
-        y = y + 12;
+        y += line_h;
         display.drawTextLeftAlign(0, y, "sat");
         sprintf(buf, "%d", nmea->satellitesCount());
         display.drawTextRightAlign(display.width()-1, y, buf);
-        y = y + 12;
+        y += line_h;
         display.drawTextLeftAlign(0, y, "pos");
-        sprintf(buf, "%.4f %.4f", 
+        sprintf(buf, "%.4f %.4f",
           nmea->getLatitude()/1000000., nmea->getLongitude()/1000000.);
         display.drawTextRightAlign(display.width()-1, y, buf);
-        y = y + 12;
+        y += line_h;
         display.drawTextLeftAlign(0, y, "alt");
         sprintf(buf, "%.2f", nmea->getAltitude()/1000.);
         display.drawTextRightAlign(display.width()-1, y, buf);
-        y = y + 12;
       }
 #endif
 #if UI_SENSORS_PAGE == 1
     } else if (_page == HomePage::SENSORS) {
-      int y = 18;
+      display.setTextSize(hdr_size);
+      int y = content_y;
       refresh_sensors();
       char buf[30];
       char name[30];
@@ -387,34 +499,47 @@ public:
           display.width()-display.getTextWidth(buf)-1, y
         );
         display.print(buf);
-        y = y + 12;
+        y += line_h;
       }
       if (sensors_scroll) sensors_scroll_offset = (sensors_scroll_offset+1)%sensors_nb;
       else sensors_scroll_offset = 0;
 #endif
     } else if (_page == HomePage::SHUTDOWN) {
       display.setColor(DisplayDriver::GREEN);
-      display.setTextSize(1);
+      display.setTextSize(hdr_size);
       if (_shutdown_init) {
-        display.drawTextCentered(display.width() / 2, 34, "hibernating...");
+        display.drawTextCentered(display.width() / 2, content_y + 16, "hibernating...");
       } else {
-        display.drawXbm((display.width() - 32) / 2, 18, power_icon, 32, 32);
-        display.drawTextCentered(display.width() / 2, 64 - 11, "hibernate:" PRESS_LABEL);
+        display.drawXbm((display.width() - 32) / 2, content_y, power_icon, 32, 32);
+        display.drawTextCentered(display.width() / 2, display.height() - 8*hdr_size - 2, "hibernate:" PRESS_LABEL);
       }
     }
     return 5000;   // next render after 5000 ms
   }
 
   bool handleInput(char c) override {
+    // On CLOCK page: intercept navigation while PMs are being read
+    if (_page == HomePage::CLOCK && _clock_pm_pending > 0) {
+      if (c == KEY_NEXT || c == KEY_RIGHT) {
+        _task->consumeTopMsg();
+        _clock_pm_pending--;
+        return true;
+      }
+      if (c == KEY_LEFT || c == KEY_PREV) {
+        return true;  // block page nav while reading PMs
+      }
+    }
+
     if (c == KEY_LEFT || c == KEY_PREV) {
       _page = (_page + HomePage::Count - 1) % HomePage::Count;
+      if (_page == HomePage::CLOCK && !_task->isEinkDisplay())
+        _page = (_page + HomePage::Count - 1) % HomePage::Count;
       return true;
     }
     if (c == KEY_NEXT || c == KEY_RIGHT) {
       _page = (_page + 1) % HomePage::Count;
-      if (_page == HomePage::RECENT) {
-        _task->showAlert("Recent adverts", 800);
-      }
+      if (_page == HomePage::CLOCK && !_task->isEinkDisplay())
+        _page = (_page + 1) % HomePage::Count;
       return true;
     }
     if (c == KEY_ENTER && _page == HomePage::BLUETOOTH) {
@@ -459,73 +584,128 @@ class MsgPreviewScreen : public UIScreen {
   UITask* _task;
   mesh::RTCClock* _rtc;
 
-  struct MsgEntry {
-    uint32_t timestamp;
-    char origin[62];
-    char msg[78];
-  };
   #define MAX_UNREAD_MSGS   32
   int num_unread;
   int head = MAX_UNREAD_MSGS - 1; // index of latest unread message
+
+public:
+  struct MsgEntry {
+    uint32_t timestamp;
+    uint8_t  path_len;       // 0xFF = direct, otherwise hop count (group)
+    char     from_name[32];  // sender name (direct) or channel name (group)
+    char     msg[MAX_TEXT_LEN];
+  };
+
+  MsgPreviewScreen(UITask* task, mesh::RTCClock* rtc) : _task(task), _rtc(rtc) { num_unread = 0; }
+
+private:
   MsgEntry unread[MAX_UNREAD_MSGS];
 
 public:
-  MsgPreviewScreen(UITask* task, mesh::RTCClock* rtc) : _task(task), _rtc(rtc) { num_unread = 0; }
-
   void addPreview(uint8_t path_len, const char* from_name, const char* msg) {
     head = (head + 1) % MAX_UNREAD_MSGS;
     if (num_unread < MAX_UNREAD_MSGS) num_unread++;
-
     auto p = &unread[head];
     p->timestamp = _rtc->getCurrentTime();
-    if (path_len == 0xFF) {
-      sprintf(p->origin, "(D) %s:", from_name);
-    } else {
-      sprintf(p->origin, "(%d) %s:", (uint32_t) path_len, from_name);
-    }
+    p->path_len  = path_len;
+    strncpy(p->from_name, from_name, sizeof(p->from_name) - 1);
+    p->from_name[sizeof(p->from_name) - 1] = '\0';
     StrHelper::strncpy(p->msg, msg, sizeof(p->msg));
   }
 
+  // Peek at the current (latest) unread message without consuming it
+  const MsgEntry* peekCurrent() const {
+    if (num_unread == 0) return nullptr;
+    return &unread[head];
+  }
+
+  // Advance past the current message (mark as read) without switching screens
+  void consumeOne() {
+    if (num_unread == 0) return;
+    head = (head + MAX_UNREAD_MSGS - 1) % MAX_UNREAD_MSGS;
+    num_unread--;
+  }
+
+  int unreadCount() const { return num_unread; }
+
   int render(DisplayDriver& display) override {
-    char tmp[16];
-    display.setCursor(0, 0);
-    display.setTextSize(1);
-    display.setColor(DisplayDriver::GREEN);
-    sprintf(tmp, "Unread: %d", num_unread);
-    display.print(tmp);
+    if (num_unread == 0) return 1000;
+    auto* p = &unread[head];
 
-    auto p = &unread[head];
+    // 1. Metrics
+    int hdr_size    = (display.width() >= 200) ? 2 : 1;
+    int hdr_line_h  = 8 * hdr_size;
+    int msg_start_y = hdr_line_h + 3;
 
-    int secs = _rtc->getCurrentTime() - p->timestamp;
-    if (secs < 60) {
-      sprintf(tmp, "%ds", secs);
-    } else if (secs < 60*60) {
-      sprintf(tmp, "%dm", secs / 60);
-    } else {
-      sprintf(tmp, "%dh", secs / (60*60));
-    }
-    display.setCursor(display.width() - display.getTextWidth(tmp) - 2, 0);
-    display.print(tmp);
-
-    display.drawRect(0, 11, display.width(), 1);  // horiz line
-
-    display.setCursor(0, 14);
-    display.setColor(DisplayDriver::YELLOW);
-    char filtered_origin[sizeof(p->origin)];
-    display.translateUTF8ToBlocks(filtered_origin, p->origin, sizeof(filtered_origin));
-    display.print(filtered_origin);
-
-    display.setCursor(0, 25);
-    display.setColor(DisplayDriver::LIGHT);
-    char filtered_msg[sizeof(p->msg)];
+    char filtered_msg[MAX_TEXT_LEN];
     display.translateUTF8ToBlocks(filtered_msg, p->msg, sizeof(filtered_msg));
+    int msg_len = (int)strlen(filtered_msg);
+
+    int body2_lines = (display.height() - msg_start_y) / 16;
+    int body2_cpl   = display.width() / 12;
+    // Simulate word wrap at size 2 to get actual line count
+    int sim_lines = 0;
+    if (body2_lines >= 4) {
+      int pos = 0;
+      while (pos < msg_len) {
+        sim_lines++;
+        if (msg_len - pos <= body2_cpl) break;
+        int brk = pos + body2_cpl;
+        for (int i = pos + body2_cpl; i > pos; i--) {
+          if (filtered_msg[i] == ' ') { brk = i; break; }
+        }
+        pos = brk + (filtered_msg[brk] == ' ' ? 1 : 0);
+      }
+    }
+    bool use2     = (body2_lines >= 4) && (sim_lines <= body2_lines);
+    int body_size = use2 ? 2 : 1;
+
+    // 2. Time string
+    char time_str[8];
+    int secs = (int)(_rtc->getCurrentTime() - p->timestamp);
+    if (secs < 0) secs = 0;
+    if      (secs < 60)   snprintf(time_str, sizeof(time_str), "%ds",  secs);
+    else if (secs < 3600) snprintf(time_str, sizeof(time_str), "%dm",  secs / 60);
+    else                  snprintf(time_str, sizeof(time_str), "%dh",  secs / 3600);
+
+    // 3. Header left: "#N (D)name" for direct, "#N channel" for group
+    int hdr_ch_w    = 6 * hdr_size;
+    int hdr_total   = display.width() / hdr_ch_w;
+    int name_budget = hdr_total - (int)strlen(time_str) - 4;  // 4 = "#N " + gap
+    if (name_budget < 0) name_budget = 0;
+
+    char raw_name[36];
+    if (p->path_len == 0xFF)
+      snprintf(raw_name, sizeof(raw_name), "(D)%s", p->from_name);
+    else
+      snprintf(raw_name, sizeof(raw_name), "[%d]%s", p->path_len, p->from_name);
+    if (name_budget < (int)sizeof(raw_name)) raw_name[name_budget] = '\0';
+
+    char filtered_name[36];
+    display.translateUTF8ToBlocks(filtered_name, raw_name, sizeof(filtered_name));
+
+    char hdr_left[64];
+    snprintf(hdr_left, sizeof(hdr_left), "#%d %s", num_unread, filtered_name);
+
+    // 4. Render header
+    display.setTextSize(hdr_size);
+    display.setColor(DisplayDriver::GREEN);
+    display.setCursor(0, 0);
+    display.print(hdr_left);
+    int time_x = display.width() - 1 - (int)strlen(time_str) * hdr_ch_w;
+    display.setCursor(time_x, 0);
+    display.print(time_str);
+
+    // 5. Divider
+    display.setColor(DisplayDriver::LIGHT);
+    display.drawRect(0, hdr_line_h + 2, display.width(), 1);
+
+    // 6. Message body — word wrap
+    display.setTextSize(body_size);
+    display.setCursor(0, msg_start_y);
     display.printWordWrap(filtered_msg, display.width());
 
-#if AUTO_OFF_MILLIS==0 // probably e-ink
-    return 10000; // 10 s
-#else
-    return 1000;  // next render after 1000 ms
-#endif
+    return (AUTO_OFF_MILLIS == 0) ? 10000 : 1000;
   }
 
   bool handleInput(char c) override {
@@ -550,6 +730,11 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   _display = display;
   _sensors = sensors;
   _auto_off = millis() + AUTO_OFF_MILLIS;
+
+#ifdef DISPLAY_TZ
+  setenv("TZ", DISPLAY_TZ, 1);
+  tzset();
+#endif
 
 #if defined(PIN_USER_BTN)
   user_btn.begin();
@@ -624,21 +809,55 @@ void UITask::msgRead(int msgcount) {
   }
 }
 
-void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) {
+void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount, bool is_pm) {
   _msgcount = msgcount;
 
-  ((MsgPreviewScreen *) msg_preview)->addPreview(path_len, from_name, text);
-  setCurrScreen(msg_preview);
+  bool on_clock = isEinkDisplay() && (curr == home) &&
+                  ((HomeScreen*)home)->isOnClockPage();
+
+  ((MsgPreviewScreen*)msg_preview)->addPreview(path_len, from_name, text);
+
+  if (on_clock) {
+    if (is_pm) {
+      // PM on clock page: show it inline, stay on clock page
+      ((HomeScreen*)home)->incrementClockPM();
+      _next_refresh = 100;
+    }
+    // Channel message on clock page: silently queued in msg_preview, no page switch
+  } else {
+    setCurrScreen(msg_preview);
+  }
 
   if (_display != NULL) {
     if (!_display->isOn() && !hasConnection()) {
       _display->turnOn();
     }
     if (_display->isOn()) {
-    _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
-    _next_refresh = 100;  // trigger refresh
+      _auto_off = millis() + AUTO_OFF_MILLIS;  // extend the auto-off timer
+      _next_refresh = 100;  // trigger refresh
     }
   }
+}
+
+bool UITask::peekTopMsg(ClockPMInfo& out) const {
+  if (!msg_preview) return false;
+  const MsgPreviewScreen::MsgEntry* p = ((MsgPreviewScreen*)msg_preview)->peekCurrent();
+  if (!p) return false;
+  out.path_len = p->path_len;
+  strncpy(out.from_name, p->from_name, sizeof(out.from_name) - 1);
+  out.from_name[sizeof(out.from_name) - 1] = '\0';
+  strncpy(out.msg, p->msg, sizeof(out.msg) - 1);
+  out.msg[sizeof(out.msg) - 1] = '\0';
+  return true;
+}
+
+void UITask::consumeTopMsg() {
+  if (msg_preview) ((MsgPreviewScreen*)msg_preview)->consumeOne();
+}
+
+int UITask::getUnreadMsgCount() const {
+  if (!msg_preview) return 0;
+  return ((MsgPreviewScreen*)msg_preview)->unreadCount();
 }
 
 void UITask::userLedHandler() {

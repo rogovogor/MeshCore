@@ -76,7 +76,17 @@ public:
   void showAlert(const char* text, int duration_millis);
   int  getMsgCount() const { return _msgcount; }
   bool hasDisplay() const { return _display != NULL; }
+  bool isEinkDisplay() const { return _display != nullptr && _display->isEink(); }
   bool isButtonPressed() const;
+
+  struct ClockPMInfo {
+    uint8_t path_len;
+    char    from_name[32];
+    char    msg[10 * CIPHER_BLOCK_SIZE];
+  };
+  bool peekTopMsg(ClockPMInfo& out) const;
+  void consumeTopMsg();
+  int  getUnreadMsgCount() const;
 
   bool isBuzzerQuiet() { 
 #ifdef PIN_BUZZER
@@ -93,7 +103,7 @@ public:
 
   // from AbstractUITask
   void msgRead(int msgcount) override;
-  void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) override;
+  void newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount, bool is_pm = false) override;
   void notify(UIEventType t = UIEventType::none) override;
   void loop() override;
 
