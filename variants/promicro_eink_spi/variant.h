@@ -58,7 +58,7 @@
 #define PIN_SPI_MISO         (5)
 #define PIN_SPI_MOSI         (4)
 
-#define PIN_SPI_NSS          (13)
+#define PIN_SPI_NSS          (16)
 
 #define PIN_SPI1_SCK         (0)
 #define PIN_SPI1_MISO        (19)

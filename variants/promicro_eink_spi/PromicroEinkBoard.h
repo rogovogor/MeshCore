@@ -13,7 +13,7 @@
 #define P_LORA_SCLK   3   // D3  = P0.20
 #define P_LORA_MOSI   4   // D4  = P0.22
 
-#define SX126X_POWER_EN       21  // D21 = P0.13
+#define SX126X_POWER_EN       21  // D21 = P0.13 — controls 3.3V power key (MOSFET/transistor)
 #define SX126X_RXEN           RADIOLIB_NC
 #define SX126X_TXEN           RADIOLIB_NC
 #define SX126X_DIO2_AS_RF_SWITCH  true
@@ -26,13 +26,13 @@
 #define PIN_DISPLAY_BUSY  8   // D8  = P1.04
 
 // Encoder / UI
-#define ENCODER_LEFT    3   // D3 = P0.20
-#define ENCODER_RIGHT   4   // D4 = P0.22
-#define ENCODER_PRESS   9   // D9 = P1.06
+#define ENCODER_LEFT    13  // D13 = P1.13
+#define ENCODER_RIGHT   14  // D14 = P1.15
+#define ENCODER_PRESS   9   // D9  = P1.06
 // BUTTON_PIN / BOOT as BACK = D6 = P1.00 (defined in variant.h as PIN_BUTTON1)
 
-// GPS via Serial1 (D18=RX, D20=TX), enable on D21
-#define PIN_GPS_EN  21   // D21 = P0.13
+// GPS via Serial1 (D18=RX, D20=TX), enable on D2
+#define PIN_GPS_EN  2    // D2 = P0.17
 
 // Buzzer moved to D22 = P0.15 (LED_BUILTIN).
 // This frees D17 = P0.31 (AIN7) for battery ADC.

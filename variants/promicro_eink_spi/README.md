@@ -46,7 +46,7 @@ P1.01 LF only
 | GND   | GND   |                       | GND                       |                                     |                        | GND                       |
 | P0.08 | D0    |                       | SCK                       |                                     |                        |                           |
 | P0.06 | D1    |                       | MOSI                      |                                     |                        |                           |
-| P0.17 | D2    |                       |                           |                                     | HF reserve             |                           |
+| P0.17 | D2    |                       |                           |                                     |                        | GPS ENABLE                |
 | P0.20 | D3    | SCK                   |                           |                                     |                        |                           |
 | P0.22 | D4    | MOSI                  |                           |                                     |                        |                           |
 | P0.24 | D5    | MISO                  |                           |                                     |                        |                           |
@@ -60,12 +60,12 @@ P1.01 LF only
 | P1.11 | D12   |                       | DC (data/command)         |                                     |                        |                           |
 | P1.13 | D13   |                       |                           | ENCODER LEFT (A)                    |                        |                           |
 | P1.15 | D14   |                       |                           | ENCODER RIGHT (B)                   |                        |                           |
-| P0.02 | D15   |                       |                           |                                     |                        | E-ink RST                 |
+| P0.02 | D15   |                       | RST                       |                                     |                        |                           |
 | P0.29 | D16   | CS                    |                           |                                     |                        |                           |
 | P0.31 | D17   |                       |                           | ADC (AIN7) ← VBAT divider           |                        |                           |
 +-------+-------+-----------------------+---------------------------+-------------------------------------+------------------------+---------------------------+
 | 3V3   | 3V3   | VCC                   | VCC                       |                                     |                        | VCC (3V3/5V)              |
-| P0.13 | D21   |                       |                           |                                     |                        | GPS ENABLE                |
+| P0.13 | D21   | VCC_EN                |                           |                                     |                        | GPS ENABLE                |
 | RST   | RST   |                       |                           |                                     |                        |                           |
 | GND   | GND   |                       | GND                       |                                     |                        | GND                       |
 +-------+-------+-----------------------+---------------------------+-------------------------------------+------------------------+---------------------------+
@@ -82,7 +82,7 @@ P1.01 LF only
 - **D21 (VCC_EN)** — включение питания радиомодуля через транзистор/MOSFET. Дисплей питается отдельно от 3.3V платы.
 - **SPI** (D3/D4/D5) — независимая шина для радио E22/E22P/RA-62.
 - **SPI1** (D0/D1) — независимая шина для дисплея. MISO не используется (дисплей write-only).
-- **ENCODER** — все три пина (D3, D4, D9) подтянуты внутри MCU (INPUT_PULLUP), внешние резисторы не нужны.
+- **ENCODER** — все три пина (D13, D14, D9) подтянуты внутри MCU (INPUT_PULLUP), внешние резисторы не нужны.
 - **ADC (D17)** — требует внешнего делителя 100kΩ/100kΩ для измерения батареи VBAT.
 
 ---
@@ -92,11 +92,11 @@ P1.01 LF only
 ### Радио EBYTE E22 M30S / E22P M30S (SX1262) ↔ ProMicro (SPI)
 
 ```
-ProMicro D14 (P1.15) ──── E22 SCK
-ProMicro D15 (P0.02) ──── E22 MOSI
-ProMicro D16 (P0.29) ──── E22 MISO
+ProMicro D3  (P0.20) ──── E22 SCK
+ProMicro D4  (P0.22) ──── E22 MOSI
+ProMicro D5  (P0.24) ──── E22 MISO
 ProMicro D19 (P1.02) ──── E22 BUSY      ← отдельный провод, не совмещать с MISO
-ProMicro D13 (P1.13) ──── E22 NSS (CS)
+ProMicro D16 (P0.29) ──── E22 NSS (CS)
 ProMicro D10 (P0.09) ──── E22 NRESET
 ProMicro D11 (P0.10) ──── E22 DIO1
 ProMicro D21 (P0.13) ──── E22 VCC_EN (через транзистор/MOSFET → E22 VCC)
@@ -112,11 +112,12 @@ GND ────────────────────── E22 GND
 Распиновка идентична E22 M30S:
 
 ```
-ProMicro D14 (P1.15) ──── RA-62 SCK
-ProMicro D15 (P0.02) ──── RA-62 MOSI
-ProMicro D16 (P0.29) ──── RA-62 MISO
+ProMicro D3  (P0.20) ──── RA-62 SCK
+ProMicro D4  (P0.22) ──── RA-62 MOSI
+ProMicro D5  (P0.24) ──── RA-62 MISO
 ProMicro D19 (P1.02) ──── RA-62 BUSY
-ProMicro D13 (P1.13) ──── RA-62 NSS (CS)ProMicro D10 (P0.09) ──── RA-62 NRESET
+ProMicro D16 (P0.29) ──── RA-62 NSS (CS)
+ProMicro D10 (P0.09) ──── RA-62 NRESET
 ProMicro D11 (P0.10) ──── RA-62 DIO1
 ProMicro D21 (P0.13) ──── RA-62 VCC_EN (через транзистор/MOSFET → RA-62 VCC)
 3.3V ───────────────────── RA-62 VCC  (если без транзистора)
@@ -145,9 +146,9 @@ GND ────────────────────── Epaper GN
 ### Энкодер (KY-040 или аналог)
 
 ```
-ProMicro D3 (P0.20) ──── Энкодер CLK (A)
-ProMicro D4 (P0.22) ──── Энкодер DT  (B)
-ProMicro D9 (P1.06) ──── Энкодер SW  (кнопка нажатия)
+ProMicro D13 (P1.13) ──── Энкодер CLK (A)
+ProMicro D14 (P1.15) ──── Энкодер DT  (B)
+ProMicro D9  (P1.06) ──── Энкодер SW  (кнопка нажатия)
 3.3V ────────────────── Энкодер +
 GND ─────────────────── Энкодер GND
 ```
@@ -202,7 +203,7 @@ VBAT_мВ = analogRead() × ADC_MULTIPLIER
 ```
 ProMicro D18 (P1.01) ──── GPS TX (Serial1 RX)
 ProMicro D20 (P1.05) ──── GPS RX (Serial1 TX)
-ProMicro D21 (P0.13) ──── GPS EN  (HIGH = включить питание GPS)
+ProMicro D2  (P0.17) ──── GPS EN  (HIGH = включить питание GPS)
 3.3V / 5V ──────────── GPS VCC (см. даташит модуля)
 GND ────────────────── GPS GND
 ```
@@ -317,7 +318,7 @@ D22 = P0.15 — это `LED_BUILTIN` на плате. Buzzer подключён 
 
 **Радио (SPI):**
 `CustomSX1262::std_init()` (и `CustomLLCC68::std_init()`) вызывает
-`SPI.setPins(D16, D14, D15)` перед `SPI.begin()`, поэтому пины радио
+`SPI.setPins(D5, D3, D4)` перед `SPI.begin()`, поэтому пины радио
 не зависят от `PIN_SPI_*` в `variant.h`.
 
 **Дисплей (SPI1):**
