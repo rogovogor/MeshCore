@@ -464,7 +464,7 @@ void MyMesh::queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packe
   // we only want to show text messages on display, not cli data
   bool should_display = txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_SIGNED_PLAIN;
   if (should_display && _ui) {
-    _ui->newMsg(path_len, from.name, text, offline_queue_len);
+    _ui->newMsg(path_len, from.name, text, offline_queue_len, true);
     if (!_serial->isConnected()) {
       _ui->notify(UIEventType::contactMessage);
     }

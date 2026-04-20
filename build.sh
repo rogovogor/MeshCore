@@ -123,9 +123,6 @@ build_firmware() {
   # get git commit sha
   COMMIT_HASH=$(git rev-parse --short HEAD)
 
-  # set firmware build date
-  FIRMWARE_BUILD_DATE=$(date '+%d-%b-%Y')
-
   # get FIRMWARE_VERSION, which should be provided by the environment
   if [ -z "$FIRMWARE_VERSION" ]; then
     echo "FIRMWARE_VERSION must be set in environment"
@@ -141,7 +138,7 @@ build_firmware() {
   FIRMWARE_FILENAME="$1-${FIRMWARE_VERSION_STRING}"
 
   # add firmware version info to end of existing platformio build flags in environment vars
-  export PLATFORMIO_BUILD_FLAGS="${PLATFORMIO_BUILD_FLAGS} -DFIRMWARE_BUILD_DATE='\"${FIRMWARE_BUILD_DATE}\"' -DFIRMWARE_VERSION='\"${FIRMWARE_VERSION_STRING}\"'"
+  export PLATFORMIO_BUILD_FLAGS="${PLATFORMIO_BUILD_FLAGS} -DFIRMWARE_VERSION='\"${FIRMWARE_VERSION_STRING}\"'"
 
   # disable debug flags if requested
   disable_debug_flags
@@ -158,7 +155,7 @@ build_firmware() {
 
   # build .uf2 for nrf52 boards, copy .uf2 and .zip to out folder (e.g: RAK_4631_Repeater-v1.0.0-SHA.uf2)
   if [ "$ENV_PLATFORM" == "NRF52_PLATFORM" ]; then
-    python3 bin/uf2conv/uf2conv.py .pio/build/$1/firmware.hex -c -o .pio/build/$1/firmware.uf2 -f 0xADA52840
+    python3 bin/uf2conv/uf2conv.py .pio/build/$1/firmware.hex -c -o .pio/build/$1/firmware.uf2 -f 0xADA52840 || echo "WARNING: uf2conv failed for $1 — .uf2 will not be produced"
     cp .pio/build/$1/firmware.uf2 out/${FIRMWARE_FILENAME}.uf2 2>/dev/null || true
     cp .pio/build/$1/firmware.zip out/${FIRMWARE_FILENAME}.zip 2>/dev/null || true
   fi
@@ -225,6 +222,8 @@ build_companion_firmwares() {
   # build all companion firmwares
   build_all_firmwares_by_suffix "_companion_radio_usb"
   build_all_firmwares_by_suffix "_companion_radio_ble"
+  build_all_firmwares_by_suffix "_companion_usb"
+  build_all_firmwares_by_suffix "_companion_ble"
 
 }
 

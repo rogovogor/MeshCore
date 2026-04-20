@@ -554,6 +554,9 @@ void OLEDDisplay::drawIco16x16(int16_t xMove, int16_t yMove, const uint8_t *ico,
 }
 
 uint16_t OLEDDisplay::drawStringInternal(int16_t xMove, int16_t yMove, const char* text, uint16_t textLength, uint16_t textWidth, bool utf8) {
+#ifdef CYRILLIC_SUPPORT
+  utf8 = false; // text is already translated to CP1251 by translateUTF8ToBlocks()
+#endif
   uint8_t textHeight       = pgm_read_byte(fontData + HEIGHT_POS);
   uint8_t firstChar        = pgm_read_byte(fontData + FIRST_CHAR_POS);
   uint16_t sizeOfJumpTable = pgm_read_byte(fontData + CHAR_NUM_POS)  * JUMPTABLE_BYTES;
@@ -678,7 +681,11 @@ uint16_t OLEDDisplay::drawStringMaxWidth(int16_t xMove, int16_t yMove, uint16_t 
   uint16_t drawStringResult = 1; // later tested for 0 == error, so initialize to 1
 
   for (uint16_t i = 0; i < length; i++) {
+#ifdef CYRILLIC_SUPPORT
+    char c = text[i]; // already translated to CP1251 by translateUTF8ToBlocks()
+#else
     char c = (this->fontTableLookupFunction)(text[i]);
+#endif
     if (c == 0)
       continue;
     strWidth += pgm_read_byte(fontData + JUMPTABLE_START + (c - firstChar) * JUMPTABLE_BYTES + JUMPTABLE_WIDTH);

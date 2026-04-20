@@ -2,6 +2,14 @@
 
 #include "../../MeshCore.h"
 
+#ifdef CYRILLIC_SUPPORT
+  #include "glcdfont6x8.h"
+#endif
+
+#ifndef DISPLAY_ROTATION
+  #define DISPLAY_ROTATION 3
+#endif
+
 BaseDisplay* E213Display::detectEInk()
 {
     // Test 1: Logic of BUSY pin
@@ -46,8 +54,8 @@ bool E213Display::begin() {
     display = detectEInk();
   }
   display->begin();
-  // Set to landscape mode rotated 180 degrees
-  display->setRotation(3);
+  // Set to landscape orientation by default unless overridden by build flag
+  display->setRotation(DISPLAY_ROTATION);
 
   _init = true;
   _isOn = true;
@@ -118,12 +126,17 @@ void E213Display::startFrame(Color bkg) {
     // Fill with black if light background requested (inverted for e-ink)
     display->fillRect(0, 0, width(), height(), BLACK);
   }
+#ifdef CYRILLIC_SUPPORT
+  display->setFont(&glcdfont6x8);
+#endif
 }
 
 void E213Display::setTextSize(int sz) {
   display_crc.update<int>(sz);
-  // The library handles text size internally
-    display->setTextSize(sz);
+#ifdef CYRILLIC_SUPPORT
+  _font_size = sz;
+#endif
+  display->setTextSize(sz);
 }
 
 void E213Display::setColor(Color c) {
@@ -134,7 +147,14 @@ void E213Display::setColor(Color c) {
 void E213Display::setCursor(int x, int y) {
   display_crc.update<int>(x);
   display_crc.update<int>(y);
-    display->setCursor(x, y);
+#ifdef CYRILLIC_SUPPORT
+  _cursor_y_raw = y;
+  // GFXfont positions cursor at text baseline, not top-left.
+  // Shift down by (size × font_ascent) so callers can use top-left semantics.
+  display->setCursor(x, y + (_font_size * 7));
+#else
+  display->setCursor(x, y);
+#endif
 }
 
 void E213Display::print(const char *str) {

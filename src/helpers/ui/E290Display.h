@@ -21,6 +21,7 @@ public:
   E290Display(RefCountedDigitalPin* periph_power = NULL) : DisplayDriver(296, 128), _periph_power(periph_power) {}
 
   bool begin();
+  bool isEink() const override { return true; }
   bool isOn() override { return _isOn; }
   void turnOn() override;
   void turnOff() override;
