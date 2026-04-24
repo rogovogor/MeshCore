@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout *)",
+      "Bash(git reset *)",
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(git merge *)",
+      "WebFetch(domain:www.cdebyte.com)",
+      "WebFetch(domain:www.ebyte.com)",
+      "Bash(git stash *)",
+      "Bash(git branch *)"
+    ]
+  }
+}
