@@ -88,6 +88,13 @@ public:
   virtual void setCurrentTime(uint32_t time) = 0;
 
   /**
+   * Returns true if the clock has been set from a reliable source
+   * (hardware RTC chip, GPS fix). Default false — volatile/hardcoded clocks
+   * are not considered reliable until explicitly synced.
+   */
+  virtual bool isTimeReliable() const { return false; }
+
+  /**
    * override in classes that need to periodically update internal state
    */
   virtual void tick() { /* no op */}

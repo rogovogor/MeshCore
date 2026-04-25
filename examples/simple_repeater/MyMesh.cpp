@@ -638,7 +638,8 @@ void MyMesh::tryTimeSyncFromBuf() {
   static const uint32_t CLUSTER_WINDOW  = 60;
 
   uint32_t current = getRTCClock()->getCurrentTime();
-  bool unset = current < MIN_VALID_TS;
+  // fast mode only if clock is not reliable (no HW RTC chip) AND never synced via adverts
+  bool unset = !getRTCClock()->isTimeReliable() && (_ts_sync_count == 0);
   int n = unset ? min(_ts_buf_count, 5) : min(_ts_buf_count, 10);
   int quorum = unset ? 3 : 7;
   if (_ts_buf_count < quorum) return;
@@ -666,20 +667,26 @@ void MyMesh::tryTimeSyncFromBuf() {
   }
   if (count < quorum) return;
 
-  if (unset) {
-    getRTCClock()->setCurrentTime(median);
-    _ts_last_adj = (int32_t)median - (int32_t)current;
-    _ts_last_sync = median;
+  auto applySync = [&](uint32_t ts, int32_t adj) {
+    LocationProvider* gps = sensors.getLocationProvider();
+    if (gps != nullptr && gps->isEnabled() && gps->isValid()) {
+      gps->syncTime(); // let GPS re-sync the clock authoritatively
+      MESH_DEBUG_PRINTLN("TimeSync: GPS re-sync requested (quorum drift %ld sec)", (long)adj);
+    } else {
+      getRTCClock()->setCurrentTime(ts);
+      MESH_DEBUG_PRINTLN("TimeSync: clock set, adj %ld sec (quorum %d/%d)", (long)adj, count, n);
+    }
+    _ts_last_adj = adj;
+    _ts_last_sync = ts;
     _ts_sync_count++;
-    MESH_DEBUG_PRINTLN("TimeSync: initial sync to %lu (quorum %d/%d)", (unsigned long)median, count, n);
+  };
+
+  if (unset) {
+    applySync(median, (int32_t)median - (int32_t)current);
   } else {
     uint32_t diff = (median > current) ? median - current : current - median;
     if (diff > DRIFT_THRESHOLD && diff < MAX_JUMP) {
-      _ts_last_adj = (int32_t)median - (int32_t)current;
-      getRTCClock()->setCurrentTime(median);
-      _ts_last_sync = median;
-      _ts_sync_count++;
-      MESH_DEBUG_PRINTLN("TimeSync: drift correction %ld sec (quorum %d/%d)", (long)_ts_last_adj, count, n);
+      applySync(median, (int32_t)median - (int32_t)current);
     }
   }
 }
@@ -690,7 +697,9 @@ void MyMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32
 
   static const uint32_t MIN_VALID_TS = 1577836800;
   static const uint32_t MAX_VALID_TS = 2524608000;
+  _ts_advert_count++;
   if (timestamp > MIN_VALID_TS && timestamp < MAX_VALID_TS) {
+    _ts_valid_count++;
     uint32_t pub_hash;
     memcpy(&pub_hash, id.pub_key, 4);
     _ts_buf[_ts_buf_pos] = { timestamp, pub_hash };
@@ -1311,17 +1320,18 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
     uint32_t now = getRTCClock()->getCurrentTime();
     DateTime dt(now);
     if (_ts_sync_count == 0) {
-      sprintf(reply, "TimeSync: no sync yet\nBuf: %d/10 samples\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+      sprintf(reply, "TimeSync: no sync yet\nAdverts: %lu rx / %lu valid\nBuf: %d/10\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+        (unsigned long)_ts_advert_count, (unsigned long)_ts_valid_count,
         _ts_buf_count,
         dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
     } else {
       uint32_t ago = now > _ts_last_sync ? now - _ts_last_sync : 0;
       DateTime ls(_ts_last_sync);
-      sprintf(reply, "TimeSync: %lu syncs\nLast: %02d:%02d %d-%02d-%02d UTC (%lus ago)\nAdj: %+lds\nBuf: %d/10\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+      sprintf(reply, "TimeSync: %lu syncs\nLast: %02d:%02d %d-%02d-%02d UTC (%lus ago)\nAdj: %+lds\nAdverts: %lu rx / %lu valid\nBuf: %d/10\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
         (unsigned long)_ts_sync_count,
         ls.hour(), ls.minute(), ls.year(), ls.month(), ls.day(),
-        (unsigned long)ago,
-        (long)_ts_last_adj,
+        (unsigned long)ago, (long)_ts_last_adj,
+        (unsigned long)_ts_advert_count, (unsigned long)_ts_valid_count,
         _ts_buf_count,
         dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
     }

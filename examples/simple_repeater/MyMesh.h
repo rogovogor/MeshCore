@@ -112,8 +112,10 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   int      _ts_buf_pos = 0;
   int      _ts_buf_count = 0;
   uint32_t _ts_sync_count = 0;
-  uint32_t _ts_last_sync = 0;   // unix ts of last successful sync
-  int32_t  _ts_last_adj = 0;    // seconds adjusted on last sync
+  uint32_t _ts_advert_count = 0;   // total adverts received (any timestamp)
+  uint32_t _ts_valid_count = 0;    // adverts with valid timestamp range
+  uint32_t _ts_last_sync = 0;      // unix ts of last successful sync
+  int32_t  _ts_last_adj = 0;       // seconds adjusted on last sync
   void tryTimeSyncFromBuf();
 
   unsigned long set_radio_at, revert_radio_at;

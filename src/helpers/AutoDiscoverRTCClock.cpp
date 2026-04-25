@@ -79,6 +79,10 @@ uint32_t AutoDiscoverRTCClock::getCurrentTime() {
   return _fallback->getCurrentTime();
 }
 
+bool AutoDiscoverRTCClock::isTimeReliable() const {
+  return ds3231_success || rv3028_success || rtc_8563_success || rtc_8130_success;
+}
+
 void AutoDiscoverRTCClock::setCurrentTime(uint32_t time) { 
   if (ds3231_success) {
     rtc_3231.adjust(DateTime(time));
