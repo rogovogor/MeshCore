@@ -24,7 +24,18 @@ jobs:
       - name: Build Firmwares
         env:
           FIRMWARE_VERSION: ${{ env.GIT_TAG_VERSION }}
-        run: /usr/bin/env bash build.sh build-room-server-firmwares
+        run: |
+          SPEC=""
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG_BODY="${GITHUB_REF#refs/tags/room-server-}"
+            CANDIDATE="${TAG_BODY%-v*}"
+            [[ "$CANDIDATE" != "$TAG_BODY" && -n "$CANDIDATE" ]] && SPEC="$CANDIDATE"
+          fi
+          if [ -n "$SPEC" ]; then
+            /usr/bin/env bash build.sh build-matching-firmwares "${SPEC}_room_server"
+          else
+            /usr/bin/env bash build.sh build-room-server-firmwares
+          fi
 
       - name: Upload Workflow Artifacts
         uses: actions/upload-artifact@v4
