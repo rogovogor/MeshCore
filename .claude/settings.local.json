@@ -11,7 +11,10 @@
       "Bash(git branch *)",
       "Bash(xargs grep *)",
       "Read(//c/Users/Ruslan/.platformio/**)",
-      "Bash(git commit -m 'feat: repeater time sync from advert timestamps *)"
+      "Bash(git commit -m 'feat: repeater time sync from advert timestamps *)",
+      "Bash(pio run *)",
+      "Bash(git commit -m 'feat: repeater time sync — GPS re-sync, isTimeReliable, diagnostics *)",
+      "Bash(git push *)"
     ]
   }
 }

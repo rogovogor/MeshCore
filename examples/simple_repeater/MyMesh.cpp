@@ -657,15 +657,21 @@ void MyMesh::tryTimeSyncFromBuf() {
     while (j >= 0 && tmp[j] > key) { tmp[j+1] = tmp[j]; j--; }
     tmp[j+1] = key;
   }
-  uint32_t median = tmp[n / 2];
-
-  // count samples within cluster window around median
-  int count = 0;
+  // find densest cluster: slide a CLUSTER_WINDOW across sorted samples
+  int best_count = 0, best_start = 0;
   for (int i = 0; i < n; i++) {
-    uint32_t diff = (tmp[i] > median) ? tmp[i] - median : median - tmp[i];
-    if (diff <= CLUSTER_WINDOW) count++;
+    int cnt = 0;
+    for (int j = i; j < n && tmp[j] - tmp[i] <= CLUSTER_WINDOW; j++) cnt++;
+    if (cnt > best_count) { best_count = cnt; best_start = i; }
   }
+  int count = best_count;
+  if (count > _ts_best_cluster) _ts_best_cluster = count;
   if (count < quorum) return;
+
+  // median of the winning cluster
+  int cluster_end = best_start;
+  while (cluster_end < n && tmp[cluster_end] - tmp[best_start] <= CLUSTER_WINDOW) cluster_end++;
+  uint32_t median = tmp[(best_start + cluster_end) / 2];
 
   auto applySync = [&](uint32_t ts, int32_t adj) {
     LocationProvider* gps = sensors.getLocationProvider();
@@ -1320,9 +1326,10 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
     uint32_t now = getRTCClock()->getCurrentTime();
     DateTime dt(now);
     if (_ts_sync_count == 0) {
-      sprintf(reply, "TimeSync: no sync yet\nAdverts: %lu rx / %lu valid\nBuf: %d/10\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+      bool unset_mode = !getRTCClock()->isTimeReliable();
+      sprintf(reply, "TimeSync: no sync yet\nAdverts: %lu rx / %lu valid\nBuf: %d/10 (best cluster: %d/%d need %d)\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
         (unsigned long)_ts_advert_count, (unsigned long)_ts_valid_count,
-        _ts_buf_count,
+        _ts_buf_count, _ts_best_cluster, min(_ts_buf_count, unset_mode ? 5 : 10), unset_mode ? 3 : 7,
         dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
     } else {
       uint32_t ago = now > _ts_last_sync ? now - _ts_last_sync : 0;
@@ -1332,8 +1339,7 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
         ls.hour(), ls.minute(), ls.year(), ls.month(), ls.day(),
         (unsigned long)ago, (long)_ts_last_adj,
         (unsigned long)_ts_advert_count, (unsigned long)_ts_valid_count,
-        _ts_buf_count,
-        dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
+        _ts_buf_count, dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
     }
   } else if (memcmp(command, "discover.neighbors", 18) == 0) {
     const char* sub = command + 18;

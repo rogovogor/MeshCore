@@ -54,6 +54,12 @@ Active when: clock is already trusted (hardware RTC present or previously synced
 | `ESP32RTCClock` (hardcoded start) | false |
 | `AutoDiscoverRTCClock` with HW chip | **true** (DS3231 / RV3028 / PCF8563 / RX8130CE) |
 
+## Cluster Algorithm
+
+Timestamps are sorted. A sliding window of `CLUSTER_WINDOW` seconds is swept across the sorted array to find the densest cluster (most samples within the window). This correctly handles mixed networks where GPS-synced nodes (accurate) are outnumbered by nodes with wrong hardcoded clocks — the GPS cluster is detected even if smaller, as long as it reaches quorum size.
+
+The median of the **winning cluster** (not all samples) is used as the sync target.
+
 ## Apply Logic
 
 When quorum is reached and adjustment is needed:

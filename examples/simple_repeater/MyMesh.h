@@ -116,6 +116,7 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   uint32_t _ts_valid_count = 0;    // adverts with valid timestamp range
   uint32_t _ts_last_sync = 0;      // unix ts of last successful sync
   int32_t  _ts_last_adj = 0;       // seconds adjusted on last sync
+  int      _ts_best_cluster = 0;   // best cluster seen so far (for diagnostics)
   void tryTimeSyncFromBuf();
 
   unsigned long set_radio_at, revert_radio_at;
