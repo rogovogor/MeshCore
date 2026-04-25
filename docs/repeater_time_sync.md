@@ -59,6 +59,40 @@ On **ESP32 generic-e22** boards the I2C bus is on **GPIO 21 (SDA)** and **GPIO 2
 When a hardware RTC is present the quorum sync still runs; `setCurrentTime` will persist
 the corrected time to the chip.
 
+## CLI Commands
+
+### `timesync`
+Shows time sync status remotely via companion radio:
+
+```
+TimeSync: 3 syncs
+Last: 14:22 2025-01-15 UTC (4320s ago)
+Adj: +145s
+Buf: 8/10
+Clock: 15:54:01 2025-01-15 UTC
+```
+
+| Field | Description |
+|---|---|
+| syncs | Total number of clock adjustments since boot |
+| Last | Time and date of the last adjustment |
+| Adj | Seconds added/subtracted on the last adjustment |
+| Buf | How many advert timestamps are in the buffer |
+| Clock | Current repeater clock |
+
+Before first sync:
+```
+TimeSync: no sync yet
+Buf: 2/10 samples
+Clock: 08:50:51 2024-05-15 UTC
+```
+
+### `clock`
+Shows current time only (existing command).
+
+### `clock sync`
+Forces immediate sync from the sender's timestamp (existing command).
+
 ## Constants
 
 | Constant | Value | Description |

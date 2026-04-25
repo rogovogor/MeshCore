@@ -111,6 +111,9 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   TsSample _ts_buf[10];
   int      _ts_buf_pos = 0;
   int      _ts_buf_count = 0;
+  uint32_t _ts_sync_count = 0;
+  uint32_t _ts_last_sync = 0;   // unix ts of last successful sync
+  int32_t  _ts_last_adj = 0;    // seconds adjusted on last sync
   void tryTimeSyncFromBuf();
 
   unsigned long set_radio_at, revert_radio_at;

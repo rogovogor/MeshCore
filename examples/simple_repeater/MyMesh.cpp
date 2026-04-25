@@ -668,12 +668,18 @@ void MyMesh::tryTimeSyncFromBuf() {
 
   if (unset) {
     getRTCClock()->setCurrentTime(median);
+    _ts_last_adj = (int32_t)median - (int32_t)current;
+    _ts_last_sync = median;
+    _ts_sync_count++;
     MESH_DEBUG_PRINTLN("TimeSync: initial sync to %lu (quorum %d/%d)", (unsigned long)median, count, n);
   } else {
     uint32_t diff = (median > current) ? median - current : current - median;
     if (diff > DRIFT_THRESHOLD && diff < MAX_JUMP) {
+      _ts_last_adj = (int32_t)median - (int32_t)current;
       getRTCClock()->setCurrentTime(median);
-      MESH_DEBUG_PRINTLN("TimeSync: drift correction %ld sec (quorum %d/%d)", (long)median - (long)current, count, n);
+      _ts_last_sync = median;
+      _ts_sync_count++;
+      MESH_DEBUG_PRINTLN("TimeSync: drift correction %ld sec (quorum %d/%d)", (long)_ts_last_adj, count, n);
     }
   }
 }
@@ -1301,6 +1307,24 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       Serial.printf("\n");
     }
     reply[0] = 0;
+  } else if (memcmp(command, "timesync", 8) == 0) {
+    uint32_t now = getRTCClock()->getCurrentTime();
+    DateTime dt(now);
+    if (_ts_sync_count == 0) {
+      sprintf(reply, "TimeSync: no sync yet\nBuf: %d/10 samples\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+        _ts_buf_count,
+        dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
+    } else {
+      uint32_t ago = now > _ts_last_sync ? now - _ts_last_sync : 0;
+      DateTime ls(_ts_last_sync);
+      sprintf(reply, "TimeSync: %lu syncs\nLast: %02d:%02d %d-%02d-%02d UTC (%lus ago)\nAdj: %+lds\nBuf: %d/10\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+        (unsigned long)_ts_sync_count,
+        ls.hour(), ls.minute(), ls.year(), ls.month(), ls.day(),
+        (unsigned long)ago,
+        (long)_ts_last_adj,
+        _ts_buf_count,
+        dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
+    }
   } else if (memcmp(command, "discover.neighbors", 18) == 0) {
     const char* sub = command + 18;
     while (*sub == ' ') sub++;
