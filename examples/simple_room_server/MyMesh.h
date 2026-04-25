@@ -108,6 +108,17 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   int next_post_idx;
   PostInfo posts[MAX_UNSYNCED_POSTS];   // cyclic queue
   CayenneLPP telemetry;
+  struct TsSample { uint32_t ts; uint32_t pub_hash; };
+  TsSample _ts_buf[10];
+  int      _ts_buf_pos = 0;
+  int      _ts_buf_count = 0;
+  uint32_t _ts_sync_count = 0;
+  uint32_t _ts_advert_count = 0;
+  uint32_t _ts_valid_count = 0;
+  uint32_t _ts_last_sync = 0;
+  int32_t  _ts_last_adj = 0;
+  int      _ts_best_cluster = 0;
+  void tryTimeSyncFromBuf();
   RegionEntry* load_stack[8];
   RegionEntry* recv_pkt_region;
   TransportKey default_scope;
@@ -155,6 +166,7 @@ protected:
 
   bool allowPacketForward(const mesh::Packet* packet) override;
   void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override;
+  void onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len) override;
   int searchPeersByHash(const uint8_t* hash) override ;
   void getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) override;
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override;

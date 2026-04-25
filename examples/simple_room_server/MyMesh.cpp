@@ -850,6 +850,85 @@ void MyMesh::formatPacketStatsReply(char *reply) {
                                        getNumRecvFlood(), getNumRecvDirect());
 }
 
+void MyMesh::tryTimeSyncFromBuf() {
+  static const uint32_t MIN_VALID_TS    = 1577836800; // 2020-01-01 UTC
+  static const uint32_t MAX_VALID_TS    = 2524608000; // 2050-01-01 UTC
+  static const uint32_t DRIFT_THRESHOLD = 120;
+  static const uint32_t MAX_JUMP        = 3600;
+  static const uint32_t CLUSTER_WINDOW  = 60;
+
+  uint32_t current = getRTCClock()->getCurrentTime();
+  bool unset = !getRTCClock()->isTimeReliable() && (_ts_sync_count == 0);
+  int n = unset ? min(_ts_buf_count, 5) : min(_ts_buf_count, 10);
+  int quorum = unset ? 3 : 7;
+  if (_ts_buf_count < quorum) return;
+
+  uint32_t tmp[10];
+  for (int i = 0; i < n; i++) {
+    int idx = (_ts_buf_pos - 1 - i + 10) % 10;
+    tmp[i] = _ts_buf[idx].ts;
+  }
+  for (int i = 1; i < n; i++) {
+    uint32_t key = tmp[i];
+    int j = i - 1;
+    while (j >= 0 && tmp[j] > key) { tmp[j+1] = tmp[j]; j--; }
+    tmp[j+1] = key;
+  }
+
+  int best_count = 0, best_start = 0;
+  for (int i = 0; i < n; i++) {
+    int cnt = 0;
+    for (int j = i; j < n && tmp[j] - tmp[i] <= CLUSTER_WINDOW; j++) cnt++;
+    if (cnt > best_count) { best_count = cnt; best_start = i; }
+  }
+  int count = best_count;
+  if (count > _ts_best_cluster) _ts_best_cluster = count;
+  if (count < quorum) return;
+
+  int cluster_end = best_start;
+  while (cluster_end < n && tmp[cluster_end] - tmp[best_start] <= CLUSTER_WINDOW) cluster_end++;
+  uint32_t median = tmp[(best_start + cluster_end) / 2];
+
+  auto applySync = [&](uint32_t ts, int32_t adj) {
+    LocationProvider* gps = sensors.getLocationProvider();
+    if (gps != nullptr && gps->isEnabled() && gps->isValid()) {
+      gps->syncTime();
+    } else {
+      getRTCClock()->setCurrentTime(ts);
+    }
+    _ts_last_adj = adj;
+    _ts_last_sync = ts;
+    _ts_sync_count++;
+  };
+
+  if (unset) {
+    applySync(median, (int32_t)median - (int32_t)current);
+  } else {
+    uint32_t diff = (median > current) ? median - current : current - median;
+    if (diff > DRIFT_THRESHOLD && diff < MAX_JUMP) {
+      applySync(median, (int32_t)median - (int32_t)current);
+    }
+  }
+}
+
+void MyMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp,
+                          const uint8_t* app_data, size_t app_data_len) {
+  mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
+
+  static const uint32_t MIN_VALID_TS = 1577836800;
+  static const uint32_t MAX_VALID_TS = 2524608000;
+  _ts_advert_count++;
+  if (timestamp > MIN_VALID_TS && timestamp < MAX_VALID_TS) {
+    _ts_valid_count++;
+    uint32_t pub_hash;
+    memcpy(&pub_hash, id.pub_key, 4);
+    _ts_buf[_ts_buf_pos] = { timestamp, pub_hash };
+    _ts_buf_pos = (_ts_buf_pos + 1) % 10;
+    if (_ts_buf_count < 10) _ts_buf_count++;
+    tryTimeSyncFromBuf();
+  }
+}
+
 void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
   if (region_load_active) {
     if (StrHelper::isBlank(command)) {  // empty/blank line, signal to terminate 'load' operation
@@ -928,6 +1007,25 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       Serial.printf("\n");
     }
     reply[0] = 0;
+  } else if (memcmp(command, "timesync", 8) == 0) {
+    uint32_t now = getRTCClock()->getCurrentTime();
+    DateTime dt(now);
+    if (_ts_sync_count == 0) {
+      bool unset_mode = !getRTCClock()->isTimeReliable();
+      sprintf(reply, "TimeSync: no sync yet\nAdverts: %lu rx / %lu valid\nBuf: %d/10 (best cluster: %d/%d need %d)\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+        (unsigned long)_ts_advert_count, (unsigned long)_ts_valid_count,
+        _ts_buf_count, _ts_best_cluster, min(_ts_buf_count, unset_mode ? 5 : 10), unset_mode ? 3 : 7,
+        dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
+    } else {
+      uint32_t ago = now > _ts_last_sync ? now - _ts_last_sync : 0;
+      DateTime ls(_ts_last_sync);
+      sprintf(reply, "TimeSync: %lu syncs\nLast: %02d:%02d %d-%02d-%02d UTC (%lus ago)\nAdj: %+lds\nAdverts: %lu rx / %lu valid\nBuf: %d/10\nClock: %02d:%02d:%02d %d-%02d-%02d UTC",
+        (unsigned long)_ts_sync_count,
+        ls.hour(), ls.minute(), ls.year(), ls.month(), ls.day(),
+        (unsigned long)ago, (long)_ts_last_adj,
+        (unsigned long)_ts_advert_count, (unsigned long)_ts_valid_count,
+        _ts_buf_count, dt.hour(), dt.minute(), dt.second(), dt.year(), dt.month(), dt.day());
+    }
   } else{
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
   }
