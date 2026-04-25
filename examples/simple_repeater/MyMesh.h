@@ -107,6 +107,12 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
 #endif
   CayenneLPP telemetry;
+  struct TsSample { uint32_t ts; uint32_t pub_hash; };
+  TsSample _ts_buf[10];
+  int      _ts_buf_pos = 0;
+  int      _ts_buf_count = 0;
+  void tryTimeSyncFromBuf();
+
   unsigned long set_radio_at, revert_radio_at;
   float pending_freq;
   float pending_bw;

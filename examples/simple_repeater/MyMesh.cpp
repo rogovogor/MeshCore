@@ -630,9 +630,68 @@ static bool isShare(const mesh::Packet *packet) {
   return false;
 }
 
+void MyMesh::tryTimeSyncFromBuf() {
+  static const uint32_t MIN_VALID_TS    = 1577836800; // 2020-01-01 UTC
+  static const uint32_t MAX_VALID_TS    = 2524608000; // 2050-01-01 UTC
+  static const uint32_t DRIFT_THRESHOLD = 120;
+  static const uint32_t MAX_JUMP        = 3600;
+  static const uint32_t CLUSTER_WINDOW  = 60;
+
+  uint32_t current = getRTCClock()->getCurrentTime();
+  bool unset = current < MIN_VALID_TS;
+  int n = unset ? min(_ts_buf_count, 5) : min(_ts_buf_count, 10);
+  int quorum = unset ? 3 : 7;
+  if (_ts_buf_count < quorum) return;
+
+  // copy last n samples (ring buffer, most recent first going backwards)
+  uint32_t tmp[10];
+  for (int i = 0; i < n; i++) {
+    int idx = (_ts_buf_pos - 1 - i + 10) % 10;
+    tmp[i] = _ts_buf[idx].ts;
+  }
+  // insertion sort
+  for (int i = 1; i < n; i++) {
+    uint32_t key = tmp[i];
+    int j = i - 1;
+    while (j >= 0 && tmp[j] > key) { tmp[j+1] = tmp[j]; j--; }
+    tmp[j+1] = key;
+  }
+  uint32_t median = tmp[n / 2];
+
+  // count samples within cluster window around median
+  int count = 0;
+  for (int i = 0; i < n; i++) {
+    uint32_t diff = (tmp[i] > median) ? tmp[i] - median : median - tmp[i];
+    if (diff <= CLUSTER_WINDOW) count++;
+  }
+  if (count < quorum) return;
+
+  if (unset) {
+    getRTCClock()->setCurrentTime(median);
+    MESH_DEBUG_PRINTLN("TimeSync: initial sync to %lu (quorum %d/%d)", (unsigned long)median, count, n);
+  } else {
+    uint32_t diff = (median > current) ? median - current : current - median;
+    if (diff > DRIFT_THRESHOLD && diff < MAX_JUMP) {
+      getRTCClock()->setCurrentTime(median);
+      MESH_DEBUG_PRINTLN("TimeSync: drift correction %ld sec (quorum %d/%d)", (long)median - (long)current, count, n);
+    }
+  }
+}
+
 void MyMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32_t timestamp,
                           const uint8_t *app_data, size_t app_data_len) {
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len); // chain to super impl
+
+  static const uint32_t MIN_VALID_TS = 1577836800;
+  static const uint32_t MAX_VALID_TS = 2524608000;
+  if (timestamp > MIN_VALID_TS && timestamp < MAX_VALID_TS) {
+    uint32_t pub_hash;
+    memcpy(&pub_hash, id.pub_key, 4);
+    _ts_buf[_ts_buf_pos] = { timestamp, pub_hash };
+    _ts_buf_pos = (_ts_buf_pos + 1) % 10;
+    if (_ts_buf_count < 10) _ts_buf_count++;
+    tryTimeSyncFromBuf();
+  }
 
   // if this a zero hop advert (and not via 'Share'), add it to neighbours
   if (packet->path_len == 0 && !isShare(packet)) {
