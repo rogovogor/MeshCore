@@ -19,9 +19,14 @@
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 #ifdef DISPLAY_CLASS
-  #include <helpers/ui/SSD1306Display.h>
+  #ifdef EINK_DISPLAY_MODEL
+    #include <helpers/ui/GxEPDDisplay.h>
+  #else
+    #include <helpers/ui/SSD1306Display.h>
+  #endif
   #include <helpers/ui/MomentaryButton.h>
 #endif
+
 
 extern ESP32Board board;
 extern WRAPPER_CLASS radio_driver;
