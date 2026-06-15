@@ -38,6 +38,5 @@ public:
     }
     return true;
   }
-  float getAdcMultiplier() const override { return adc_mult; }
   const char* getManufacturerName() const override;
 };
