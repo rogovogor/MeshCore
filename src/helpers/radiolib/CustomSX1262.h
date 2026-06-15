@@ -53,6 +53,16 @@ class CustomSX1262 : public SX1262 {
       if (spi) spi->begin(P_LORA_SCLK, P_LORA_MISO, P_LORA_MOSI);
     #endif
   #endif
+      // Hard-reset the radio chip before begin() to guarantee clean state.
+      // Required when SPI bus is shared with display (display init may leave chip busy).
+      #ifdef P_LORA_RESET
+        pinMode(P_LORA_RESET, OUTPUT);
+        digitalWrite(P_LORA_RESET, LOW);
+        delay(10);
+        digitalWrite(P_LORA_RESET, HIGH);
+        delay(100);
+      #endif
+
       int status = begin(LORA_FREQ, LORA_BW, LORA_SF, cr, RADIOLIB_SX126X_SYNC_WORD_PRIVATE, LORA_TX_POWER, 16, tcxo, useRegulatorLDO);
       // if radio init fails with -707/-706, try again with tcxo voltage set to 0.0f
       if (status == RADIOLIB_ERR_SPI_CMD_FAILED || status == RADIOLIB_ERR_SPI_CMD_INVALID) {
