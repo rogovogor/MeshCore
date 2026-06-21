@@ -553,13 +553,13 @@ struct SensorDef {
 
 static const SensorDef SENSOR_TABLE[] = {
 #if ENV_INCLUDE_AHTX0
-  { TELEM_AHTX_ADDRESS,    "AHT10/AHT20", init_ahtx0,    query_ahtx0    },
+  { TELEM_AHTX_ADDRESS,    "AHTX0",       init_ahtx0,    query_ahtx0    },
 #endif
 #ifdef ENV_INCLUDE_BME680
   { TELEM_BME680_ADDRESS,  "BME680",       init_bme680,   query_bme680   },
 #endif
 #if ENV_INCLUDE_BME680_BSEC
-  { TELEM_BME680_ADDRESS,  "BME680+BSEC",   init_bme680_bsec, query_bme680_bsec },
+  { TELEM_BME680_ADDRESS,  "BME680+B",      init_bme680_bsec, query_bme680_bsec },
 #endif
 #if ENV_INCLUDE_BME280
   { TELEM_BME280_ADDRESS,  "BME280",       init_bme280,   query_bme280   },
