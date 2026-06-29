@@ -441,9 +441,33 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       _callbacks->formatStatsReply(reply);
     } else if (memcmp(command, "timesync", 8) == 0 && (command[8] == 0 || command[8] == ' ')) {
       _callbacks->formatTimesyncReply(reply);
+    } else if ((memcmp(command, "help", 4) == 0 && (command[4] == 0 || command[4] == ' ')) || strcmp(command, "?") == 0) {
+      reply[0] = 0;
+      appendCommonHelp(reply, 160);
     } else {
       strcpy(reply, "Unknown command");
     }
+}
+
+void CommonCLI::appendCommonHelp(char* reply, size_t cap) {
+  size_t len = strlen(reply);
+  // put the common list on its own line below any role-specific text
+  if (len && reply[len-1] != '\n' && reply[len-1] != ' ' && len + 1 < cap) {
+    reply[len++] = '\n';
+    reply[len] = 0;
+  }
+  snprintf(reply + len, cap - len,
+    "advert, clock, time, get, set, ver, board, neighbors, password, "
+    "tempradio, powersaving, log, timesync, clear stats, stats-core, "
+    "reboot, poweroff"
+#if ENV_INCLUDE_GPS == 1
+    ", gps"
+#endif
+  );
+  if (_region_map) {
+    len = strlen(reply);
+    snprintf(reply + len, cap - len, ", region");
+  }
 }
 
 void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* reply) {

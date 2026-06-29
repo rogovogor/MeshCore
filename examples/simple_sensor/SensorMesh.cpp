@@ -446,6 +446,9 @@ void SensorMesh::handleCommand(uint32_t sender_timestamp, char* command, char* r
       board.setGpio(val);
     }
     sprintf(reply, "%x", board.getGpio());
+  } else if (strcmp(command, "help") == 0 || strcmp(command, "?") == 0) {
+    strcpy(reply, "setperm, get acl, io");
+    _cli.appendCommonHelp(reply, 155);
   } else{
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
   }

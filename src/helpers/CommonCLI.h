@@ -99,5 +99,12 @@ public:
   void loadPrefs(FILESYSTEM* _fs);
   bool savePrefs(FILESYSTEM* _fs);
   void handleCommand(uint32_t sender_timestamp, char* command, char* reply);
+
+  // Appends the names of the commands handled by CommonCLI (i.e. available on
+  // every role) to `reply`, after any role-specific text already in it, bounded
+  // by `cap` bytes. region/gps are listed only when actually supported by this
+  // build/node, so each role's `help` lists only commands it can execute.
+  void appendCommonHelp(char* reply, size_t cap);
+
   uint8_t buildAdvertData(uint8_t node_type, uint8_t* app_data);
 };
