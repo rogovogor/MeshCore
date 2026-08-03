@@ -749,7 +749,7 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
       if (_prefs->adc_multiplier == 0.0f) {
         strcpy(reply, "OK - using default board multiplier");
       } else {
-        sprintf(reply, "OK - multiplier set to %.3f", _prefs->adc_multiplier);
+        sprintf(reply, "OK - multiplier set to %s", StrHelper::ftoa3(_prefs->adc_multiplier));
       }
     } else {
       _prefs->adc_multiplier = 0.0f;
@@ -921,7 +921,7 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, char* command, char* rep
     if (adc_mult == 0.0f) {
       strcpy(reply, "Error: unsupported");
     } else {
-      sprintf(reply, "> %.3f", adc_mult);
+      sprintf(reply, "> %s", StrHelper::ftoa3(adc_mult));
     }
   // Power management commands
   } else if (memcmp(config, "pwrmgt.support", 14) == 0) {
