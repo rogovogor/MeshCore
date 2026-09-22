@@ -216,6 +216,7 @@ public:
 };
 
 class ESP32RTCClock : public mesh::RTCClock {
+  bool time_was_set = false;
 public:
   ESP32RTCClock() { }
   void begin() {
@@ -226,8 +227,16 @@ public:
       tv.tv_sec = 1715770351;  // 15 May 2024, 8:50pm
     tv.tv_usec = 0;
     settimeofday(&tv, NULL);
+  } else {
+      // Anything other than a cold boot keeps the RTC domain alive, so the
+      // time carried over from before the reset is as good as it was then.
+      time_was_set = true;
   }
   }
+
+  // The placeholder date above is inside any sane validity range, so callers
+  // cannot tell it apart from a real time by value alone.
+  bool isTimeReliable() const override { return time_was_set; }
   uint32_t getCurrentTime() override {
     time_t _now;
     time(&_now);
@@ -238,6 +247,7 @@ public:
     tv.tv_sec = time;
     tv.tv_usec = 0;
     settimeofday(&tv, NULL);
+    time_was_set = true;
   }
 };
 
