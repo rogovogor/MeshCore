@@ -79,8 +79,9 @@ void CompanionCLICallbacks::applyTempRadioParams(float freq, float bw, uint8_t s
   radio_driver.setParams(freq, bw, sf, cr);
 }
 
-void CompanionCLICallbacks::setRxBoostedGain(bool enable) {
+bool CompanionCLICallbacks::setRxBoostedGain(bool enable) {
   radio_driver.setRxBoostedGainMode(enable ? 1 : 0);
+  return true;
 }
 
 void CompanionCLICallbacks::formatTimesyncReply(char* reply) {

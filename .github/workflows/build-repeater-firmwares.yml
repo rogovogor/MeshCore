@@ -10,44 +10,8 @@ on:
       - 'repeater-*'
 
 jobs:
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Clone Repo
-        uses: actions/checkout@v6
-
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-environment
-
-      - name: Build Firmwares
-        env:
-          FIRMWARE_VERSION: ${{ env.GIT_TAG_VERSION }}
-        run: |
-          SPEC=""
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            TAG_BODY="${GITHUB_REF#refs/tags/repeater-}"
-            CANDIDATE="${TAG_BODY%-v*}"
-            [[ "$CANDIDATE" != "$TAG_BODY" && -n "$CANDIDATE" ]] && SPEC="$CANDIDATE"
-          fi
-          if [ -n "$SPEC" ]; then
-            /usr/bin/env bash build.sh build-matching-firmwares "${SPEC}_repeater"
-          else
-            /usr/bin/env bash build.sh build-repeater-firmwares
-          fi
-
-      - name: Upload Workflow Artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: repeater-firmwares
-          path: out
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          name: Repeater Firmware ${{ env.GIT_TAG_VERSION }}
-          body: ""
-          draft: true
-          files: out/*
+  build-repeater-firmwares:
+    uses: ./.github/workflows/firmware-builder.yml
+    with:
+      firmware_type: 'repeater'
+      release_title_prefix: 'Repeater Firmware'

@@ -5,7 +5,6 @@
 Включён `NRF52_POWER_MANAGEMENT` для:
 
 - `variants/promicro` (Nice!nano / ProMicro nRF52840)
-- `variants/promicro_eink_spi_v2` (ProMicro + WeAct ePaper 2.13")
 
 Реализованы три уровня защиты:
 
@@ -130,12 +129,7 @@ protection по АЦП всегда даёт абсолютное измерен
 - `initiateShutdown()`: отключает `SX126X_POWER_EN` перед переходом в SYSTEMOFF
 - Порядок в `begin()`: init → `checkBootVoltage()` → `configureLowVoltageAlert()` → `SX126X_POWER_EN = HIGH`
 
-### `promicro_eink_spi_v2` (ProMicro + ePaper)
-
-- `initiateShutdown()`: отключает `PIN_GPS_EN` перед переходом в SYSTEMOFF
-- Порядок в `begin()`: init → `checkBootVoltage()` → `configureLowVoltageAlert()` → `PIN_GPS_EN = HIGH`
-
-Ручной `powerOff()` на обеих платах не изменён — выполняет чистый `sd_power_system_off()` без вооружения LPCOMP (пробуждение только по кнопке reset или VBUS).
+Ручной `powerOff()` на плате не изменён — выполняет чистый `sd_power_system_off()` без вооружения LPCOMP (пробуждение только по кнопке reset или VBUS).
 
 ## CLI
 
@@ -154,5 +148,3 @@ protection по АЦП всегда даёт абсолютное измерен
 | `src/helpers/NRF52Board.cpp` | Реализация `configureLowVoltageAlert()`; ISR `LPCOMP_COMP_IRQHandler`; статические определения |
 | `variants/promicro/variant.h` | `PWRMGT_LPCOMP_REFSEL=12`, `PWRMGT_LPCOMP_LOW_REFSEL=11`; исправлен баг (было 11, давало ~2.7 В — ниже boot lock) |
 | `variants/promicro/PromicroBoard.cpp` | `power_config` + вызов `configureLowVoltageAlert()` |
-| `variants/promicro_eink_spi_v2/variant.h` | То же что promicro/variant.h |
-| `variants/promicro_eink_spi_v2/PromicroEinkV2Board.cpp` | То же что PromicroBoard.cpp |

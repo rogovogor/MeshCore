@@ -7,8 +7,6 @@
 
 Затронутые варианты:
 
-- `promicro_eink_spi`
-- `promicro_eink_spi_v2`
 - `heltec_e213`
 - `heltec_e290`
 - `thinknode_m1`

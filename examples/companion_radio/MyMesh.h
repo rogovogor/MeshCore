@@ -8,14 +8,14 @@
 #define FIRMWARE_VER_CODE 13
 
 #ifndef FIRMWARE_BUILD_DATE
-#define FIRMWARE_BUILD_DATE "6 Jun 2026"
+#define FIRMWARE_BUILD_DATE "9 Aug 2026"
 #endif
 
 #ifndef FIRMWARE_VERSION
   #ifdef GIT_COMMIT
-    #define FIRMWARE_VERSION "v1.16.0-" GIT_COMMIT
+    #define FIRMWARE_VERSION "v1.17.0-" GIT_COMMIT
   #else
-    #define FIRMWARE_VERSION "v1.16.0"
+    #define FIRMWARE_VERSION "v1.17.0"
   #endif
 #endif
 
@@ -140,6 +140,7 @@ public:
 protected:
   float getAirtimeBudgetFactor() const override;
   int getInterferenceThreshold() const override;
+  bool getCADEnabled() const override;
   int calcRxDelay(float score, uint32_t air_time) const override;
   uint32_t getRetransmitDelay(const mesh::Packet *packet) override;
   uint32_t getDirectRetransmitDelay(const mesh::Packet *packet) override;
@@ -201,7 +202,11 @@ protected:
   }
 
 public:
-  void savePrefs() { _store->savePrefs(_prefs, sensors.node_lat, sensors.node_lon); }
+  void savePrefs() {
+    _prefs.node_lat = sensors.node_lat;
+    _prefs.node_lon = sensors.node_lon;
+    _store->savePrefs(_prefs);
+  }
   void deferSavePrefs();   // schedule flash write to happen outside of BLE connection
 
 #ifdef WITH_COMPANION_CLI

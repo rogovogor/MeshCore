@@ -15,6 +15,7 @@ public:
 
   virtual bool isConnected() const = 0;
   virtual void disconnect() {}
+  virtual void loop() {};
 
   virtual bool isWriteBusy() const = 0;
   virtual size_t writeFrame(const uint8_t src[], size_t len) = 0;

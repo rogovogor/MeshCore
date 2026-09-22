@@ -17,6 +17,7 @@ class E290Display : public DisplayDriver {
   CRC32 display_crc;
   uint32_t last_display_crc_value = 0;
   uint8_t _partial_refresh_count = 0;
+  uint16_t _color;
 
 public:
   E290Display(RefCountedDigitalPin* periph_power = NULL) : DisplayDriver(296, 128), _periph_power(periph_power) {}
@@ -28,9 +29,9 @@ public:
   void turnOn() override;
   void turnOff() override;
   void clear() override;
-  void startFrame(Color bkg = DARK) override;
+  void startFrame(ColorVal bkg = UIColor::window_bkg) override;
   void setTextSize(int sz) override;
-  void setColor(Color c) override;
+  void setColor(ColorVal c) override;
   void setCursor(int x, int y) override;
   void print(const char *str) override;
   void fillRect(int x, int y, int w, int h) override;

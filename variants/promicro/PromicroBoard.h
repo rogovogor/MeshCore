@@ -75,8 +75,4 @@ public:
     #endif
       return 0;
   }
-
-  void powerOff() override {
-    sd_power_system_off();
-  }
 };

@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <helpers/RefCountedDigitalPin.h>
 #include <helpers/ESP32Board.h>
-#include <driver/rtc_io.h>
 
 #ifndef ADC_MULTIPLIER
   #define ADC_MULTIPLIER 5.42
@@ -20,8 +19,6 @@ public:
     return (adc_mult == 0.0f) ? ADC_MULTIPLIER : adc_mult;
   }
   void begin();
-  void enterDeepSleep(uint32_t secs, int pin_wake_btn = -1);
-  void powerOff() override;
   uint16_t getBattMilliVolts() override;
   const char* getManufacturerName() const override ;
 
