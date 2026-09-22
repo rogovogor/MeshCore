@@ -865,8 +865,10 @@ public:
 #endif
           if      (i == SETTINGS_PM_IDX)   lbl = "PM CLOCK";
           else if (i == SETTINGS_DIM_IDX)  lbl = "CLOCK DIM";
+#ifdef WITH_COMPANION_CLI
           else if (i == SETTINGS_C2L_CH_IDX) lbl = "Cyr2Lat Chan";
           else if (i == SETTINGS_C2L_DM_IDX) lbl = "Cyr2Lat DM";
+#endif
           else if (i == SETTINGS_ROT_IDX)      lbl = "Rotation";
           else if (i == SETTINGS_UNREAD_IDX)  lbl = "Max Unread";
           else if (i == SETTINGS_LOG_IDX)     lbl = "Max Log";
@@ -902,10 +904,12 @@ public:
               snprintf(val, sizeof(val), "%s", pm_clok_vals[_pm_clock_mode]);
             } else if (i == SETTINGS_DIM_IDX) {
               snprintf(val, sizeof(val), "%s", dim_vals[_task->getClockDimMode()]);
+#ifdef WITH_COMPANION_CLI
             } else if (i == SETTINGS_C2L_CH_IDX) {
               snprintf(val, sizeof(val), "%s", the_mesh.isCyr2LatChannelsEnabled() ? "On" : "Off");
             } else if (i == SETTINGS_C2L_DM_IDX) {
               snprintf(val, sizeof(val), "%s", the_mesh.isCyr2LatContactsEnabled() ? "On" : "Off");
+#endif
             } else if (i == SETTINGS_ROT_IDX && _node_prefs) {
               static const char* rot_vals[4] = { "0", "90", "180", "270" };
               snprintf(val, sizeof(val), "%s deg", rot_vals[constrain(_node_prefs->ui_display_rotation, 0, 3)]);
@@ -1055,10 +1059,12 @@ public:
         } else if (sel == SETTINGS_DIM_IDX) {
           _task->setClockDimMode((_task->getClockDimMode() + 1) % 2);
           the_mesh.savePrefs();
+#ifdef WITH_COMPANION_CLI
         } else if (sel == SETTINGS_C2L_CH_IDX) {
           the_mesh.setCyr2LatChannelsEnabled(!the_mesh.isCyr2LatChannelsEnabled());
         } else if (sel == SETTINGS_C2L_DM_IDX) {
           the_mesh.setCyr2LatContactsEnabled(!the_mesh.isCyr2LatContactsEnabled());
+#endif
 #ifdef WITH_COMPANION_CLI
         } else if (sel == 0) {
           int m = the_mesh.getChatMode();
