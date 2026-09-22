@@ -98,8 +98,6 @@ void ST7789LCDDisplay::startFrame(ColorVal bkg) {
   display.setTextSize(1 * DISPLAY_SCALE_X); // This one affects size of Please wait... message
 #ifdef CYRILLIC_SUPPORT
   display.setFont(&glcdfont6x8);
-#else
-  display.cp437(true); // Use full 256 char 'Code Page 437' font
 #endif
 }
 
@@ -124,11 +122,6 @@ void ST7789LCDDisplay::setCursor(int x, int y) {
 }
 
 void ST7789LCDDisplay::print(const char* str) {
-#ifdef CYRILLIC_SUPPORT
-  char cp[256];
-  translateUTF8ToBlocks(cp, str, sizeof(cp));
-  str = cp;
-#endif
   display.print(str);
 }
 
@@ -160,11 +153,6 @@ void ST7789LCDDisplay::drawXbm(int x, int y, const uint8_t* bits, int w, int h) 
 }
 
 uint16_t ST7789LCDDisplay::getTextWidth(const char* str) {
-#ifdef CYRILLIC_SUPPORT
-  char cp[256];
-  translateUTF8ToBlocks(cp, str, sizeof(cp));
-  str = cp;
-#endif
   int16_t x1, y1;
   uint16_t w, h;
   display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
