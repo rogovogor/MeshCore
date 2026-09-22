@@ -103,6 +103,15 @@ LPS22HBClass LPS22HB(*TELEM_WIRE);
 #ifndef TELEM_INA3221_SHUNT_VALUE
 #define TELEM_INA3221_SHUNT_VALUE 0.100 // most variants will have a 0.1 ohm shunts
 #endif
+#ifndef TELEM_INA3221_SHUNT_CH0
+#define TELEM_INA3221_SHUNT_CH0   TELEM_INA3221_SHUNT_VALUE
+#endif
+#ifndef TELEM_INA3221_SHUNT_CH1
+#define TELEM_INA3221_SHUNT_CH1   TELEM_INA3221_SHUNT_VALUE
+#endif
+#ifndef TELEM_INA3221_SHUNT_CH2
+#define TELEM_INA3221_SHUNT_CH2   TELEM_INA3221_SHUNT_VALUE
+#endif
 #ifndef TELEM_INA3221_NUM_CHANNELS
 #define TELEM_INA3221_NUM_CHANNELS 3
 #endif
@@ -345,8 +354,14 @@ static void query_lps22hb(uint8_t ch, uint8_t, CayenneLPP& lpp) {
 #if ENV_INCLUDE_INA3221
 static uint8_t init_ina3221(TwoWire* wire, uint8_t addr) {
   if (!INA3221.begin(addr, wire)) return 0;
+  // Shunt resistance per channel. Boards that use a different shunt on each
+  // channel can override TELEM_INA3221_SHUNT_CH0/1/2 individually; each one
+  // defaults to TELEM_INA3221_SHUNT_VALUE, so existing boards are unaffected.
+  static const float shunt_ohms[3] = {
+    TELEM_INA3221_SHUNT_CH0, TELEM_INA3221_SHUNT_CH1, TELEM_INA3221_SHUNT_CH2
+  };
   for (int i = 0; i < TELEM_INA3221_NUM_CHANNELS; i++) {
-    INA3221.setShuntResistance(i, TELEM_INA3221_SHUNT_VALUE);
+    INA3221.setShuntResistance(i, shunt_ohms[i]);
   }
   // Each enabled hardware channel becomes its own telemetry channel.
   uint8_t enabled = 0;

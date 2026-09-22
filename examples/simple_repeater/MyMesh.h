@@ -81,6 +81,12 @@ struct NeighbourInfo {
 
 #define PACKET_LOG_FILE  "/packet_log"
 
+// Time-sync sample buffer. Adverts can be hours apart in a quiet mesh, so the
+// buffer holds enough of them to still find agreement between several peers.
+#ifndef TS_BUF_SIZE
+  #define TS_BUF_SIZE 24
+#endif
+
 class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   FILESYSTEM* _fs;
   uint32_t last_millis;
@@ -107,14 +113,26 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
 #endif
   CayenneLPP telemetry;
-  struct TsSample { uint32_t ts; uint32_t pub_hash; };
-  TsSample _ts_buf[10];
+  // rx_millis lets a sample be aged forward to "now", so adverts that arrived
+  // minutes or hours apart can still be compared against each other.
+  struct TsSample { uint32_t ts; uint32_t pub_hash; unsigned long rx_millis; };
+  TsSample _ts_buf[TS_BUF_SIZE];
   int      _ts_buf_pos = 0;
   int      _ts_buf_count = 0;
   uint32_t _ts_sync_count = 0;
   uint32_t _ts_advert_count = 0;   // total adverts received (any timestamp)
   uint32_t _ts_valid_count = 0;    // adverts with valid timestamp range
   uint32_t _ts_last_sync = 0;      // unix ts of last successful sync
+  uint32_t _time_save_at = 0;      // millis() of next flash save (0 = not scheduled)
+  uint32_t _time_chk_at  = 0;      // millis() of next RTC-memory checkpoint
+  bool     _ts_restored_from_flash = false;  // clock came from flash, not from a real sync
+  bool     _clock_persisted = false;         // a plausible time has been written to flash
+  uint32_t _ts_restore_base = 0;             // clock value restored from storage
+  unsigned long _ts_restore_millis = 0;      // millis() when it was restored
+
+  void restoreClockFromFile();
+  void saveClockToFile();
+  void checkpointClock();
   int32_t  _ts_last_adj = 0;       // seconds adjusted on last sync
   int      _ts_best_cluster = 0;   // best cluster seen so far (for diagnostics)
   void tryTimeSyncFromBuf();
