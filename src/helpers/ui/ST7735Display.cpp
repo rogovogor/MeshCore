@@ -572,7 +572,27 @@ void ST7735Display::drawRect(int x, int y, int w, int h) {
 }
 
 void ST7735Display::drawXbm(int x, int y, const uint8_t* bits, int w, int h) {
-  sprite->drawBitmap(x*SCALE_X, y*SCALE_Y, bits, w, h, curr_color);
+  // drawBitmap has no scale parameter, so only the position used to be scaled:
+  // at SCALE 1.25 every icon came out a fifth smaller than the frames drawn
+  // around it via fillRect/drawRect. Each source pixel becomes a block instead;
+  // block edges are computed per pixel, not from a running offset, so rounding
+  // error cannot accumulate across the bitmap. Same approach as ST7789Display.
+  const int startX = (int)(x * SCALE_X);
+  const int startY = (int)(y * SCALE_Y);
+  const uint16_t widthInBytes = (w + 7) / 8;
+
+  for (int by = 0; by < h; by++) {
+    const int y1 = startY + (int)(by * SCALE_Y);
+    const int y2 = startY + (int)((by + 1) * SCALE_Y);
+    for (int bx = 0; bx < w; bx++) {
+      const uint16_t byteOffset = (by * widthInBytes) + (bx / 8);
+      if (pgm_read_byte(bits + byteOffset) & (0x80 >> (bx & 7))) {
+        const int x1 = startX + (int)(bx * SCALE_X);
+        const int x2 = startX + (int)((bx + 1) * SCALE_X);
+        sprite->fillRect(x1, y1, x2 - x1, y2 - y1, curr_color);
+      }
+    }
+  }
 }
 
 uint16_t ST7735Display::getTextWidth(const char* str) {
