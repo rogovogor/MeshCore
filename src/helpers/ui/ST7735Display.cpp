@@ -1,5 +1,9 @@
 #include "ST7735Display.h"
 
+#ifdef CYRILLIC_SUPPORT
+  #include "glcdfont6x8.h"
+#endif
+
 //#include <Fonts/GFXFF/FreeSans9pt7b.h>
 
 // Optimised ST7735 display driver, derived from Adafruit_ST7735 library.
@@ -541,12 +545,25 @@ void ST7735Display::clear() {
 void ST7735Display::startFrame(ColorVal bkg) {
   sprite->fillScreen(bkg);
   sprite->setTextColor(curr_color = UIColor::primary_txt);
+#ifdef CYRILLIC_SUPPORT
+  // UITask hands the driver CP1251 bytes, already converted from UTF-8, so
+  // TFT_eSPI must not try to decode them as UTF-8 — it would swallow every
+  // byte above 0x7F. glcdfont6x8 is laid out in CP1251 order, which is what
+  // makes those bytes land on the right glyphs (same pairing as E213/E290).
+  sprite->setAttribute(UTF8_SWITCH, false);
+  sprite->setFreeFont(&glcdfont6x8);
+  _font_size = 1;
+#else
   sprite->setFreeFont();
+#endif
   sprite->setTextSize(1);      // This one affects size of Please wait... message
   //sprite->cp437(true);         // Use full 256 char 'Code Page 437' font
 }
 
 void ST7735Display::setTextSize(int sz) {
+#ifdef CYRILLIC_SUPPORT
+  _font_size = sz;
+#endif
   sprite->setTextSize(sz);
 }
 
@@ -556,7 +573,14 @@ void ST7735Display::setColor(ColorVal c) {
 }
 
 void ST7735Display::setCursor(int x, int y) {
+#ifdef CYRILLIC_SUPPORT
+  // A GFX font is drawn from its baseline, the built-in one from its top-left.
+  // The rest of the UI passes a top-left y, so shift it down by the cap height
+  // (7px at scale 1) to keep both paths landing in the same place.
+  sprite->setCursor(x*SCALE_X, (y + _font_size * 7)*SCALE_Y);
+#else
   sprite->setCursor(x*SCALE_X, y*SCALE_Y);
+#endif
 }
 
 void ST7735Display::print(const char* str) {

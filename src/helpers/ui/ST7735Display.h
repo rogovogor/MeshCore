@@ -9,6 +9,9 @@
 class ST7735Display : public DisplayDriver {
   bool _isOn;
   RefCountedDigitalPin* _peripher_power;
+#ifdef CYRILLIC_SUPPORT
+  int _font_size = 1;   // current text scale, needed for the baseline offset
+#endif
 
   bool i2c_probe(TwoWire& wire, uint8_t addr);
 public:
