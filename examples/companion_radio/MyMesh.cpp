@@ -517,7 +517,11 @@ void MyMesh::queueMessage(const ContactInfo &from, uint8_t txt_type, mesh::Packe
   }
   memcpy(&out_frame[i], from.id.pub_key, 6);
   i += 6; // just 6-byte prefix
-  uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->getPathHashCount() : 0xFF;
+  // The app gets the packed byte (low 6 bits = hop count, top 2 = hash size - 1),
+  // same as upstream: it decodes both fields out of it. Our own display wants
+  // just the hop count, or it renders "[64]" for a 2-byte-hash sender.
+  out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
+  uint8_t path_len = pkt->isRouteFlood() ? pkt->getPathHashCount() : 0xFF;
   out_frame[i++] = txt_type;
   memcpy(&out_frame[i], &sender_timestamp, 4);
   i += 4;
@@ -676,7 +680,11 @@ void MyMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packe
     if (getChannel(channel_idx, ch) && strcmp(ch.name, "TerminalCLI") == 0) return;
   }
   out_frame[i++] = channel_idx;
-  uint8_t path_len = out_frame[i++] = pkt->isRouteFlood() ? pkt->getPathHashCount() : 0xFF;
+  // The app gets the packed byte (low 6 bits = hop count, top 2 = hash size - 1),
+  // same as upstream: it decodes both fields out of it. Our own display wants
+  // just the hop count, or it renders "[64]" for a 2-byte-hash sender.
+  out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;
+  uint8_t path_len = pkt->isRouteFlood() ? pkt->getPathHashCount() : 0xFF;
 
   out_frame[i++] = TXT_TYPE_PLAIN;
   memcpy(&out_frame[i], &timestamp, 4);
@@ -725,7 +733,7 @@ void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *
 
   uint8_t channel_idx = findChannelIdx(channel);
   out_frame[i++] = channel_idx;
-  out_frame[i++] = pkt->isRouteFlood() ? pkt->getPathHashCount() : 0xFF;
+  out_frame[i++] = pkt->isRouteFlood() ? pkt->path_len : 0xFF;  // packed byte, as above
   out_frame[i++] = (uint8_t)(data_type & 0xFF);
   out_frame[i++] = (uint8_t)(data_type >> 8);
   out_frame[i++] = (uint8_t)data_len;
