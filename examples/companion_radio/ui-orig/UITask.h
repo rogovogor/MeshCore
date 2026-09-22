@@ -47,6 +47,10 @@ class UITask : public AbstractUITask {
 #endif
 
   void renderCurrScreen();
+  // Text that came in over the mesh (node names, senders, message bodies) is
+  // UTF-8, while the display drivers print raw bytes and expect CP1251 — see
+  // DisplayDriver::translateUTF8ToBlocks. Converts into buf and returns it.
+  const char* forDisplay(const char* str, char* buf, size_t buf_size);
   void userLedHandler();
   void renderBatteryIndicator(uint16_t batteryMilliVolts);
   

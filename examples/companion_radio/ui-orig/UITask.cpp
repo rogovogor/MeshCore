@@ -196,16 +196,23 @@ void UITask::renderBatteryIndicator(uint16_t batteryMilliVolts) {
   _display->fillRect(iconX + 2, iconY + 2, fillWidth, iconHeight - 4);
 }
 
+const char* UITask::forDisplay(const char* str, char* buf, size_t buf_size) {
+  _display->translateUTF8ToBlocks(buf, str, buf_size);
+  return buf;
+}
+
 void UITask::renderCurrScreen() {
   if (_display == NULL) return;  // assert() ??
 
   char tmp[80];
+  char txt[96];
   if (_alert[0]) {
     _display->setTextSize(1.4);
-    uint16_t textWidth = _display->getTextWidth(_alert);
+    const char* alert = forDisplay(_alert, txt, sizeof(txt));
+    uint16_t textWidth = _display->getTextWidth(alert);
     _display->setCursor((_display->width() - textWidth) / 2, 22);
     _display->setColor(UIColor::warning_txt);
-    _display->print(_alert);
+    _display->print(alert);
     _alert[0] = 0;
     _need_refresh = true;
     return;
@@ -214,13 +221,13 @@ void UITask::renderCurrScreen() {
     _display->setCursor(0, 0);
     _display->setTextSize(1);
     _display->setColor(UIColor::primary_txt);
-    _display->print(_node_prefs->node_name);
+    _display->print(forDisplay(_node_prefs->node_name, txt, sizeof(txt)));
 
     _display->setCursor(0, 12);
     _display->setColor(UIColor::secondary_txt);
-    _display->print(_origin);
+    _display->print(forDisplay(_origin, txt, sizeof(txt)));
     _display->setCursor(0, 24);
-    _display->print(_msg);
+    _display->print(forDisplay(_msg, txt, sizeof(txt)));
 
     _display->setCursor(_display->width() - 28, 9);
     _display->setTextSize(2);
@@ -245,7 +252,7 @@ void UITask::renderCurrScreen() {
     _display->setCursor(0, 0);
     _display->setTextSize(1);
     _display->setColor(UIColor::primary_txt);
-    _display->print(_node_prefs->node_name);
+    _display->print(forDisplay(_node_prefs->node_name, txt, sizeof(txt)));
 
     // battery voltage
     renderBatteryIndicator(_board->getBattMilliVolts());
