@@ -285,6 +285,13 @@ private:
 
   void checkCLIRescueCmd();
   void checkSerialInterface();
+  // True while the connected app still has frames to receive: queued in the
+  // transport, or waiting in the offline queue for its next SYNC_NEXT_MESSAGE.
+  bool hasUndeliveredAppFrames() const;
+  // Postpone a due reboot/power-off while those frames drain, re-arming
+  // action_at. Bounded by APP_DRAIN_GRACE_MILLIS so an app that never syncs
+  // cannot defer the action indefinitely.
+  bool deferForAppDrain(unsigned long& action_at);
   bool isValidClientRepeatFreq(uint32_t f) const;
 
   // helpers, short-cuts
@@ -358,6 +365,7 @@ private:
   unsigned long          _pending_reboot_deadline = 0;
   unsigned long          _pending_poweroff_at = 0;
   unsigned long          _pending_poweroff_deadline = 0;
+  unsigned long          _app_drain_until = 0;      // 0 = no drain window open
 
   bool sendGroupMessageWithCyr2LatMap(uint32_t timestamp, mesh::GroupChannel& channel, const char* sender_name,
                                       const char* text, int text_len, const char* original_text,

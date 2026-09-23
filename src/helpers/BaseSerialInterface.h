@@ -23,4 +23,7 @@ public:
   // Best-effort push of one already queued frame, without waiting for the next
   // checkRecvFrame(). Transports that write straight through do nothing here.
   virtual void flushSend() { }
+  // True while frames are queued but not yet handed to the transport. Always
+  // false where writeFrame() writes straight through.
+  virtual bool hasPendingSend() const { return false; }
 };

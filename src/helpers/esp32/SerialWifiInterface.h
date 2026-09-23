@@ -57,6 +57,7 @@ public:
   size_t writeFrame(const uint8_t src[], size_t len) override;
   size_t checkRecvFrame(uint8_t dest[]) override;
   void flushSend() override;
+  bool hasPendingSend() const override { return send_queue_len > 0; }
 
   bool hasReceivedFrameHeader();
   void resetReceivedFrameHeader();

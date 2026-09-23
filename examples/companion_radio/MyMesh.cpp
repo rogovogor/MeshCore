@@ -109,6 +109,7 @@
 #define DIRECT_SEND_PERHOP_EXTRA_MILLIS 250
 #define LAZY_CONTACTS_WRITE_DELAY       5000
 #define LAZY_PREFS_WRITE_DELAY          2000
+#define APP_DRAIN_GRACE_MILLIS          3000
 
 #define PUBLIC_GROUP_PSK                "izOH6cXN6mrJ5e26oRXNcg=="
 
@@ -1737,6 +1738,7 @@ void MyMesh::handleCmdFrame(size_t len) {
       // NRF52: can't write flash while BLE connected — defer, loop() will disconnect + save
       _pending_reboot_at = futureMillis(1500);
       _pending_reboot_deadline = futureMillis(30000);
+      _app_drain_until = 0;   // fresh command: open a new drain window
     } else {
 #else
     {
@@ -2510,10 +2512,35 @@ void MyMesh::checkSerialInterface() {
   }
 }
 
+bool MyMesh::hasUndeliveredAppFrames() const {
+  if (!_serial || !_serial->isConnected()) return false;
+  return _serial->hasPendingSend() || offline_queue_len > 0;
+}
+
+bool MyMesh::deferForAppDrain(unsigned long& action_at) {
+  // Powering down drops whatever the app has not taken yet: disable() clears the
+  // transport send queue and the reboot discards the RAM offline queue. Hold the
+  // action back while anything is still outstanding, so a command the node did
+  // execute (a CLI reply, an incoming message) is not silently swallowed.
+  if (!hasUndeliveredAppFrames()) {
+    _app_drain_until = 0;
+    return false;
+  }
+  if (_app_drain_until == 0) _app_drain_until = futureMillis(APP_DRAIN_GRACE_MILLIS);
+  if (millisHasNowPassed(_app_drain_until)) {   // app is not collecting; stop waiting
+    _app_drain_until = 0;
+    return false;
+  }
+  _serial->flushSend();   // one extra frame per iteration while draining
+  action_at = futureMillis(50);
+  return true;
+}
+
 void MyMesh::loop() {
   BaseChatMesh::loop();
 
-  if (_pending_reboot_at && millisHasNowPassed(_pending_reboot_at)) {
+  if (_pending_reboot_at && millisHasNowPassed(_pending_reboot_at) &&
+      !deferForAppDrain(_pending_reboot_at)) {
 #ifdef NRF52_PLATFORM
     bool ble_busy = _serial && _serial->isConnected();
 #else
@@ -2535,7 +2562,8 @@ void MyMesh::loop() {
       board.reboot();
     }
   }
-  if (_pending_poweroff_at && millisHasNowPassed(_pending_poweroff_at)) {
+  if (_pending_poweroff_at && millisHasNowPassed(_pending_poweroff_at) &&
+      !deferForAppDrain(_pending_poweroff_at)) {
 #ifdef NRF52_PLATFORM
     bool ble_busy = _serial && _serial->isConnected();
 #else
@@ -2700,6 +2728,7 @@ void MyMesh::sendCliReplyChannel(uint8_t ch_idx, const char* buf, bool mirror_ui
   if (_serial->isConnected()) {
     uint8_t frame[1] = { PUSH_CODE_MSG_WAITING };
     _serial->writeFrame(frame, 1);
+    _serial->flushSend();   // the app can only sync once the tickle is out
   }
 }
 
@@ -3072,11 +3101,13 @@ void MyMesh::handleRemoteCLI(const ContactInfo& from, uint32_t sender_ts, const 
     sendCliReplyPM(from, "rebooting in 1s...");
     _pending_reboot_at = futureMillis(1000);
     _pending_reboot_deadline = futureMillis(30000);
+    _app_drain_until = 0;   // fresh command: open a new drain window
     return;
   } else if (strcmp(cmd, "poweroff") == 0 || strcmp(cmd, "shutdown") == 0) {
     sendCliReplyPM(from, "powering off...");
     _pending_poweroff_at = futureMillis(500);
     _pending_poweroff_deadline = futureMillis(30000);
+    _app_drain_until = 0;   // fresh command: open a new drain window
     return;
   } else if (!handleCliCmd(sender_ts, cmd, buf, true)) {
     if (_cli) _cli->handleCommand(sender_ts, const_cast<char*>(cmd), buf);
@@ -3103,10 +3134,12 @@ void MyMesh::handleTerminalCLI(uint8_t ch_idx, uint32_t sender_ts, const char* c
     strcpy(buf, "rebooting in 1s...");
     _pending_reboot_at = futureMillis(1000);
     _pending_reboot_deadline = futureMillis(30000);
+    _app_drain_until = 0;   // fresh command: open a new drain window
   } else if (strcmp(cmd, "poweroff") == 0 || strcmp(cmd, "shutdown") == 0) {
     strcpy(buf, "powering off...");
     _pending_poweroff_at = futureMillis(500);
     _pending_poweroff_deadline = futureMillis(30000);
+    _app_drain_until = 0;   // fresh command: open a new drain window
   } else if (!handleCliCmd(sender_ts, cmd, buf, false)) {
     if (_cli) _cli->handleCommand(sender_ts, const_cast<char*>(cmd), buf);
     else      strcpy(buf, "ERR: CLI not initialized");
