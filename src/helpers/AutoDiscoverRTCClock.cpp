@@ -82,7 +82,10 @@ uint32_t AutoDiscoverRTCClock::getCurrentTime() {
 }
 
 bool AutoDiscoverRTCClock::isTimeReliable() const {
-  return ds3231_success || rv3028_success || rtc_8563_success || rtc_8130_success;
+  if (ds3231_success || rv3028_success || rtc_8563_success || rtc_8130_success) return true;
+  // No RTC chip: the fallback clock is only trustworthy once something has
+  // actually set it (GPS, CLI, companion app, or a restored timestamp).
+  return _fallback->isTimeReliable();
 }
 
 void AutoDiscoverRTCClock::setCurrentTime(uint32_t time) { 
