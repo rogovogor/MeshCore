@@ -18,6 +18,9 @@
 #ifndef LORA_TX_POWER
   #define LORA_TX_POWER 20
 #endif
+#ifndef PATH_HASH_MODE
+  #define PATH_HASH_MODE 0
+#endif
 
 #ifndef ADVERT_NAME
   #define ADVERT_NAME "repeater"
@@ -967,6 +970,7 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.bw = LORA_BW;
   _prefs.cr = LORA_CR;
   _prefs.tx_power_dbm = LORA_TX_POWER;
+  _prefs.path_hash_mode = PATH_HASH_MODE;
   _prefs.advert_interval = 1;        // default to 2 minutes for NEW installs
   _prefs.flood_advert_interval = 47; // 47 hours
   _prefs.flood_max = 64;
