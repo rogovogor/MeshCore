@@ -1,0 +1,23 @@
+# Partition table for the 16MB ESP32-S3 station boards (Station G2 / Station G3).
+#
+# Why it exists: these boards have 16MB of flash but no board_build.partitions
+# of their own, so PlatformIO fell back to Arduino's default.csv — a 4MB layout
+# with a 1.25MB application slot. The companion builds carry the fork's features
+# (cyrillic UI, companion CLI) and no longer fit into 1.25MB.
+#
+# The layout below keeps nvs, otadata, spiffs and coredump at exactly the
+# offsets default.csv uses, so existing nodes keep their settings and their
+# LittleFS contents (identity, contacts, channels) after an update. Only app0
+# grows, taking the space that default.csv reserved for a second OTA slot.
+#
+# That OTA slot is dead weight here: MeshCore's ESP32 builds have no OTA
+# updater (only the nRF52 path has any update code), so app1 was never used.
+#
+# app0: 0x280000 = 2.5MB (was 1.25MB).
+#
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xe000,   0x2000,
+app0,     app,  ota_0,   0x10000,  0x280000,
+spiffs,   data, spiffs,  0x290000, 0x160000,
+coredump, data, coredump,0x3F0000, 0x10000,
