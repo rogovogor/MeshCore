@@ -19,6 +19,7 @@ extern EnvironmentSensorManager sensors;
 
 #ifdef DISPLAY_CLASS
   NullDisplayDriver display;
+  MomentaryButton user_btn(PIN_USER_BTN, 1000, true);
 #endif
 
 #ifndef LORA_CR
