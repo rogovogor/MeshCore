@@ -2,6 +2,9 @@
 
 #include <Arduino.h> // needed for PlatformIO
 #include <Mesh.h>
+#ifdef WITH_COMPANION_CLI
+#include <helpers/CliReplySplitter.h>
+#endif
 
 #define CMD_APP_START                 1
 #define CMD_SEND_TXT_MSG              2
@@ -2602,52 +2605,39 @@ bool MyMesh::advert() {
 
 #ifdef WITH_COMPANION_CLI
 
-// Split buf into chunks of <=150 chars, trying to break on newlines.
-// Returns number of chunks written into out[].
-static int splitCliReply(const char* buf, char out[][152], int max_chunks) {
-  int n = 0;
-  const char* p = buf;
-  while (*p && n < max_chunks) {
-    int remaining = strlen(p);
-    if (remaining <= 150) {
-      strcpy(out[n++], p);
-      break;
-    }
-    // Find last newline within 150 chars
-    int cut = 150;
-    for (int i = 149; i > 0; i--) {
-      if (p[i] == '\n') { cut = i + 1; break; }
-    }
-    memcpy(out[n], p, cut);
-    out[n][cut] = '\0';
-    n++;
-    p += cut;
-  }
-  return n;
-}
-
 void MyMesh::sendCliReplyPM(const ContactInfo& to, const char* buf) {
   // static: loop_task is single-threaded; these are never called re-entrantly.
-  // Without static, chunks[8][152]=1216B + handleRemoteCLI's buf[512]+cmdBuf[256]
+  // Without static, chunks plus handleRemoteCLI's buf[512]+cmdBuf[256]
   // overflows the 4096B FreeRTOS loop_task stack → immediate hard fault, no log output.
-  static char chunks[8][152];
+  static cli_reply::Chunks chunks;
   static char text[160];
-  int n = splitCliReply(buf, chunks, 8);
+  if (cli_reply::split(buf, cli_reply::MAX_CHUNK_TEXT, chunks) !=
+      cli_reply::SplitResult::Ok) {
+    MESH_DEBUG_PRINTLN("CLI: reply is too long to split safely");
+    return;
+  }
   uint32_t ack_dummy, timeout_dummy;
-  for (int i = 0; i < n; i++) {
-    if (n > 1)
-      snprintf(text, sizeof(text), "[%d/%d] %s", i + 1, n, chunks[i]);
+  for (size_t i = 0; i < chunks.count; i++) {
+    if (chunks.count > 1)
+      snprintf(text, sizeof(text), "[%u/%u] %s", (unsigned)(i + 1),
+               (unsigned)chunks.count, chunks.text[i]);
     else
-      strncpy(text, chunks[i], sizeof(text) - 1);
+      strncpy(text, chunks.text[i], sizeof(text) - 1);
     text[sizeof(text) - 1] = '\0';
     sendMessage(to, getRTCClock()->getCurrentTimeUnique(), 0, text, ack_dummy, timeout_dummy);
   }
 }
 
 void MyMesh::sendCliReplyChannel(uint8_t ch_idx, const char* buf, bool mirror_ui) {
-  static char chunks[8][152];
+  static cli_reply::Chunks chunks;
   static char text[200];
-  int n = splitCliReply(buf, chunks, 8);
+  const size_t frame_header_size = app_target_ver >= 3 ? 11 : 8;
+  const size_t chunk_capacity = cli_reply::channelChunkCapacity(
+      MAX_FRAME_SIZE, frame_header_size, strlen(_prefs.node_name), strlen(buf));
+  if (cli_reply::split(buf, chunk_capacity, chunks) != cli_reply::SplitResult::Ok) {
+    MESH_DEBUG_PRINTLN("CLI: channel reply is too long to split safely");
+    return;
+  }
   uint32_t now = getRTCClock()->getCurrentTimeUnique();
   const char* channel_name = "TerminalCLI";
 #ifdef DISPLAY_CLASS
@@ -2657,11 +2647,20 @@ void MyMesh::sendCliReplyChannel(uint8_t ch_idx, const char* buf, bool mirror_ui
   }
 #endif
 
-  for (int i = 0; i < n; i++) {
-    if (n > 1)
-      snprintf(text, sizeof(text), "%s: [%d/%d] %s", _prefs.node_name, i + 1, n, chunks[i]);
+  for (size_t i = 0; i < chunks.count; i++) {
+    int text_length;
+    if (chunks.count > 1)
+      text_length = snprintf(text, sizeof(text), "%s: [%u/%u] %s", _prefs.node_name,
+                             (unsigned)(i + 1), (unsigned)chunks.count,
+                             chunks.text[i]);
     else
-      snprintf(text, sizeof(text), "%s: %s", _prefs.node_name, chunks[i]);
+      text_length = snprintf(text, sizeof(text), "%s: %s", _prefs.node_name,
+                             chunks.text[i]);
+    if (text_length < 0 || (size_t)text_length >= sizeof(text) ||
+        (size_t)text_length > MAX_FRAME_SIZE - frame_header_size) {
+      MESH_DEBUG_PRINTLN("CLI: channel reply chunk exceeds frame capacity");
+      return;
+    }
 
     int fi = 0;
     if (app_target_ver >= 3) {
@@ -2676,9 +2675,12 @@ void MyMesh::sendCliReplyChannel(uint8_t ch_idx, const char* buf, bool mirror_ui
     out_frame[fi++] = 0; // synthetic local reply, 0 LoRa hops
     out_frame[fi++] = TXT_TYPE_PLAIN;
     memcpy(&out_frame[fi], &now, 4); fi += 4;
-    int tlen = strlen(text);
-    if (fi + tlen > MAX_FRAME_SIZE) tlen = MAX_FRAME_SIZE - fi;
-    memcpy(&out_frame[fi], text, tlen); fi += tlen;
+    if ((size_t)fi != frame_header_size) {
+      MESH_DEBUG_PRINTLN("CLI: unexpected channel reply header size");
+      return;
+    }
+    memcpy(&out_frame[fi], text, (size_t)text_length);
+    fi += text_length;
     addToOfflineQueue(out_frame, fi);
 #ifdef DISPLAY_CLASS
     if (mirror_ui && _ui) _ui->newMsg(0, channel_name, text, offline_queue_len);
