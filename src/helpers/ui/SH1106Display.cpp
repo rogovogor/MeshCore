@@ -44,9 +44,6 @@ void SH1106Display::startFrame(Color bkg)
 #endif
   display.setTextColor(_color);
   display.setTextSize(1);
-#ifndef CYRILLIC_SUPPORT
-  display.cp437(true); // Use full 256 char 'Code Page 437' font
-#endif
 }
 
 void SH1106Display::setTextSize(int sz)
@@ -75,11 +72,6 @@ void SH1106Display::setCursor(int x, int y)
 
 void SH1106Display::print(const char *str)
 {
-#ifdef CYRILLIC_SUPPORT
-  char cp[256];
-  translateUTF8ToBlocks(cp, str, sizeof(cp));
-  str = cp;
-#endif
   display.print(str);
 }
 
@@ -100,11 +92,6 @@ void SH1106Display::drawXbm(int x, int y, const uint8_t *bits, int w, int h)
 
 uint16_t SH1106Display::getTextWidth(const char *str)
 {
-#ifdef CYRILLIC_SUPPORT
-  char cp[256];
-  translateUTF8ToBlocks(cp, str, sizeof(cp));
-  str = cp;
-#endif
   int16_t x1, y1;
   uint16_t w, h;
   display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
