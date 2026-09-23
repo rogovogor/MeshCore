@@ -102,7 +102,9 @@ static void _ftoa(float f, char *p, int *status)
     *p++ = '0';
   else 
   {
-    ltoa(int_part, p, 10);
+    // sprintf, not ltoa: ltoa is not standard and newer STM32 cores stopped
+    // declaring it. int_part is positive here, the sign was written above.
+    sprintf(p, "%ld", (long)int_part);
     while (*p)
       p++;
   }
