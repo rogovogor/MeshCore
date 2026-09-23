@@ -1546,7 +1546,6 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   joystick_left.begin();
   joystick_right.begin();
   back_btn.begin();
-  joystick_down.begin();
 #endif
 #if defined(PIN_USER_BTN_ANA)
   analog_btn.begin();
@@ -1820,51 +1819,30 @@ bool UITask::isButtonPressed() const {
 #endif
 }
 
-#if UI_HAS_JOYSTICK
-// Remap directional keys to match display rotation.
-// Default rotation=3 (landscape) needs no remap; each 90° step rotates keys oppositely.
-// Formula: key_steps_CW = (7 - rotation) % 4
-static char remapKeyForRotation(char c, uint8_t rotation) {
-  static const char cw[4] = { KEY_UP, KEY_RIGHT, KEY_DOWN, KEY_LEFT };
-  int dir = -1;
-  for (int i = 0; i < 4; i++) {
-    if (c == cw[i]) { dir = i; break; }
-  }
-  if (dir < 0) return c;
-  int steps = (7 - rotation) % 4;
-  return cw[(dir + steps) % 4];
-}
-#endif
-
 void UITask::loop() {
   char c = 0;
 #if UI_HAS_JOYSTICK
-  // SELECT (D6): short=enter/confirm, long=back/cancel
   int ev = user_btn.check();
   if (ev == BUTTON_EVENT_CLICK) {
     c = checkDisplayOn(KEY_ENTER);
   } else if (ev == BUTTON_EVENT_LONG_PRESS) {
-    c = handleLongPress(KEY_CANCEL);
+    c = handleLongPress(KEY_ENTER);
   }
-  // LEFT (D3): page left
   ev = joystick_left.check();
   if (ev == BUTTON_EVENT_CLICK) {
     c = checkDisplayOn(KEY_LEFT);
+  } else if (ev == BUTTON_EVENT_LONG_PRESS) {
+    c = handleLongPress(KEY_LEFT);
   }
-  // RIGHT (D4): page right
   ev = joystick_right.check();
   if (ev == BUTTON_EVENT_CLICK) {
     c = checkDisplayOn(KEY_RIGHT);
+  } else if (ev == BUTTON_EVENT_LONG_PRESS) {
+    c = handleLongPress(KEY_RIGHT);
   }
-  // UP (D5): navigate up / previous item
   ev = back_btn.check();
-  if (ev == BUTTON_EVENT_CLICK) {
-    c = checkDisplayOn(KEY_UP);
-  }
-  // DOWN (D17 = P0.31): navigate down / next item
-  ev = joystick_down.check();
-  if (ev == BUTTON_EVENT_CLICK) {
-    c = checkDisplayOn(KEY_DOWN);
+  if (ev == BUTTON_EVENT_TRIPLE_CLICK) {
+    c = handleTripleClick(KEY_SELECT);
   }
 #elif defined(PIN_USER_BTN)
   int ev = user_btn.check();
@@ -1913,11 +1891,6 @@ void UITask::loop() {
 #endif
     next_backlight_btn_check = millis() + 300;
   }
-#endif
-
-#if UI_HAS_JOYSTICK
-  if (c != 0 && _node_prefs)
-    c = remapKeyForRotation(c, _node_prefs->ui_display_rotation);
 #endif
 
   if (c != 0 && curr) {
