@@ -194,7 +194,16 @@ protected:
   // DataStoreHost methods
   bool onContactLoaded(const ContactInfo& contact) override { return addContact(contact); }
   bool getContactForSave(uint32_t idx, ContactInfo& contact) override { return getContactByIdx(idx, contact); }
-  bool onChannelLoaded(uint8_t channel_idx, const ChannelDetails& ch) override { return setChannel(channel_idx, ch); }
+  bool onChannelLoaded(uint8_t channel_idx, const ChannelDetails& ch) override {
+    // A stored record without a name is just a free slot. Loading it would call
+    // setChannel(), which pulls num_channels up to channel_idx + 1: /channels2
+    // holds up to MAX_GROUP_CHANNELS records, so num_channels ended up pinned at
+    // MAX_GROUP_CHANNELS and addChannel("TerminalCLI") returned NULL forever.
+    // Nodes that saved their channel list before the CLI existed stayed without
+    // the channel. Empty records keep the slot empty without touching the count.
+    if (!ch.name[0]) return true;
+    return setChannel(channel_idx, ch);
+  }
   bool getChannelForSave(uint8_t channel_idx, ChannelDetails& ch) override { return getChannel(channel_idx, ch); }
 
   void clearPendingReqs() {
