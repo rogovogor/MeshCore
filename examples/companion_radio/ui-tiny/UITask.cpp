@@ -510,7 +510,9 @@ void UITask::msgRead(int msgcount) {
   }
 }
 
-void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) {
+// is_pm is part of the AbstractUITask contract (private-message flag for the
+// full UI); the tiny UI has no separate PM presentation, so it is ignored.
+void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount, bool is_pm) {
   _msgcount = msgcount;
 
   if (_display != NULL) {
