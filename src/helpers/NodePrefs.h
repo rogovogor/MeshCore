@@ -42,6 +42,7 @@ public:
   float    rx_delay_base = 0;
   uint8_t  rx_boosted_gain = 0;
   uint8_t  radio_fem_rxgain = 0;  // FEM LNA (boards that can switch it)
+  uint8_t  radio_fem_txgain = 0;  // FEM TX gain (low by default), upstream 1.17.1
   uint8_t  cad_enabled = 0;       // hardware Channel Activity Detection before TX
   uint8_t  path_hash_mode = 0;
   uint8_t  extra_sf[4];           // LR2021 side-detector SFs ('set extra.sf'); not persisted upstream either
@@ -114,6 +115,7 @@ private:
       // upstream maps this back onto rx_boosted_gain, which leaves the FEM
       // setting unpersisted; the separate field is what CommonCLI actually uses.
       def("fem_rxgain", _parent->radio_fem_rxgain);
+      def("fem_txgain", _parent->radio_fem_txgain);
       def("tx", _parent->tx_power_dbm);
       def("af", _parent->airtime_factor);
       def("rxdelay", _parent->rx_delay_base);

@@ -8,14 +8,14 @@
 #define FIRMWARE_VER_CODE 13
 
 #ifndef FIRMWARE_BUILD_DATE
-#define FIRMWARE_BUILD_DATE "9 Aug 2026"
+#define FIRMWARE_BUILD_DATE "14 Aug 2026"
 #endif
 
 #ifndef FIRMWARE_VERSION
   #ifdef GIT_COMMIT
-    #define FIRMWARE_VERSION "v1.17.0-" GIT_COMMIT
+    #define FIRMWARE_VERSION "v1.17.1-" GIT_COMMIT
   #else
-    #define FIRMWARE_VERSION "v1.17.0"
+    #define FIRMWARE_VERSION "v1.17.1"
   #endif
 #endif
 

@@ -25,15 +25,14 @@
   #include <helpers/ui/MomentaryButton.h>
 #endif
 
-#ifdef DISPLAY_CLASS
-  extern NullDisplayDriver display;
-  extern MomentaryButton user_btn;
-#endif
-
 extern MinewsemiME25LS01Board board;
 extern WRAPPER_CLASS radio_driver;
 extern VolatileRTCClock rtc_clock;
 extern EnvironmentSensorManager sensors;
+#ifdef DISPLAY_CLASS
+  extern DISPLAY_CLASS display;
+  extern MomentaryButton user_btn;
+#endif
 
 bool radio_init();
 mesh::LocalIdentity radio_new_identity();
