@@ -2,6 +2,12 @@
 
 Below are the commands you can enter into the Terminal Chat clients:
 
+A message sent to the `TerminalCLI` channel from a companion app is acknowledged
+as soon as the node accepts it, before the command runs; the CLI answer follows
+afterwards as a separate channel message. Apps that clear their input field on
+that acknowledgement therefore do so immediately, even for commands that take
+seconds or reboot the node.
+
 ```
 set freq {frequency}
 ```

@@ -52,6 +52,24 @@ void SerialWifiInterface::resetReceivedFrameHeader() {
   received_frame_header.length = 0;
 }
 
+void SerialWifiInterface::flushSend() {
+  if (!deviceConnected || send_queue_len == 0) return;
+
+  _last_write = millis();
+  int len = send_queue[0].len;
+
+  uint8_t pkt[3+len]; // use same header as serial interface so client can delimit frames
+  pkt[0] = '>';
+  pkt[1] = (len & 0xFF);  // LSB
+  pkt[2] = (len >> 8);    // MSB
+  memcpy(&pkt[3], send_queue[0].buf, send_queue[0].len);
+  client.write(pkt, 3 + len);
+  send_queue_len--;
+  for (int i = 0; i < send_queue_len; i++) {   // delete top item from queue
+    send_queue[i] = send_queue[i + 1];
+  }
+}
+
 size_t SerialWifiInterface::checkRecvFrame(uint8_t dest[]) {
   // check if new client connected
   auto newClient = server.available();
@@ -83,20 +101,7 @@ size_t SerialWifiInterface::checkRecvFrame(uint8_t dest[]) {
 
   if (deviceConnected) {
     if (send_queue_len > 0) {   // first, check send queue
-      
-      _last_write = millis();
-      int len = send_queue[0].len;
-
-      uint8_t pkt[3+len]; // use same header as serial interface so client can delimit frames
-      pkt[0] = '>';
-      pkt[1] = (len & 0xFF);  // LSB
-      pkt[2] = (len >> 8);    // MSB
-      memcpy(&pkt[3], send_queue[0].buf, send_queue[0].len);
-      client.write(pkt, 3 + len);
-      send_queue_len--;
-      for (int i = 0; i < send_queue_len; i++) {   // delete top item from queue
-        send_queue[i] = send_queue[i + 1];
-      }
+      flushSend();
     } else {
 
       // check if we are waiting for a frame header

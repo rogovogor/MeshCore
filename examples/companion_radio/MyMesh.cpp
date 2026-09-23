@@ -1364,8 +1364,17 @@ void MyMesh::handleCmdFrame(size_t len) {
       if (success && strcmp(channel.name, "TerminalCLI") == 0) {
 #ifdef WITH_COMPANION_CLI
         const_cast<char*>(text)[len - i] = '\0'; // text is not null-terminated in this frame type
+        // Acknowledge acceptance BEFORE running the command. Apps clear their
+        // composer on this response, while the CLI answer is a separate queued
+        // message, so anything slow in between (chat-log flash write, a
+        // scheduled reboot that drops the link) made a command the node did
+        // execute look like a failed send. flushSend() is what makes the ack
+        // early on the queueing transports: writeFrame() only enqueues, and the
+        // queue is otherwise pumped once per loop - after the command.
+        writeOKFrame();
+        _serial->flushSend();
         if (_ui) _ui->newOutgoingMsg(channel.name, text, false);
-        handleTerminalCLI(channel_idx, msg_timestamp, text, true, true);
+        handleTerminalCLI(channel_idx, msg_timestamp, text, true);
 #else
         writeErrFrame(ERR_CODE_UNSUPPORTED_CMD);
 #endif
@@ -3078,7 +3087,7 @@ void MyMesh::handleRemoteCLI(const ContactInfo& from, uint32_t sender_ts, const 
 }
 
 void MyMesh::handleTerminalCLI(uint8_t ch_idx, uint32_t sender_ts, const char* cmd,
-                               bool write_ack, bool mirror_ui_reply) {
+                               bool mirror_ui_reply) {
   static char cmdBuf[256];
   strncpy(cmdBuf, cmd, sizeof(cmdBuf) - 1);
   cmdBuf[sizeof(cmdBuf) - 1] = '\0';
@@ -3103,7 +3112,6 @@ void MyMesh::handleTerminalCLI(uint8_t ch_idx, uint32_t sender_ts, const char* c
     else      strcpy(buf, "ERR: CLI not initialized");
   }
   MESH_DEBUG_PRINTLN("CLI/Terminal reply(%zu): '%s'", strlen(buf), buf);
-  if (write_ack) writeOKFrame(); // send OK before push so app completes the command exchange first
   if (buf[0]) sendCliReplyChannel(ch_idx, buf, mirror_ui_reply);
 }
 

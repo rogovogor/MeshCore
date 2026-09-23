@@ -192,21 +192,24 @@ bool SerialBLEInterface::isWriteBusy() const {
   return millis() < _last_write + BLE_WRITE_MIN_INTERVAL;   // still too soon to start another write?
 }
 
-size_t SerialBLEInterface::checkRecvFrame(uint8_t dest[]) {
-  if (send_queue_len > 0   // first, check send queue
-    && millis() >= _last_write + BLE_WRITE_MIN_INTERVAL    // space the writes apart
-  ) {
-    _last_write = millis();
-    pTxCharacteristic->setValue(send_queue[0].buf, send_queue[0].len);
-    pTxCharacteristic->notify();
+void SerialBLEInterface::flushSend() {
+  if (send_queue_len == 0) return;
+  if (millis() < _last_write + BLE_WRITE_MIN_INTERVAL) return;   // space the writes apart
 
-    BLE_DEBUG_PRINTLN("writeBytes: sz=%d, hdr=%d", (uint32_t)send_queue[0].len, (uint32_t) send_queue[0].buf[0]);
+  _last_write = millis();
+  pTxCharacteristic->setValue(send_queue[0].buf, send_queue[0].len);
+  pTxCharacteristic->notify();
 
-    send_queue_len--;
-    for (int i = 0; i < send_queue_len; i++) {   // delete top item from queue
-      send_queue[i] = send_queue[i + 1];
-    }
+  BLE_DEBUG_PRINTLN("writeBytes: sz=%d, hdr=%d", (uint32_t)send_queue[0].len, (uint32_t) send_queue[0].buf[0]);
+
+  send_queue_len--;
+  for (int i = 0; i < send_queue_len; i++) {   // delete top item from queue
+    send_queue[i] = send_queue[i + 1];
   }
+}
+
+size_t SerialBLEInterface::checkRecvFrame(uint8_t dest[]) {
+  flushSend();   // first, check send queue
 
   Frame frame;
   if (xQueueReceive(recv_queue, &frame, 0) == pdTRUE) {

@@ -20,4 +20,7 @@ public:
   virtual bool isWriteBusy() const = 0;
   virtual size_t writeFrame(const uint8_t src[], size_t len) = 0;
   virtual size_t checkRecvFrame(uint8_t dest[]) = 0;
+  // Best-effort push of one already queued frame, without waiting for the next
+  // checkRecvFrame(). Transports that write straight through do nothing here.
+  virtual void flushSend() { }
 };

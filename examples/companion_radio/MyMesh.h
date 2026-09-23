@@ -375,7 +375,7 @@ private:
 
   void handleRemoteCLI(const ContactInfo& from, uint32_t sender_ts, const char* cmd);
   void handleTerminalCLI(uint8_t ch_idx, uint32_t sender_ts, const char* cmd,
-                         bool write_ack, bool mirror_ui_reply);
+                         bool mirror_ui_reply);
   void sendCliReplyPM(const ContactInfo& to, const char* buf);
   void sendCliReplyChannel(uint8_t ch_idx, const char* buf, bool mirror_ui = false);
   void injectChannelMsg(uint8_t ch_idx, const char* sender_name, uint8_t path_len, int8_t snr_x4, uint32_t ts, const char* text);

@@ -295,41 +295,45 @@ size_t SerialBLEInterface::writeFrame(const uint8_t src[], size_t len) {
   return 0;
 }
 
-size_t SerialBLEInterface::checkRecvFrame(uint8_t dest[]) {
-  if (send_queue_len > 0) {
+void SerialBLEInterface::flushSend() {
+  if (send_queue_len == 0) return;
+
+  if (!isConnected()) {
+    BLE_DEBUG_PRINTLN("writeBytes: connection invalid, clearing send queue");
+    send_queue_len = 0;
+    return;
+  }
+
+  unsigned long now = millis();
+  bool throttle_active = (_last_retry_attempt > 0 && (now - _last_retry_attempt) < BLE_RETRY_THROTTLE_MS);
+  if (throttle_active) return;
+
+  Frame frame_to_send = send_queue[0];
+
+  size_t written = bleuart.write(frame_to_send.buf, frame_to_send.len);
+  if (written == frame_to_send.len) {
+    BLE_DEBUG_PRINTLN("writeBytes: sz=%u, hdr=%u", (unsigned)frame_to_send.len, (unsigned)frame_to_send.buf[0]);
+    _last_retry_attempt = 0;
+    shiftSendQueueLeft();
+  } else if (written > 0) {
+    BLE_DEBUG_PRINTLN("writeBytes: partial write, sent=%u of %u, dropping corrupted frame", (unsigned)written, (unsigned)frame_to_send.len);
+    _last_retry_attempt = 0;
+    shiftSendQueueLeft();
+  } else {
     if (!isConnected()) {
-      BLE_DEBUG_PRINTLN("writeBytes: connection invalid, clearing send queue");
-      send_queue_len = 0;
+      BLE_DEBUG_PRINTLN("writeBytes failed: connection lost, dropping frame");
+      _last_retry_attempt = 0;
+      shiftSendQueueLeft();
     } else {
-      unsigned long now = millis();
-      bool throttle_active = (_last_retry_attempt > 0 && (now - _last_retry_attempt) < BLE_RETRY_THROTTLE_MS);
-
-      if (!throttle_active) {
-        Frame frame_to_send = send_queue[0];
-
-        size_t written = bleuart.write(frame_to_send.buf, frame_to_send.len);
-        if (written == frame_to_send.len) {
-          BLE_DEBUG_PRINTLN("writeBytes: sz=%u, hdr=%u", (unsigned)frame_to_send.len, (unsigned)frame_to_send.buf[0]);
-          _last_retry_attempt = 0;
-          shiftSendQueueLeft();
-        } else if (written > 0) {
-          BLE_DEBUG_PRINTLN("writeBytes: partial write, sent=%u of %u, dropping corrupted frame", (unsigned)written, (unsigned)frame_to_send.len);
-          _last_retry_attempt = 0;
-          shiftSendQueueLeft();
-        } else {
-          if (!isConnected()) {
-            BLE_DEBUG_PRINTLN("writeBytes failed: connection lost, dropping frame");
-            _last_retry_attempt = 0;
-            shiftSendQueueLeft();
-          } else {
-            BLE_DEBUG_PRINTLN("writeBytes failed (buffer full), keeping frame for retry");
-            _last_retry_attempt = now;
-          }
-        }
-      }
+      BLE_DEBUG_PRINTLN("writeBytes failed (buffer full), keeping frame for retry");
+      _last_retry_attempt = now;
     }
   }
-  
+}
+
+size_t SerialBLEInterface::checkRecvFrame(uint8_t dest[]) {
+  flushSend();
+
   if (recv_queue_len > 0) {
     size_t len = recv_queue[0].len;
     memcpy(dest, recv_queue[0].buf, len);
