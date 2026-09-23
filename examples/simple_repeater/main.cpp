@@ -27,6 +27,10 @@ static unsigned long userBtnDownAt = 0;
 #define USER_BTN_HOLD_OFF_MILLIS 1500
 #endif
 
+#ifdef AUTO_REBOOT_MS
+static unsigned long startup_millis = 0;
+#endif
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -101,6 +105,10 @@ void setup() {
 #endif
 
   board.onBootComplete();
+
+#ifdef AUTO_REBOOT_MS
+  startup_millis = millis();
+#endif
 }
 
 void loop() {
@@ -146,6 +154,15 @@ void loop() {
 #endif
 
   the_mesh.loop();
+#ifdef AUTO_REBOOT_MS
+  // Optional scheduled reboot, for unattended repeaters that should not be
+  // left running indefinitely between site visits.
+  if ((unsigned long)(millis() - startup_millis) >= (unsigned long)AUTO_REBOOT_MS) {
+    Serial.println("Scheduled reboot: uptime limit reached");
+    Serial.flush();
+    board.reboot();
+  }
+#endif
   sensors.loop();
 #ifdef DISPLAY_CLASS
   ui_task.loop();
