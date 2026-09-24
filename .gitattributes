@@ -1,3 +1,4 @@
 # Shell scripts run in Linux containers and on CI: keep them LF-only even where
 # core.autocrlf=true (Windows checkouts) would otherwise turn them into CRLF.
 *.sh text eol=lf
+/.gitattributes text eol=lf
