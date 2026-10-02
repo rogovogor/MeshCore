@@ -80,6 +80,14 @@ MessageStatus decodeTextPayload(const char* text, char* out, size_t out_capacity
 MessageStatus decodeBinaryEnvelope(uint16_t data_type, const uint8_t* data, size_t data_length,
                                    char* out, size_t out_capacity, DecodedMessage& message);
 
+// Compatibility helper for apps that receive decoded MCOtxt instead of the
+// original container: preserve the exact-reply anchor as the familiar
+// "@[Name]" prefix. The prefix is added only when the decoded text does not
+// already start with the same mention. [truncated] is raised if the tail had
+// to be shortened to keep the result NUL-terminated.
+bool ensureReplyMentionPrefix(const DecodedMessage& message, char* text,
+                              size_t text_capacity, bool& truncated);
+
 }  // namespace mcotxt
 
 #endif  // WITH_MCOTXT

@@ -793,13 +793,11 @@ void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *
   mcmp::Meta mcmp_meta;
   if (isMCMPDetectEnabled() &&
       mcmp::parseBinaryEnvelope(data_type, data, data_len, mcmp_meta)) {
-    const uint8_t version = mcmp_meta.form == mcmp::Form::Binary
-                                ? (uint8_t)(mcmp_meta.revision + 3) : 0;
     char placeholder[96];
-    snprintf(placeholder, sizeof(placeholder), "<MCMP v%u%s message>",
-             (unsigned)version, mcmp_meta.is_signed ? " signed" : "");
+    const int placeholder_length = mcmp::formatPlaceholder(
+        mcmp_meta, placeholder, sizeof(placeholder));
     const char* sender = mcmp_meta.has_sender ? mcmp_meta.sender : "MCMP";
-    if (_ui) {
+    if (_ui && placeholder_length > 0) {
       char display_text[144];
       snprintf(display_text, sizeof(display_text), "%s: %s", sender, placeholder);
       _ui->newMsg(hop_count, channel_name, display_text, offline_queue_len);
@@ -839,6 +837,9 @@ void MyMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *
     const mcotxt::MessageStatus status = mcotxt::decodeBinaryEnvelope(
         data_type, data, data_len, decoded, mcotxt::kScratchBytes, message);
     if (status == mcotxt::MessageStatus::Ok || status == mcotxt::MessageStatus::TooLong) {
+      bool mention_truncated = false;
+      mcotxt::ensureReplyMentionPrefix(message, decoded, mcotxt::kScratchBytes,
+                                       mention_truncated);
       char display_text[MAX_TEXT_LEN];
       snprintf(display_text, sizeof(display_text), "%s: %s",
                message.has_sender ? message.sender : "?", decoded);
@@ -3494,13 +3495,18 @@ int MyMesh::renderCompatFramePart(const Frame& source, size_t part_index,
     const mcotxt::MessageStatus status = mcotxt::decodeBinaryEnvelope(
         data_type, data, data_length, decoded, mcotxt::kScratchBytes, mcotxt_message);
     if (status == mcotxt::MessageStatus::Ok || status == mcotxt::MessageStatus::TooLong) {
-      const int length = snprintf(prefix, sizeof(prefix), "%s: ",
-                                  mcotxt_message.has_sender ? mcotxt_message.sender : "?");
-      if (length > 0 && length < (int)sizeof(prefix)) {
-        prefix_length = (size_t)length;
-        body = decoded;
-        body_length = strlen(decoded);
-        if (mcotxt_message.has_timestamp) timestamp = mcotxt_message.timestamp;
+      bool mention_truncated = false;
+      if (mcotxt::ensureReplyMentionPrefix(mcotxt_message, decoded,
+                                           mcotxt::kScratchBytes,
+                                           mention_truncated)) {
+        const int length = snprintf(prefix, sizeof(prefix), "%s: ",
+                                    mcotxt_message.has_sender ? mcotxt_message.sender : "?");
+        if (length > 0 && length < (int)sizeof(prefix)) {
+          prefix_length = (size_t)length;
+          body = decoded;
+          body_length = strlen(decoded);
+          if (mcotxt_message.has_timestamp) timestamp = mcotxt_message.timestamp;
+        }
       }
     }
   }
@@ -3510,12 +3516,10 @@ int MyMesh::renderCompatFramePart(const Frame& source, size_t part_index,
   if (body == nullptr && isMCMPDetectEnabled() && !_app_supports_mcmp) {
     mcmp::Meta meta;
     if (mcmp::parseBinaryEnvelope(data_type, data, data_length, meta)) {
-      const unsigned version = (unsigned)meta.revision + 3U;
       const int prefix_result = snprintf(prefix, sizeof(prefix), "%s: ",
                                          meta.has_sender ? meta.sender : "MCMP");
-      const int body_result = snprintf(placeholder, sizeof(placeholder),
-                                       "<MCMP v%u%s message>", version,
-                                       meta.is_signed ? " signed" : "");
+      const int body_result = mcmp::formatPlaceholder(
+          meta, placeholder, sizeof(placeholder));
       if (prefix_result > 0 && prefix_result < (int)sizeof(prefix) && body_result > 0) {
         prefix_length = (size_t)prefix_result;
         body = placeholder;

@@ -60,6 +60,12 @@ bool parseText(const char* text, Meta& meta);
 bool parseBinaryEnvelope(uint16_t data_type, const uint8_t* data, size_t data_length,
                          Meta& meta);
 
+// Formats the compatibility text shown to apps/UI that cannot decode MCMP.
+// For v3 containers with a reply anchor, [include_reply] prefixes the stub
+// with "@[replyAuthor] " so exact replies keep the visible mention convention.
+int formatPlaceholder(const Meta& meta, char* out, size_t out_capacity,
+                      bool include_reply = true);
+
 }  // namespace mcmp
 
 #endif  // WITH_MCMP_DETECT

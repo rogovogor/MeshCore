@@ -2,6 +2,7 @@
 
 #ifdef WITH_MCMP_DETECT
 
+#include <stdio.h>
 #include <string.h>
 
 #include <helpers/Base91.h>
@@ -160,6 +161,28 @@ bool parseText(const char* text, Meta& meta) {
   Meta parsed = meta;
   if (parseContainer(body, body_length, parsed)) meta = parsed;
   return true;
+}
+
+int formatPlaceholder(const Meta& meta, char* out, size_t out_capacity,
+                      bool include_reply) {
+  if (out == nullptr || out_capacity == 0) return 0;
+  const unsigned version = meta.form == Form::Legacy ? 1U
+                           : meta.form == Form::TextV2 ? 2U
+                           : meta.form == Form::TextV3 ? 3U
+                           : meta.form == Form::Binary ? (unsigned)meta.revision + 3U
+                           : 0U;
+  if (version == 0U) return 0;
+  const char* signed_text = meta.is_signed ? " signed" : "";
+  const bool with_reply = include_reply && meta.has_reply && meta.reply_author[0] != '\0';
+  const int length = with_reply
+      ? snprintf(out, out_capacity, "@[%s] <MCMP v%u%s message>",
+                 meta.reply_author, version, signed_text)
+      : snprintf(out, out_capacity, "<MCMP v%u%s message>", version, signed_text);
+  if (length <= 0 || (size_t)length >= out_capacity) {
+    out[0] = '\0';
+    return 0;
+  }
+  return length;
 }
 
 bool parseBinaryEnvelope(uint16_t data_type, const uint8_t* data, size_t data_length,

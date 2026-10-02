@@ -679,6 +679,14 @@ TEST(MCOtxtTransport, ReplyAnchorNeedsBothHalves) {
   EXPECT_EQ(message.reply_timestamp, 0x10u);
   EXPECT_STREQ(out, "ok");
 
+  bool truncated = false;
+  EXPECT_TRUE(mcotxt::ensureReplyMentionPrefix(message, out, sizeof(out), truncated));
+  EXPECT_FALSE(truncated);
+  EXPECT_STREQ(out, "@[Bob] ok");
+  EXPECT_TRUE(mcotxt::ensureReplyMentionPrefix(message, out, sizeof(out), truncated));
+  EXPECT_FALSE(truncated);
+  EXPECT_STREQ(out, "@[Bob] ok");
+
   std::vector<uint8_t> cut = {0x00, 0x31, 0x05, 0x01, 0x03, 'B', 'o', 'b', 0x10, 0x00};
   EXPECT_EQ((int)mcotxt::decodeBinaryEnvelope(0x0120, cut.data(), cut.size(), out,
                                                   sizeof(out), message),

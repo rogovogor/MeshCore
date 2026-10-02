@@ -130,6 +130,18 @@ bool copyToken(const char* begin, const char* end, char* token) {
   return true;
 }
 
+bool outputEndsWithReplyMention(const char* output, size_t length, const char* author) {
+  if (output == nullptr || author == nullptr || author[0] == '\0') return false;
+  while (length > 0 && output[length - 1] == ' ') length--;
+  const size_t author_length = strlen(author);
+  const size_t mention_length = author_length + 3;
+  if (length < mention_length) return false;
+  const size_t start = length - mention_length;
+  return output[start] == '@' && output[start + 1] == '[' &&
+         strncmp(output + start + 2, author, author_length) == 0 &&
+         output[start + author_length + 2] == ']';
+}
+
 bool replaceToken(Kind kind, const char* begin, const char* end,
                   char* output, size_t output_capacity, size_t& output_length,
                   bool& truncated) {
@@ -145,8 +157,14 @@ bool replaceToken(Kind kind, const char* begin, const char* end,
         token, output + output_length, output_capacity - output_length, message);
     if (status != mcotxt::MessageStatus::Ok && status != mcotxt::MessageStatus::TooLong)
       return false;
+    bool mention_truncated = false;
+    if (!mcotxt::ensureReplyMentionPrefix(
+            message, output + output_length, output_capacity - output_length,
+            mention_truncated)) {
+      return false;
+    }
     output_length += strlen(output + output_length);
-    truncated = status == mcotxt::MessageStatus::TooLong;
+    truncated = status == mcotxt::MessageStatus::TooLong || mention_truncated;
     return true;
   }
 #endif
@@ -155,12 +173,11 @@ bool replaceToken(Kind kind, const char* begin, const char* end,
   if (kind == Kind::MCMP) {
     mcmp::Meta meta;
     if (!mcmp::parseText(token, meta)) return false;
-    const unsigned version = meta.form == mcmp::Form::Legacy ? 1U
-                             : meta.form == mcmp::Form::TextV2 ? 2U : 3U;
-    char placeholder[64];
-    const int length = snprintf(placeholder, sizeof(placeholder),
-                                "<MCMP v%u%s message>", version,
-                                meta.is_signed ? " signed" : "");
+    char placeholder[96];
+    const bool already_mentions_reply = meta.has_reply &&
+        outputEndsWithReplyMention(output, output_length, meta.reply_author);
+    const int length = mcmp::formatPlaceholder(
+        meta, placeholder, sizeof(placeholder), !already_mentions_reply);
     if (length <= 0) return false;
     truncated = !appendBytes(output, output_capacity, output_length,
                              placeholder, (size_t)length);

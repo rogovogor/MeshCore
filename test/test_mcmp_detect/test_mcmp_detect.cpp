@@ -78,6 +78,9 @@ TEST(MCMPDetect, V3ContainerMetadata) {
   EXPECT_STREQ(meta.reply_author, "Ann");
   EXPECT_EQ(meta.reply_timestamp, 16u);
   EXPECT_EQ(meta.compressed_length, 3u);
+  char placeholder[96];
+  EXPECT_GT(mcmp::formatPlaceholder(meta, placeholder, sizeof(placeholder)), 0);
+  EXPECT_STREQ(placeholder, "@[Ann] <MCMP v3 signed message>");
 
   // A plain channel body carries none of the optional fields.
   const std::string plain = textV3(body(0x00, 7, "", "", 0, "\x01\xFF"));
@@ -137,6 +140,14 @@ TEST(MCMPDetect, BinaryEnvelope) {
   const std::vector<uint8_t> embedded = envelope("Relay", 0x20, body(0x04, 5, "Room"));
   ASSERT_TRUE(mcmp::parseBinaryEnvelope(0x0120, embedded.data(), embedded.size(), meta));
   EXPECT_STREQ(meta.sender, "Room");
+
+  const std::vector<uint8_t> reply = envelope("Bob", 0x20, body(0x01, 5, "", "Ann", 16));
+  ASSERT_TRUE(mcmp::parseBinaryEnvelope(0x0120, reply.data(), reply.size(), meta));
+  EXPECT_TRUE(meta.has_reply);
+  EXPECT_STREQ(meta.reply_author, "Ann");
+  char binary_placeholder[96];
+  EXPECT_GT(mcmp::formatPlaceholder(meta, binary_placeholder, sizeof(binary_placeholder)), 0);
+  EXPECT_STREQ(binary_placeholder, "@[Ann] <MCMP v3 message>");
 
   // A newer revision: recognised, container left alone, envelope name kept.
   const std::vector<uint8_t> newer = envelope("Bob", 0x21, body(0x00, 99));

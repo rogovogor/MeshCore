@@ -181,6 +181,16 @@ const char* skipLeadingWhitespace(const char* text) {
   return text;
 }
 
+bool startsWithReplyMention(const char* text, const char* author) {
+  if (text == nullptr || author == nullptr || author[0] == '\0') return false;
+  const size_t author_length = strlen(author);
+  const size_t mention_length = author_length + 3;  // "@[" + name + "]"
+  if (strlen(text) < mention_length) return false;
+  return text[0] == '@' && text[1] == '[' &&
+         strncmp(text + 2, author, author_length) == 0 &&
+         text[author_length + 2] == ']';
+}
+
 }  // namespace
 
 char* scratch() {
@@ -225,6 +235,36 @@ MessageStatus decodeTextPayload(const char* text, char* out, size_t out_capacity
     return message.status = MessageStatus::Malformed;
   }
   return message.status = decodeSubtypedBody(payload, payload_length, out, out_capacity, message);
+}
+
+bool ensureReplyMentionPrefix(const DecodedMessage& message, char* text,
+                              size_t text_capacity, bool& truncated) {
+  truncated = false;
+  if (text == nullptr || text_capacity == 0) return false;
+  if (!message.has_reply || message.reply_author[0] == '\0') return true;
+  if (startsWithReplyMention(text, message.reply_author)) return true;
+
+  const size_t author_length = strlen(message.reply_author);
+  const size_t mention_length = author_length + 3;  // "@[" + name + "]"
+  const size_t text_length = strlen(text);
+  const size_t separator_length = text_length == 0 ? 0 : 1;
+  if (mention_length + separator_length + 1 > text_capacity) return false;
+
+  size_t keep = text_length;
+  if (mention_length + separator_length + text_length + 1 > text_capacity) {
+    const size_t available = text_capacity - mention_length - separator_length - 1;
+    keep = mesh::validUtf8PrefixLength(text, available);
+    truncated = keep < text_length;
+  }
+
+  memmove(text + mention_length + separator_length, text, keep);
+  text[0] = '@';
+  text[1] = '[';
+  memcpy(text + 2, message.reply_author, author_length);
+  text[author_length + 2] = ']';
+  if (separator_length != 0) text[mention_length] = ' ';
+  text[mention_length + separator_length + keep] = '\0';
+  return true;
 }
 
 MessageStatus decodeBinaryEnvelope(uint16_t data_type, const uint8_t* data, size_t data_length,
