@@ -2,6 +2,36 @@
 #include <Mesh.h>
 #include "MyMesh.h"
 
+// ESP32 companion power saving. See agent_docs/power.md.
+//
+// The mechanism is automatic light sleep, not a manual sleep call: the BLE
+// controller keeps the connection and wakes the CPU for a connection event,
+// while the application yields so the FreeRTOS idle task can hand the CPU over.
+// ESP32Board::sleep() is deliberately NOT used for a companion — it wakes only
+// on the radio DIO pin and a timer, so BLE connection events would be missed and
+// the app would see the node drop off.
+//
+// This needs a framework built with CONFIG_PM_ENABLE and FreeRTOS tickless idle.
+// Stock arduino-esp32 2.0.17 (platformio/espressif32@6.11.0) ships both
+// disabled, so esp_pm_configure() returns ESP_ERR_NOT_SUPPORTED there: the code
+// below then only reports the failure and the node behaves exactly as before.
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  #include "esp_pm.h"
+  #include "esp_bt.h"
+
+  #define ESP32_PM_CPU_MAX_MHZ   80
+  #define ESP32_PM_CPU_MIN_MHZ   40
+  // Native USB-CDC (and the USB companion transport) does not survive automatic
+  // light sleep, and WiFi keeps its own reason to stay awake — for those builds
+  // only the frequency scaling is enabled.
+  #if (defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT) \
+      || defined(ENABLE_USB_INTERFACE) || defined(WIFI_SSID) || defined(WITH_WIFI_SWITCHING)
+    #define ESP32_PM_LIGHT_SLEEP   0
+  #else
+    #define ESP32_PM_LIGHT_SLEEP   1
+  #endif
+#endif
+
 // Believe it or not, this std C function is busted on some platforms!
 static uint32_t _atoi(const char* sp) {
   uint32_t n = 0;
@@ -242,6 +272,46 @@ void setup() {
 #endif
 
   board.onBootComplete();
+
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  #if defined(BLE_PIN_CODE)
+    // Controller-side modem sleep: the radio sleeps between connection events.
+    // On ESP32-S3/C3 this only exists if the framework was built with
+    // CONFIG_BT_CTRL_MODEM_SLEEP, hence the report rather than an abort.
+    esp_err_t err_bt = esp_bt_sleep_enable();
+    if (err_bt != ESP_OK) {
+      Serial.printf("ESP32 PM: BLE sleep not available (%d)\n", (int)err_bt);
+    }
+  #endif
+
+  // The per-target type is what IDF 4.4 expects; the generic one is only
+  // declared for IDF 5 targets (ESP32-C6 here).
+  #if CONFIG_IDF_TARGET_ESP32C3
+    esp_pm_config_esp32c3_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32S3
+    esp_pm_config_esp32s3_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32
+    esp_pm_config_esp32_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32C6
+    esp_pm_config_t pm_config;
+  #else
+    #error "No esp_pm_config_t for this target"
+  #endif
+
+  pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+  pm_config.min_freq_mhz = ESP32_PM_CPU_MIN_MHZ;
+  pm_config.light_sleep_enable = ESP32_PM_LIGHT_SLEEP != 0;
+
+  esp_err_t err_pm = esp_pm_configure(&pm_config);
+  if (err_pm == ESP_OK) {
+    Serial.printf("ESP32 PM: %d-%d MHz, light sleep %s\n",
+                  (int)ESP32_PM_CPU_MAX_MHZ, (int)ESP32_PM_CPU_MIN_MHZ,
+                  ESP32_PM_LIGHT_SLEEP ? "on" : "off");
+  } else {
+    Serial.printf("ESP32 PM: unavailable (%d) - framework built without CONFIG_PM_ENABLE\n",
+                  (int)err_pm);
+  }
+#endif
 }
 
 void loop() {
@@ -262,6 +332,14 @@ void loop() {
   if (!the_mesh.hasPendingWork()) {
 #if defined(NRF52_PLATFORM)
     board.sleep(0); // nrf ignores seconds param, sleeps whenever possible
+#elif defined(ESP32) && defined(WITH_ESP32_POWER_SAVING) && ESP32_PM_LIGHT_SLEEP
+    // Walking the loop as fast as it can keeps the CPU out of light sleep, and
+    // every wake-up costs a TCXO start on top. Yielding to the idle task is what
+    // actually lets the chip sleep; while a received frame is still queued the
+    // loop keeps running instead so the frame is handed over promptly.
+    if (!serial_interface.isReadBusy() && !serial_interface.isWriteBusy()) {
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
 #endif
   }
 

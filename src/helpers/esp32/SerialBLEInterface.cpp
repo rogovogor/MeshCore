@@ -192,6 +192,10 @@ bool SerialBLEInterface::isWriteBusy() const {
   return millis() < _last_write + BLE_WRITE_MIN_INTERVAL;   // still too soon to start another write?
 }
 
+bool SerialBLEInterface::isReadBusy() const {
+  return uxQueueMessagesWaiting(recv_queue) > 0;
+}
+
 void SerialBLEInterface::flushSend() {
   if (send_queue_len == 0) return;
   if (millis() < _last_write + BLE_WRITE_MIN_INTERVAL) return;   // space the writes apart

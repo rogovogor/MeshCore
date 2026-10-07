@@ -18,6 +18,12 @@ public:
   virtual void loop() {};
 
   virtual bool isWriteBusy() const = 0;
+  // True while a received frame is queued but not yet handed to the application.
+  // The BLE transports are the ones that answer yes; every straight-through
+  // transport is never read-busy. The power-saving idle path on ESP32 asks this
+  // before letting the CPU go to sleep, so a frame already in flight is not left
+  // waiting for the next wake-up.
+  virtual bool isReadBusy() const { return false; }
   virtual size_t writeFrame(const uint8_t src[], size_t len) = 0;
   virtual size_t checkRecvFrame(uint8_t dest[]) = 0;
   // Best-effort push of one already queued frame, without waiting for the next
