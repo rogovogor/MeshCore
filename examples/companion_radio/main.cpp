@@ -422,7 +422,7 @@ void loop() {
     // every wake-up costs a TCXO start on top. Yielding to the idle task is what
     // actually lets the chip sleep; while a received frame is still queued the
     // loop keeps running instead so the frame is handed over promptly.
-    if (!serial_interface.isReadBusy() && !serial_interface.isWriteBusy()) {
+    if (!interface_manager.isReadBusy() && !interface_manager.isWriteBusy()) {
       vTaskDelay(pdMS_TO_TICKS(10));
     }
 #endif
