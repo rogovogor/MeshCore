@@ -16,6 +16,17 @@
 #define TELEM_MODE_ALLOW_FLAGS  1
 #define TELEM_MODE_ALLOW_ALL    2
 
+// Companion power-saving profile (`pwr_mode`). Power saving is what lets the CPU
+// of an ESP32 companion drop into light sleep between BLE connection events; the
+// profile says how far to take it. AUTO is the platform's previous behaviour, so
+// an untouched node does exactly what it did before this setting existed.
+#define POWER_MODE_AUTO         0   // platform default: sleep, with the USB guard
+#define POWER_MODE_OFF          1   // never sleep: maximum responsiveness, ~120 mA
+#define POWER_MODE_CONSERVATIVE 2   // sleep only while the app is not connected
+#define POWER_MODE_AGGRESSIVE   3   // longer idle yield, fewer wake-ups
+
+#define POWER_MODE_MAX          POWER_MODE_AGGRESSIVE
+
 // One prefs object for every role (companion, repeater, room server, sensor) —
 // upstream keeps two near-identical copies, we keep one. Persisted as JSON via
 // ConfigSerializer (see DataStore::savePrefs / CommonCLI::savePrefs); the old
@@ -73,6 +84,12 @@ public:
   uint8_t  bridge_channel = 0;        // 1-14 (ESP-NOW only)
   char     bridge_secret[16];
   uint8_t  powersaving_enabled = 0;
+  // Companion power-saving profile. Deliberately a profile, not a switch: AUTO means
+  // "whatever this platform did before", so a node that never touches the setting
+  // behaves exactly as it used to. Prefs are stored by key in a JSON file, so an old
+  // file simply has no value here (the field keeps its default) and an older firmware
+  // ignores a key it does not know.
+  uint8_t  power_mode = POWER_MODE_AUTO;
   uint32_t discovery_mod_timestamp = 0;
   float    adc_multiplier = 0;
   char     owner_info[120];
@@ -169,6 +186,7 @@ private:
     void structure() override {
       def("adc_mult", _parent->adc_multiplier);
       def("pwr_sav_en", _parent->powersaving_enabled);
+      def("pwr_mode", _parent->power_mode);
     }
   public:
     PowerPrefs(NodePrefs* parent) : _parent(parent) { }

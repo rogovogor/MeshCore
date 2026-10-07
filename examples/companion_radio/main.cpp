@@ -21,6 +21,10 @@
 
   #define ESP32_PM_CPU_MAX_MHZ   80
   #define ESP32_PM_CPU_MIN_MHZ   40
+  // How long the idle path yields to the FreeRTOS idle task: this is what actually
+  // lets the chip sleep, and how long depends on the profile.
+  #define ESP32_PM_IDLE_YIELD_MS            10
+  #define ESP32_PM_IDLE_YIELD_AGGRESSIVE_MS 20
   // How long one press of the user button keeps the CPU awake — enough to read the
   // console and type a CLI command.
   #define ESP32_PM_USB_HOLD_MS   30000
@@ -55,42 +59,6 @@
     #define ESP32_PM_LIGHT_SLEEP   1
     #define ESP32_PM_USB_GUARD     0
   #endif
-#endif
-
-#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING) && ESP32_PM_USB_GUARD
-static esp_pm_lock_handle_t esp32_usb_pm_lock = NULL;
-static bool esp32_usb_lock_held = false;
-static uint32_t esp32_pm_hold_until = 0;
-
-static bool esp32_usbHostPresent() {
-  #if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE
-    return Serial.isConnected();   // HWCDC: hardware USB-Serial-JTAG link
-  #else
-    return (bool)Serial;           // USBCDC over TinyUSB: host has the port open
-
-  #endif
-}
-
-static void esp32_serviceUsbPmLock() {
-  #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
-    // Active low with a pull-up. One press buys a window with the CPU awake, so the
-    // console can be read even when host detection says nothing is attached.
-    if (digitalRead(PIN_USER_BTN) == LOW) {
-      esp32_pm_hold_until = millis() + ESP32_PM_USB_HOLD_MS;
-    }
-  #endif
-
-  if (esp32_usb_pm_lock == NULL) return;
-  const bool hold = esp32_usbHostPresent()
-                 || (int32_t)(esp32_pm_hold_until - millis()) > 0;
-  if (hold == esp32_usb_lock_held) return;
-  if (hold) {
-    esp_pm_lock_acquire(esp32_usb_pm_lock);
-  } else {
-    esp_pm_lock_release(esp32_usb_pm_lock);
-  }
-  esp32_usb_lock_held = hold;
-}
 #endif
 
 // Believe it or not, this std C function is busted on some platforms!
@@ -202,6 +170,122 @@ void halt() {
 #if defined(ESP32) && defined(WIFI_SSID)
   bool wifi_needs_reconnect = false;
   unsigned long last_wifi_reconnect_attempt = 0;
+#endif
+
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+// Power saving is the feature; the profile says how far to take it. The lock below
+// is held whenever the CPU must stay awake instead, and three things ask for that:
+// a USB host on the line (that link is serviced by the CPU), the app connected in
+// the CONSERVATIVE profile, and a button-granted window for reading the console.
+static esp_pm_lock_handle_t esp32_pm_lock = NULL;
+static bool esp32_pm_lock_held = false;
+static uint32_t esp32_pm_hold_until = 0;
+static uint16_t esp32_pm_yield_ms = ESP32_PM_IDLE_YIELD_MS;
+static uint8_t esp32_pm_applied_mode = 0xFF;
+
+#if ESP32_PM_USB_GUARD
+static bool esp32_usbHostPresent() {
+  #if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE
+    return Serial.isConnected();   // HWCDC: hardware USB-Serial-JTAG link
+  #else
+    return (bool)Serial;           // USBCDC over TinyUSB: host has the port open
+  #endif
+}
+#endif
+
+static uint16_t esp32_pm_yieldFor(uint8_t mode) {
+  return (mode == POWER_MODE_AGGRESSIVE) ? ESP32_PM_IDLE_YIELD_AGGRESSIVE_MS
+                                         : ESP32_PM_IDLE_YIELD_MS;
+}
+
+static bool esp32_pm_wantsAwake() {
+  if (ESP32_PM_LIGHT_SLEEP == 0) return false;   // this transport forbids sleeping
+  #if ESP32_PM_USB_GUARD
+    if (esp32_usbHostPresent()) return true;
+  #endif
+  if (the_mesh.getNodePrefs()->power_mode == POWER_MODE_CONSERVATIVE
+      && interface_manager.isConnected()) {
+    return true;
+  }
+  return (int32_t)(esp32_pm_hold_until - millis()) > 0;
+}
+
+static void esp32_servicePmHold() {
+  #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
+    // Active low with a pull-up. One press buys a window with the CPU awake, so the
+    // console can be read even when host detection says nothing is attached.
+    if (digitalRead(PIN_USER_BTN) == LOW) {
+      esp32_pm_hold_until = millis() + ESP32_PM_USB_HOLD_MS;
+    }
+  #endif
+
+  if (esp32_pm_lock == NULL) return;
+  const bool hold = esp32_pm_wantsAwake();
+  if (hold == esp32_pm_lock_held) return;
+  if (hold) {
+    esp_pm_lock_acquire(esp32_pm_lock);
+  } else {
+    esp_pm_lock_release(esp32_pm_lock);
+  }
+  esp32_pm_lock_held = hold;
+}
+
+// Apply the profile: at startup, and again whenever the setting changes, because
+// the CLI can flip it while the node is running.
+static void esp32_applyPowerMode(uint8_t mode) {
+  esp32_pm_yield_ms = esp32_pm_yieldFor(mode);
+
+  // IDF 4.4 wants a per-target config struct; IDF 5 targets (C6) take the generic one.
+  #if CONFIG_IDF_TARGET_ESP32C3
+    esp_pm_config_esp32c3_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32S3
+    esp_pm_config_esp32s3_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32
+    esp_pm_config_esp32_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32C6
+    esp_pm_config_t pm_config;
+  #else
+    #error "No esp_pm_config_t for this target"
+  #endif
+
+  pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+  pm_config.min_freq_mhz = ESP32_PM_CPU_MIN_MHZ;
+  pm_config.light_sleep_enable = (ESP32_PM_LIGHT_SLEEP != 0) && (mode != POWER_MODE_OFF);
+
+  esp_err_t err_pm = esp_pm_configure(&pm_config);
+  esp32_pm_applied_mode = mode;
+  if (err_pm == ESP_OK) {
+    Serial.printf("ESP32 PM: %d-%d MHz, light sleep %s, mode %u\n",
+                  (int)ESP32_PM_CPU_MAX_MHZ, (int)ESP32_PM_CPU_MIN_MHZ,
+                  pm_config.light_sleep_enable ? "on" : "off", (unsigned)mode);
+  } else {
+    Serial.printf("ESP32 PM: unavailable (%d) - framework built without CONFIG_PM_ENABLE\n",
+                  (int)err_pm);
+  }
+}
+
+static void esp32_servicePowerPrefs() {
+  const uint8_t mode = the_mesh.getNodePrefs()->power_mode;
+  if (mode != esp32_pm_applied_mode) {
+    esp32_applyPowerMode(mode);
+  }
+}
+
+static void esp32_setupPower() {
+  #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
+    pinMode(PIN_USER_BTN, INPUT_PULLUP);
+  #endif
+  // Take the lock BEFORE light sleep is switched on, so a USB port is never dropped
+  // in the first moments.
+  if (esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "power", &esp32_pm_lock) != ESP_OK) {
+    esp32_pm_lock = NULL;
+    Serial.println("ESP32 PM: no lock available");
+  } else if (esp32_pm_wantsAwake()) {
+    esp_pm_lock_acquire(esp32_pm_lock);
+    esp32_pm_lock_held = true;
+  }
+  esp32_applyPowerMode(the_mesh.getNodePrefs()->power_mode);
+}
 #endif
 
 void setup() {
@@ -345,51 +429,7 @@ void setup() {
     }
   #endif
 
-  // The per-target type is what IDF 4.4 expects; the generic one is only
-  // declared for IDF 5 targets (ESP32-C6 here).
-  #if CONFIG_IDF_TARGET_ESP32C3
-    esp_pm_config_esp32c3_t pm_config;
-  #elif CONFIG_IDF_TARGET_ESP32S3
-    esp_pm_config_esp32s3_t pm_config;
-  #elif CONFIG_IDF_TARGET_ESP32
-    esp_pm_config_esp32_t pm_config;
-  #elif CONFIG_IDF_TARGET_ESP32C6
-    esp_pm_config_t pm_config;
-  #else
-    #error "No esp_pm_config_t for this target"
-  #endif
-
-  #if ESP32_PM_USB_GUARD
-    // Create the lock — and take it if a host is already there — BEFORE light sleep
-    // is switched on, so the port is never dropped in the first moments.
-    #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
-      pinMode(PIN_USER_BTN, INPUT_PULLUP);
-    #endif
-    if (esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "usb", &esp32_usb_pm_lock) == ESP_OK) {
-      if (esp32_usbHostPresent()) {
-        esp_pm_lock_acquire(esp32_usb_pm_lock);
-        esp32_usb_lock_held = true;
-        Serial.println("ESP32 PM: USB host present, light sleep held off");
-      }
-    } else {
-      esp32_usb_pm_lock = NULL;
-      Serial.println("ESP32 PM: no USB lock; a console over the cable may be unreliable");
-    }
-  #endif
-
-  pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
-  pm_config.min_freq_mhz = ESP32_PM_CPU_MIN_MHZ;
-  pm_config.light_sleep_enable = ESP32_PM_LIGHT_SLEEP != 0;
-
-  esp_err_t err_pm = esp_pm_configure(&pm_config);
-  if (err_pm == ESP_OK) {
-    Serial.printf("ESP32 PM: %d-%d MHz, light sleep %s\n",
-                  (int)ESP32_PM_CPU_MAX_MHZ, (int)ESP32_PM_CPU_MIN_MHZ,
-                  ESP32_PM_LIGHT_SLEEP ? "on" : "off");
-  } else {
-    Serial.printf("ESP32 PM: unavailable (%d) - framework built without CONFIG_PM_ENABLE\n",
-                  (int)err_pm);
-  }
+  esp32_setupPower();
 #endif
 }
 
@@ -408,22 +448,30 @@ void loop() {
   external_watchdog.loop();
 #endif
 
-  #if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING) && ESP32_PM_USB_GUARD
-    // Cheap: one register read and a bool compare. Also runs while the node is
-    // busy, so the lock state always matches what is plugged in.
-    esp32_serviceUsbPmLock();
+  #if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+    // Cheap: a couple of register reads and bool compares. Runs while the node is
+    // busy too, so both the lock state and the profile always match the settings.
+    esp32_servicePowerPrefs();
+    esp32_servicePmHold();
   #endif
 
   if (!the_mesh.hasPendingWork()) {
 #if defined(NRF52_PLATFORM)
-    board.sleep(0); // nrf ignores seconds param, sleeps whenever possible
+    // nrf ignores the seconds param and sleeps whenever possible; the profile only
+    // says whether to stay awake while the app is connected, or not to sleep at all.
+    // AUTO is what this platform always did.
+    const uint8_t power_mode = the_mesh.getNodePrefs()->power_mode;
+    if (power_mode != POWER_MODE_OFF
+        && (power_mode != POWER_MODE_CONSERVATIVE || !interface_manager.isConnected())) {
+      board.sleep(0);
+    }
 #elif defined(ESP32) && defined(WITH_ESP32_POWER_SAVING) && ESP32_PM_LIGHT_SLEEP
     // Walking the loop as fast as it can keeps the CPU out of light sleep, and
     // every wake-up costs a TCXO start on top. Yielding to the idle task is what
     // actually lets the chip sleep; while a received frame is still queued the
     // loop keeps running instead so the frame is handed over promptly.
     if (!interface_manager.isReadBusy() && !interface_manager.isWriteBusy()) {
-      vTaskDelay(pdMS_TO_TICKS(10));
+      vTaskDelay(pdMS_TO_TICKS(esp32_pm_yield_ms));
     }
 #endif
   }
