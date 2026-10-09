@@ -17,7 +17,9 @@ static uint32_t _atoi(const char* sp) {
 MultiSerialInterface interface_manager;
 
 // include bluetooth interface
-#if defined(BLE_PIN_CODE)
+// (not with WITH_WIFI_SWITCHING: there MyMesh owns its own BLE and WiFi interfaces,
+// and a second SerialBLEInterface would initialise the BLE stack twice)
+#if defined(BLE_PIN_CODE) && !defined(WITH_WIFI_SWITCHING)
   #ifdef ESP32
     // include esp32 bluetooth interface
     #include <helpers/esp32/SerialBLEInterface.h>
@@ -185,7 +187,7 @@ void setup() {
 #endif
 
 // add bluetooth interface
-#if defined(BLE_PIN_CODE)
+#if defined(BLE_PIN_CODE) && !defined(WITH_WIFI_SWITCHING)
   bluetooth_interface.begin(BLE_NAME_PREFIX, the_mesh.getNodePrefs()->node_name, the_mesh.getBLEPin());
   interface_manager.addInterface(InterfaceType::Bluetooth, &bluetooth_interface);
 #endif
@@ -230,7 +232,15 @@ void setup() {
   interface_manager.addInterface(InterfaceType::HardwareSerial, &hardware_serial_interface);
 #endif
 
+#ifdef WITH_WIFI_SWITCHING
+  // MyMesh picks the transport itself: it loads /wifi_prefs, brings up its own BLE,
+  // starts WiFi if that was the saved mode, and switches between them at runtime.
+  // Going through interface_manager instead would leave the uni build with no
+  // transport at all — nothing registers there when BLE_PIN_CODE is not set.
+  the_mesh.initCommsFromPrefs();
+#else
   the_mesh.startInterface(interface_manager);
+#endif
   sensors.begin();
 
 #if ENV_INCLUDE_GPS == 1
