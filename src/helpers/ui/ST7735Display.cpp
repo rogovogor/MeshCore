@@ -344,7 +344,10 @@ static void displayInit(const uint8_t *addr) {
   }
 }
 
-static void setRotation(uint8_t m) {
+// Not named setRotation: DisplayDriver has a virtual setRotation() member, and an
+// unqualified call from inside ST7735Display would bind to that no-op instead,
+// leaving the panel in the portrait MADCTL from Rcmd1.
+static void applyRotation(uint8_t m) {
   uint8_t madctl = 0;
 
   rotation = m & 3; // can't be higher than 3
@@ -502,7 +505,7 @@ void ST7735Display::_resetAndInit() {
     displayInit(Rcmd2invert);   // invert RGB
 #endif
     displayInit(Rcmd3);
-    setRotation(DISPLAY_ROTATION);
+    applyRotation(DISPLAY_ROTATION);
     
     // clear the buffer before display on
     sprite->fillScreen(ST77XX_BLACK);
