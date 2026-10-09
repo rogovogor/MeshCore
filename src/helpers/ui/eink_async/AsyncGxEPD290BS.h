@@ -15,6 +15,9 @@ public:
 
   bool startRefreshAsync(bool partial) {
     if (_operation != Operation::None) return false;
+#if defined(EINK_ASYNC_LOG)
+    Serial.printf("[EINK] refresh start partial=%d busy_pin=%d\n", partial ? 1 : 0, digitalRead(PIN_DISPLAY_BUSY));
+#endif
     if (partial && !_using_partial_mode) initPartialWaveform();
     if (!partial) _using_partial_mode = false;
     _writeCommand(0x22);
@@ -45,9 +48,15 @@ public:
     if (elapsed < ASYNC_EINK_BUSY_ASSERT_MS) return PollResult::Busy;
     if (panelBusy()) {
       if (elapsed <= _timeout_ms) return PollResult::Busy;
+#if defined(EINK_ASYNC_LOG)
+      Serial.printf("[EINK] refresh TIMEOUT after %lu ms (busy_pin=%d)\n", (unsigned long)elapsed, digitalRead(PIN_DISPLAY_BUSY));
+#endif
       completeOperation();
       return PollResult::TimedOut;
     }
+#if defined(EINK_ASYNC_LOG)
+    Serial.printf("[EINK] refresh done after %lu ms (busy_pin=%d)\n", (unsigned long)elapsed, digitalRead(PIN_DISPLAY_BUSY));
+#endif
     completeOperation();
     return PollResult::Complete;
   }
