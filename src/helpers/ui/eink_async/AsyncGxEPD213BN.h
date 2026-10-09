@@ -43,6 +43,15 @@ public:
   PollResult pollAsync() {
     if (_operation == Operation::None) return PollResult::Idle;
     const uint32_t elapsed = millis() - _started_at;
+    // Панель обязана отработать волновую форму целиком: не завершаем операцию
+    // раньше номинального времени обновления. Иначе выходит "done after 10 ms"
+    // при реальных ~600 мс — кадр не прорисовывается, и экран остаётся на
+    // первой надписи. Линия занятости остаётся признаком, но лишь уточняющим.
+    const uint32_t nominal = _partial_refresh ? partial_refresh_time : full_refresh_time;
+    if (elapsed < nominal) {
+      if (elapsed > _timeout_ms) { completeOperation(); return PollResult::TimedOut; }
+      return PollResult::Busy;
+    }
     if (elapsed < ASYNC_EINK_BUSY_ASSERT_MS) return PollResult::Busy;
     if (panelBusy()) {
       if (elapsed <= _timeout_ms) return PollResult::Busy;
