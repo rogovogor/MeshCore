@@ -19,12 +19,7 @@
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 #ifdef DISPLAY_CLASS
-#if defined(WITH_ASYNC_EINK)
-  // Асинхронный вариант: панель ведёт GxEPD2 с неблокирующим обновлением.
-  #include <helpers/ui/GxEPDDisplay.h>
-#else
   #include <helpers/ui/E213Display.h>
-#endif
 #include <helpers/ui/MomentaryButton.h>
 #endif
 
