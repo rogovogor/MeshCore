@@ -48,7 +48,10 @@
     #define ESP32_PM_NATIVE_USB    0
   #endif
 
-  #if defined(WIFI_SSID) || defined(WITH_WIFI_SWITCHING) || defined(ENABLE_USB_INTERFACE)
+  // WITH_WIFI_SWITCHING is not in the list: there the transport is chosen at runtime,
+  // so light sleep stays configured and esp32_pm_wantsAwake() holds the lock while
+  // the active transport is WiFi or USB.
+  #if defined(WIFI_SSID) || defined(ENABLE_USB_INTERFACE)
     // The transport itself is WiFi or USB: sleeping breaks the link, not just the log.
     #define ESP32_PM_LIGHT_SLEEP   0
     #define ESP32_PM_USB_GUARD     0
@@ -200,6 +203,9 @@ static uint16_t esp32_pm_yieldFor(uint8_t mode) {
 
 static bool esp32_pm_wantsAwake() {
   if (ESP32_PM_LIGHT_SLEEP == 0) return false;   // this transport forbids sleeping
+  #if defined(WITH_WIFI_SWITCHING)
+    if (the_mesh.commsForbidsSleep()) return true;
+  #endif
   #if ESP32_PM_USB_GUARD
     if (esp32_usbHostPresent()) return true;
   #endif
@@ -470,7 +476,13 @@ void loop() {
     // every wake-up costs a TCXO start on top. Yielding to the idle task is what
     // actually lets the chip sleep; while a received frame is still queued the
     // loop keeps running instead so the frame is handed over promptly.
-    if (!interface_manager.isReadBusy() && !interface_manager.isWriteBusy()) {
+    // With WiFi or USB active the lock keeps the chip awake anyway, so the yield
+    // would only add latency to a link interface_manager does not even see.
+    if (!interface_manager.isReadBusy() && !interface_manager.isWriteBusy()
+  #if defined(WITH_WIFI_SWITCHING)
+        && !the_mesh.commsForbidsSleep()
+  #endif
+       ) {
       vTaskDelay(pdMS_TO_TICKS(esp32_pm_yield_ms));
     }
 #endif
