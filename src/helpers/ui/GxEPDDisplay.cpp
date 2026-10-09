@@ -28,7 +28,12 @@
 #endif
 
 #ifdef ESP32
-  SPIClass SPI1 = SPIClass(FSPI);
+  // У модулей Vision Master радио сидит на FSPI, а панель на HSPI, поэтому
+  // вариант называет свою шину вместо значения по умолчанию.
+  #ifndef EINK_SPI_BUS
+    #define EINK_SPI_BUS FSPI
+  #endif
+  SPIClass SPI1 = SPIClass(EINK_SPI_BUS);
 #endif
 
 // Color scheme
