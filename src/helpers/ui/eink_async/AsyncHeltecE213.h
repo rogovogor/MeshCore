@@ -2,30 +2,46 @@
 
 #include <GxEPD2_BW.h>
 #include "AsyncEinkCommon.h"
-#include "Depg0290PartialLut.h"
+#include "HeltecE213Panel.h"
+#include "HeltecE213Luts.h"
 
-// Non-blocking extension for GxEPD2 1.6.4's GxEPD2_290_BS driver.
-// This panel has no partial waveform in OTP, so the small LUT below is retained
-// verbatim from the upstream driver (GxEPD2, GPL-3.0).
-class AsyncGxEPD290BS : public GxEPD2_290_BS {
+// Non-blocking extension for GxEPD2 1.6.4's HeltecE213Panel driver.
+// The command bytes mirror that driver's _Update_Full(), _Update_Part() and
+// _PowerOff(). Pixel transfer and controller initialization remain in GxEPD2.
+class AsyncHeltecE213 : public HeltecE213Panel {
 public:
   using PollResult = AsyncEinkPollResult;
 
-  AsyncGxEPD290BS(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
-    : GxEPD2_290_BS(cs, dc, rst, busy) {}
+  AsyncHeltecE213(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
+    : HeltecE213Panel(cs, dc, rst, busy) {}
 
   bool startRefreshAsync(bool partial) {
     if (_operation != Operation::None) return false;
 #if defined(EINK_ASYNC_LOG)
     Serial.printf("[EINK] refresh start partial=%d busy_pin=%d\n", partial ? 1 : 0, digitalRead(PIN_DISPLAY_BUSY));
 #endif
+    // Панель LCMEN2R13EFC1 — контроллер UC81xx: свои команды запуска
+    // (0x04 питание, 0x12 обновление), а не 0x22/0x20 как у SSD1680.
     if (partial && !_using_partial_mode) initPartialWaveform();
     if (!partial) _using_partial_mode = false;
-    _writeCommand(0x22);
-    _writeData(partial ? 0xcf : 0xf7);   // 0xCF — как в рабочем драйвере панели, а не 0xCC
-    _writeCommand(0x20);
+    _writeCommand(0x04);
+    _writeCommand(0x12);
     start(Operation::Refresh, partial ? partial_refresh_time : full_refresh_time, partial);
     return true;
+  }
+
+  void initPartialWaveform() {
+    // Панель LCMEN2R13EFC1: последовательность частичного обновления и пять
+    // таблиц. Перенесено из рабочего драйвера heltec-eink-modules
+    // (LCMEN2R13EFC1/mode.cpp), который на этой плате действительно рисует.
+    _writeCommand(0x00); _writeData(0xFF);   // panel setting
+    _writeCommand(0x50); _writeData(0xD7);   // VCOM и интервал данных
+    _writeCommand(0x20); for (size_t i = 0; i < sizeof(LUT_PARTIAL_VCOM_DC); i++) _writeData(LUT_PARTIAL_VCOM_DC[i]);
+    _writeCommand(0x21); for (size_t i = 0; i < sizeof(LUT_PARTIAL_WW); i++) _writeData(LUT_PARTIAL_WW[i]);
+    _writeCommand(0x22); for (size_t i = 0; i < sizeof(LUT_PARTIAL_BW); i++) _writeData(LUT_PARTIAL_BW[i]);
+    _writeCommand(0x23); for (size_t i = 0; i < sizeof(LUT_PARTIAL_WB); i++) _writeData(LUT_PARTIAL_WB[i]);
+    _writeCommand(0x24); for (size_t i = 0; i < sizeof(LUT_PARTIAL_BB); i++) _writeData(LUT_PARTIAL_BB[i]);
+    _using_partial_mode = true;
   }
 
   bool startPowerOffAsync() {
@@ -34,9 +50,7 @@ public:
       _using_partial_mode = false;
       return false;
     }
-    _writeCommand(0x22);
-    _writeData(0x83);
-    _writeCommand(0x20);
+    _writeCommand(0x02);   // UC81xx: выключение питания панели
     start(Operation::PowerOff, power_off_time, false);
     return true;
   }
@@ -99,21 +113,5 @@ private:
       _using_partial_mode = false;
     }
     _operation = Operation::None;
-  }
-
-  void initPartialWaveform() {
-    // Панель DEPG0290BNS800 (Vision Master E290): своя последовательность
-    // частичного обновления и своя таблица волновой формы. Перенесено из
-    // рабочего драйвера heltec-eink-modules (DEPG0290BNS800/mode.cpp), который
-    // на этой плате действительно рисует, — вместо чужой таблицы GxEPD2.
-    _writeCommand(0x3C); _writeData(0x60);                                       // форма границы
-    _writeCommand(0x04); _writeData(0x41); _writeData(0x00); _writeData(0x32);   // напряжения источников, ±15 В
-    _writeCommand(0x32);                                                        // своя таблица
-    for (size_t i = 0; i < sizeof(DEPG0290_LUT_PARTIAL); i++) _writeData(DEPG0290_LUT_PARTIAL[i]);
-    _writeCommand(0x37);                                                        // режим ping-pong
-    for (int i = 0; i < 5; i++) _writeData(0x00);
-    _writeData(0x40);
-    for (int i = 0; i < 4; i++) _writeData(0x00);
-    _using_partial_mode = true;
   }
 };
