@@ -11,7 +11,10 @@ public:
 
   void begin() {
     pinMode(_pin, OUTPUT);
-    digitalWrite(_pin, !_active);  // initial state
+    // Захват мог случиться до begin() (статический конструктор в target.cpp
+    // асинхронных e-ink сборок): тогда пин должен остаться включённым, иначе
+    // счётчик говорит «включено», а рельс выключен и больше не включится.
+    digitalWrite(_pin, _claims > 0 ? _active : !_active);
   }
 
   void claim() {
