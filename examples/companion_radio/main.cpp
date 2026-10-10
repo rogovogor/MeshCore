@@ -182,8 +182,10 @@ void halt() {
 // is held whenever the CPU must stay awake instead, and three things ask for that:
 // a USB host on the line (that link is serviced by the CPU), the app connected in
 // the CONSERVATIVE profile, and a button-granted window for reading the console.
-static esp_pm_lock_handle_t esp32_pm_lock = NULL;
+static esp_pm_lock_handle_t esp32_pm_lock = NULL;      // ESP_PM_NO_LIGHT_SLEEP
+static esp_pm_lock_handle_t esp32_pm_apb_lock = NULL;  // ESP_PM_APB_FREQ_MAX
 static bool esp32_pm_lock_held = false;
+static bool esp32_pm_apb_lock_held = false;
 static uint32_t esp32_pm_hold_until = 0;
 static bool esp32_pm_window_active = false;
 static uint16_t esp32_pm_yield_ms = ESP32_PM_IDLE_YIELD_MS;
@@ -219,6 +221,27 @@ static bool esp32_pm_wantsAwake() {
   return esp32_pm_window_active;
 }
 
+// The NO_LIGHT_SLEEP lock above only stops light sleep; it does not stop DFS from
+// dropping the CPU to the XTAL frequency. On ESP32-S3 that also powers the BBPLL
+// down, and BBPLL clocks the chip's own USB-Serial-JTAG (HWCDC) and USB-OTG
+// (TinyUSB) — so the console dies even though the guard "holds". Keep APB at max
+// while a host is on the line or a button window is open, and for the whole session
+// when the *transport* is native USB (there DFS is never safe).
+static bool esp32_pm_wantsApbMax() {
+  #if ESP32_PM_NATIVE_USB
+    #if ESP32_PM_USB_GUARD
+      if (esp32_usbHostPresent()) return true;
+    #endif
+    if (esp32_pm_window_active) return true;
+  #endif
+
+  #if defined(ENABLE_USB_INTERFACE) && ESP32_PM_LIGHT_SLEEP == 0 && ESP32_PM_NATIVE_USB
+    return true;
+  #endif
+
+  return false;
+}
+
 static void esp32_servicePmHold() {
   #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
     // Active low with a pull-up. One press buys a window with the CPU awake, so the
@@ -237,15 +260,29 @@ static void esp32_servicePmHold() {
     esp32_pm_window_active = false;
   }
 
-  if (esp32_pm_lock == NULL) return;
-  const bool hold = esp32_pm_wantsAwake();
-  if (hold == esp32_pm_lock_held) return;
-  if (hold) {
-    esp_pm_lock_acquire(esp32_pm_lock);
-  } else {
-    esp_pm_lock_release(esp32_pm_lock);
+  if (esp32_pm_lock != NULL) {
+    const bool hold = esp32_pm_wantsAwake();
+    if (hold != esp32_pm_lock_held) {
+      if (hold) {
+        esp_pm_lock_acquire(esp32_pm_lock);
+      } else {
+        esp_pm_lock_release(esp32_pm_lock);
+      }
+      esp32_pm_lock_held = hold;
+    }
   }
-  esp32_pm_lock_held = hold;
+
+  if (esp32_pm_apb_lock != NULL) {
+    const bool apb = esp32_pm_wantsApbMax();
+    if (apb != esp32_pm_apb_lock_held) {
+      if (apb) {
+        esp_pm_lock_acquire(esp32_pm_apb_lock);
+      } else {
+        esp_pm_lock_release(esp32_pm_apb_lock);
+      }
+      esp32_pm_apb_lock_held = apb;
+    }
+  }
 }
 
 // Apply the profile: at startup, and again whenever the setting changes, because
@@ -293,14 +330,22 @@ static void esp32_setupPower() {
   #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
     pinMode(PIN_USER_BTN, INPUT_PULLUP);
   #endif
-  // Take the lock BEFORE light sleep is switched on, so a USB port is never dropped
-  // in the first moments.
+  // Take the locks BEFORE light sleep and DFS are switched on, so a USB port is
+  // never dropped in the first moments.
   if (esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "power", &esp32_pm_lock) != ESP_OK) {
     esp32_pm_lock = NULL;
     Serial.println("ESP32 PM: no lock available");
   } else if (esp32_pm_wantsAwake()) {
     esp_pm_lock_acquire(esp32_pm_lock);
     esp32_pm_lock_held = true;
+  }
+
+  if (esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "power_apb", &esp32_pm_apb_lock) != ESP_OK) {
+    esp32_pm_apb_lock = NULL;
+    Serial.println("ESP32 PM: no APB lock available");
+  } else if (esp32_pm_wantsApbMax()) {
+    esp_pm_lock_acquire(esp32_pm_apb_lock);
+    esp32_pm_apb_lock_held = true;
   }
   esp32_applyPowerMode(the_mesh.getNodePrefs()->power_mode);
 }
