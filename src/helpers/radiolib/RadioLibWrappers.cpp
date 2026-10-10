@@ -2,7 +2,7 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include "RadioLibWrappers.h"
 
-#if defined(WITH_ESP32_POWER_SAVING)
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
 #include "driver/gpio.h"
 #endif
 
@@ -88,13 +88,17 @@ void RadioLibWrapper::resetAGC() {
   _floor_sample_sum = 0;
 }
 
-#if defined(WITH_ESP32_POWER_SAVING)
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
 void RadioLibWrapper::recoverMissedDioInterrupt() {
   #if defined(P_LORA_DIO_1)
-  // `state == STATE_RX` means the radio is receiving and the ISR flag is clear.
-  // If DIO1 is HIGH in that state, the packet-received edge fired while the CPU
-  // was asleep and was never serviced; raise the flag so recvRaw() reads the frame.
-  if (state == STATE_RX && gpio_get_level((gpio_num_t)P_LORA_DIO_1) == HIGH) {
+  const int level = gpio_get_level((gpio_num_t)P_LORA_DIO_1);
+  // `state == STATE_RX` means the radio is receiving and the ISR flag is clear;
+  // a HIGH DIO1 then means the packet-received edge fired while the CPU was
+  // asleep and was never serviced. `STATE_TX_WAIT` is the same situation for
+  // TxDone: the send-finished edge fired asleep, and the ISR flag must be raised
+  // so isSendComplete() finishes the TX. recvRaw() and isSendComplete() only look
+  // at STATE_INT_READY, so the extra flag is consumed exactly like a real ISR.
+  if (level == HIGH && (state == STATE_RX || state == STATE_TX_WAIT)) {
     state |= STATE_INT_READY;
   }
   #endif

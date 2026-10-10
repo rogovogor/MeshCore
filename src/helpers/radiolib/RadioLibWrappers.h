@@ -65,11 +65,13 @@ public:
 
   void loop() override;
 
-  #if defined(WITH_ESP32_POWER_SAVING)
+  #if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
   // Light sleep can swallow the DIO1 rising edge: the SX1262 then holds DIO1 HIGH
-  // and no new edge arrives, so the receive flag would stay unset until the next
-  // resetAGC/TX. If the radio is still in RX but the ISR flag is clear and DIO1 is
-  // HIGH, the interrupt fired while asleep — raise the flag so recvRaw() reads it.
+  // and no new edge arrives, so the receive (or send-done) flag would stay unset
+  // until the next resetAGC/TX. If the radio is still in RX/TX_WAIT but the ISR
+  // flag is clear and DIO1 is HIGH, the interrupt fired while asleep — raise the
+  // flag so recvRaw()/isSendComplete() read it. Guarded by ESP32 too, because the
+  // ESP32-only GPIO read must not leak into nRF52 builds that set the PS flag.
   void recoverMissedDioInterrupt();
   #endif
 
