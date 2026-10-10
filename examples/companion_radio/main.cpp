@@ -16,6 +16,14 @@
 // disabled, so esp_pm_configure() returns ESP_ERR_NOT_SUPPORTED there: the code
 // below then only reports the failure and the node behaves exactly as before.
 #if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  #if defined(WITH_ESP32_PM_REQUIRED)
+    // A *_ps environment: refuse to build a "power saving" image on a core that
+    // cannot sleep. Install the PS core once: python tools/ps_framework.py
+    #include "sdkconfig.h"
+    #if !CONFIG_PM_ENABLE
+      #error "WITH_ESP32_PM_REQUIRED: framework built without CONFIG_PM_ENABLE - run: python tools/ps_framework.py"
+    #endif
+  #endif
   #include "esp_pm.h"
   #include "esp_bt.h"
   #include "esp_sleep.h"

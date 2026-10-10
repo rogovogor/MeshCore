@@ -195,27 +195,36 @@ Light sleep разрешён только когда `Serial` — настоящ
 idf.py -DIDF_TARGET=esp32s3 -DSDKCONFIG_DEFAULTS=<штатный sdkconfig + наш дельта-файл> idf_libs
 ```
 
-## Как воспроизвести сборку прошивки без нашего ядра
+## Как собирать прошивку
 
-В `variants/heltec_v3/platformio.ini` есть окружение `Heltec_v3_companion_radio_ble_ps`
-— та же плата и опции, что у `Heltec_v3_companion_radio_ble`, плюс
-`-D WITH_ESP32_POWER_SAVING=1`. Путь к ядру берётся из переменной окружения
-`PS_FRAMEWORK`, которая содержит спецификацию пакета целиком
-(`symlink://<каталог>` или `file://<архив>`).
+Ядро живёт в отдельном репозитории — https://github.com/rogovogor/arduino-esp32-ps
+(рецепт, сборка, релизы). В прошивке:
 
-На Windows спецификация `file:///C:/...tar.gz` **не работает**: PlatformIO
-принимает архив за каталог и падает на `shutil.copytree`. Рабочий способ —
-распаковать пакет поверх установленного:
+- `[esp32_base]` закрепляет **штатное** ядро точной версией
+  (`platformio/framework-arduinoespressif32 @ 3.20017.241212+sha.dcc1105b`). Без этого
+  PlatformIO берёт любой установленный пакет с этим именем, в том числе PS-ядро.
+- `[esp32_ps]` даёт PS-ядро ссылкой
+  `symlink://${platformio.core_dir}/ps/framework-arduinoespressif32-2.0.17-ps.1` и флаги
+  `WITH_ESP32_POWER_SAVING=1` + `WITH_ESP32_PM_REQUIRED=1`. Все окружения `*_ps`
+  наследуют их. `WITH_ESP32_PM_REQUIRED` даёт ошибку компиляции, если ядро без
+  `CONFIG_PM_ENABLE`, — «ps»-образ на штатном ядре не соберётся.
+
+Один раз на машину (и в CI перед сборкой):
 
 ```
-tar -xzf framework-ps.tar.gz -C %USERPROFILE%\.platformio\packages\framework-arduinoespressif32
+python tools/ps_framework.py            # скачать релиз, сверить sha256, распаковать
+python tools/ps_framework.py --archive <файл.tar.gz>   # то же из локального архива
+pio run -e Heltec_E290_companion_radio_ble_async_ps
 ```
 
-и убрать строку `platform_packages` из окружения: сборка пойдёт на этом пакете.
-Проверка, что пакет наш: `CONFIG_PM_ENABLE 1` в
-`tools/sdk/esp32s3/qio_qspi/include/sdkconfig.h` и `libesp_pm.a` размером
-203 440 байт. Вернуть штатное ядро — удалить каталог пакета, PlatformIO поставит
-его заново.
+Оба ядра живут рядом, сборки чередуются без переустановки. Подключать архив
+ссылкой прямо в `platform_packages` нельзя: PlatformIO держит один пакет на имя,
+и PS-ядро встало бы на место штатного для всех ESP32-сборок.
+
+Если раньше PS-ядро распаковывали поверх штатного пакета, каталог
+`~/.platformio/packages/framework-arduinoespressif32` надо один раз удалить —
+закрепление версии его не распознает (версия у него штатная), PlatformIO поставит
+настоящее штатное ядро.
 
 ## Что осталось
 

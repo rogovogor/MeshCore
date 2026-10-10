@@ -45,6 +45,14 @@ static unsigned long startup_millis = 0;
 // task, instead of a manual board.sleep(). Needs a framework built with
 // CONFIG_PM_ENABLE; on a stock one esp_pm_configure() reports
 // ESP_ERR_NOT_SUPPORTED and the node runs as if powersaving were off.
+#if defined(WITH_ESP32_PM_REQUIRED)
+  // A *_ps environment: refuse to build a "power saving" image on a core that
+  // cannot sleep. Install the PS core once: python tools/ps_framework.py
+  #include "sdkconfig.h"
+  #if !CONFIG_PM_ENABLE
+    #error "WITH_ESP32_PM_REQUIRED: framework built without CONFIG_PM_ENABLE - run: python tools/ps_framework.py"
+  #endif
+#endif
 #include "esp_pm.h"
 #include "esp_sleep.h"
 #include "driver/uart.h"
