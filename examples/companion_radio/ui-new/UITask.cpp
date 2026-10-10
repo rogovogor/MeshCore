@@ -833,6 +833,11 @@ public:
         display.setColor(UIColor::primary_txt);
         display.drawTextCentered(display.width() / 2, content_y + 8, "Settings");
         display.drawTextCentered(display.width() / 2, content_y + 24, PRESS_LABEL " to enter");
+        // Firmware version with the commit hash, e.g. "v1.17.1-6cf6277b" — the boot
+        // splash is gone in 3 s, and this is where to check what is flashed.
+        if (content_y + 40 + 8 * hdr_size <= display.height()) {
+          display.drawTextCentered(display.width() / 2, content_y + 40, FIRMWARE_VERSION);
+        }
       } else {
         static const char* pm_clok_vals[2] = { "all", "PM" };
         static const char* dim_vals[2]     = { "ON", "OFF" };
