@@ -13,6 +13,9 @@
 
 #include "AsyncGxEPD213B74.h"
 #include "AsyncGxEPD290T94V2.h"
+#include "AsyncGxEPD213BN.h"
+#include "AsyncHeltec213.h"
+#include "AsyncGxEPD290BS.h"
 
 template <typename Panel>
 struct AsyncEinkPanelFor {
@@ -30,4 +33,19 @@ struct AsyncEinkPanelFor<GxEPD2_213_B74> {
 template <>
 struct AsyncEinkPanelFor<GxEPD2_290_T94_V2> {
   using Type = AsyncGxEPD290T94V2;
+};
+
+// Реальные панели Heltec Vision Master: DEPG0290BNS800F6 (E290) и LCMEN2R13EFC1
+// (E213). Адаптеры — потомки классов GxEPD2 того же семейства.
+template <>
+struct AsyncEinkPanelFor<GxEPD2_290_BS> { using Type = AsyncGxEPD290BS; };
+
+template <>
+struct AsyncEinkPanelFor<GxEPD2_213_BN> { using Type = AsyncGxEPD213BN; };
+
+// 2.13" панели Heltec (Vision Master E213, Wireless Paper): контроллер
+// определяется при старте, поэтому модель и адаптер — один класс.
+template <>
+struct AsyncEinkPanelFor<AsyncHeltec213> {
+  using Type = AsyncHeltec213;
 };

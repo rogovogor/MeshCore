@@ -18,6 +18,10 @@ AutoDiscoverRTCClock rtc_clock(fallback_clock);
 SensorManager sensors;
 
 #ifdef DISPLAY_CLASS
+// Питание панели (VEXT, GPIO45) на Wireless Paper включается уровнем LOW, а
+// periph_power в HeltecV3Board создан с активным HIGH: после board.begin()
+// рельс включён, пока его никто не захватывает. Поэтому асинхронная сборка,
+// в отличие от E213/E290, рельс не захватывает — захват бы его выключил.
 DISPLAY_CLASS display;
 MomentaryButton user_btn(PIN_USER_BTN, 1000, true);
 #endif
