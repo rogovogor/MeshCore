@@ -157,6 +157,23 @@ public:
     return false;
   }
 
+  bool isReadBusy() const override {
+    // not busy when disabled
+    if(!_enabled){
+      return false;
+    }
+
+    // check if any interface has a received frame waiting
+    for(auto iface : _interfaces){
+      if(iface.instance && iface.instance->isEnabled() && iface.instance->isReadBusy()){
+        return true;
+      }
+    }
+
+    // nothing waiting
+    return false;
+  }
+
   size_t writeFrame(const uint8_t src[], size_t len) override {
     // don't write when disabled or nothing provided
     if(!_enabled || len == 0){

@@ -291,6 +291,9 @@ public:
 #ifdef WITH_WIFI_SWITCHING
   void switchCommsMode(uint8_t mode, int wifi_net_idx = 0);
   bool isWifiConnecting() const { return _wifi_connecting; }
+  // WiFi and USB carry the app link themselves and drop when the chip light-sleeps;
+  // BLE survives it. A connection attempt counts as WiFi even with BLE as fallback.
+  bool commsForbidsSleep() const { return _wifi_connecting || _wifi_prefs.comms_mode != COMMS_MODE_BLE; }
   bool isWifiConnected() const { return WiFi.status() == WL_CONNECTED; }
   String getWifiIP() const { return WiFi.localIP().toString(); }
   WifiPrefs* getWifiPrefs() { return &_wifi_prefs; }

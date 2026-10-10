@@ -15,6 +15,7 @@
 #include <CRC32.h>
 
 #include "DisplayDriver.h"
+#include <helpers/RefCountedDigitalPin.h>
 
 #if defined(WITH_ASYNC_EINK)
   #include "eink_async/AsyncEinkPanels.h"
@@ -76,13 +77,15 @@ public:
 #if defined(EINK_DISPLAY_MODEL)
   #if defined(EINK_LOGICAL_W)
 #if defined(WITH_ASYNC_EINK)
-    GxEPDDisplay() : DisplayDriver(EINK_LOGICAL_W, EINK_LOGICAL_H), display(SelectedAsyncEinkPanel(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) {}
+    // GxEPD2 сам не управляет питанием панели, поэтому рельс удерживаем: claim()
+    // без release() оставляет питание включённым на всё время работы.
+    GxEPDDisplay(RefCountedDigitalPin* periph_power = NULL) : DisplayDriver(EINK_LOGICAL_W, EINK_LOGICAL_H), display(SelectedAsyncEinkPanel(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) { if (periph_power) periph_power->claim(); }
 #else
     GxEPDDisplay() : DisplayDriver(EINK_LOGICAL_W, EINK_LOGICAL_H), display(EINK_DISPLAY_MODEL(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) {}
 #endif
   #else
 #if defined(WITH_ASYNC_EINK)
-    GxEPDDisplay() : DisplayDriver(128, 128), display(SelectedAsyncEinkPanel(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) {}
+    GxEPDDisplay(RefCountedDigitalPin* periph_power = NULL) : DisplayDriver(128, 128), display(SelectedAsyncEinkPanel(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) { if (periph_power) periph_power->claim(); }
 #else
     GxEPDDisplay() : DisplayDriver(128, 128), display(EINK_DISPLAY_MODEL(PIN_DISPLAY_CS, PIN_DISPLAY_DC, PIN_DISPLAY_RST, PIN_DISPLAY_BUSY)) {}
 #endif

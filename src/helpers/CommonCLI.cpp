@@ -19,6 +19,16 @@ static uint32_t _atoi(const char* sp) {
   return n;
 }
 
+// Companion power-saving profile, as text. Kept next to the CLI it serves.
+static const char* powerModeName(uint8_t mode) {
+  switch (mode) {
+    case POWER_MODE_OFF:          return "off";
+    case POWER_MODE_CONSERVATIVE: return "conservative";
+    case POWER_MODE_AGGRESSIVE:   return "aggressive";
+    default:                      return "auto";
+  }
+}
+
 static bool isValidName(const char *n) {
   while (*n) {
     if (*n == '[' || *n == ']' || *n == '\\' || *n == ':' || *n == ',' || *n == '?' || *n == '*') return false;
@@ -126,6 +136,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {  // Legacy 
     _prefs->bridge_channel = constrain(_prefs->bridge_channel, 0, 14);
 
     _prefs->powersaving_enabled = constrain(_prefs->powersaving_enabled, 0, 1);
+    _prefs->power_mode = constrain(_prefs->power_mode, 0, POWER_MODE_MAX);
 
     _prefs->gps_enabled = constrain(_prefs->gps_enabled, 0, 1);
     _prefs->advert_loc_policy = constrain(_prefs->advert_loc_policy, 0, 2);
@@ -399,12 +410,12 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       }
 #endif
     } else if (memcmp(command, "powersaving on", 14) == 0) {
-#if defined(NRF52_PLATFORM)
       _prefs->powersaving_enabled = 1;
+      _prefs->power_mode = POWER_MODE_AUTO;   // companions: back to the platform default
+#if defined(NRF52_PLATFORM)
       savePrefs();
       strcpy(reply, "on - Immediate effect");
 #elif defined(ESP32) && !defined(WITH_BRIDGE)
-      _prefs->powersaving_enabled = 1;
       savePrefs();
       strcpy(reply, "on - After 2 minutes");
 #elif defined(WITH_BRIDGE)
@@ -414,11 +425,12 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
 #endif
     } else if (memcmp(command, "powersaving off", 15) == 0) {
       _prefs->powersaving_enabled = 0;
+      _prefs->power_mode = POWER_MODE_OFF;
       savePrefs();
       strcpy(reply, "off");
     } else if (memcmp(command, "powersaving", 11) == 0) {
       if (_prefs->powersaving_enabled) {
-        strcpy(reply, "on");
+        sprintf(reply, "on (mode %s)", powerModeName(_prefs->power_mode));
       } else {
         strcpy(reply, "off");
       }
@@ -566,6 +578,30 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
       strcpy(reply, "OK");
     } else {
       strcpy(reply, "Error: unsupported");
+    }
+  } else if (memcmp(config, "power.mode ", 11) == 0) {
+    const char* value = &config[11];
+    uint8_t mode;
+    if (strcmp(value, "auto") == 0) {
+      mode = POWER_MODE_AUTO;
+    } else if (strcmp(value, "off") == 0) {
+      mode = POWER_MODE_OFF;
+    } else if (strcmp(value, "conservative") == 0) {
+      mode = POWER_MODE_CONSERVATIVE;
+    } else if (strcmp(value, "aggressive") == 0) {
+      mode = POWER_MODE_AGGRESSIVE;
+    } else {
+      mode = 0xFF;
+    }
+    if (mode == 0xFF) {
+      strcpy(reply, "Error: mode must be auto, off, conservative or aggressive");
+    } else {
+      _prefs->power_mode = mode;
+      // Companions on a battery keep the master switch in step with the profile,
+      // so the familiar `powersaving on|off` reports the same thing.
+      _prefs->powersaving_enabled = (mode != POWER_MODE_OFF) ? 1 : 0;
+      savePrefs();
+      sprintf(reply, "OK - power mode %s", powerModeName(mode));
     }
   } else if (memcmp(config, "radio.fem.rxgain ", 17) == 0) {
     if (!_board->canControlLoRaFemLna()) {
@@ -841,6 +877,9 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, char* command, char* rep
     sprintf(reply, "> %s", StrHelper::ftoa(_prefs->airtime_factor));
   } else if (memcmp(config, "int.thresh", 10) == 0) {
     sprintf(reply, "> %d", (uint32_t) _prefs->interference_threshold);
+  } else if (memcmp(config, "power", 5) == 0) {
+    sprintf(reply, "> mode=%s powersaving=%s", powerModeName(_prefs->power_mode),
+            _prefs->powersaving_enabled ? "on" : "off");
   } else if (memcmp(config, "cad", 3) == 0) {
     sprintf(reply, "> %s", _prefs->cad_enabled ? "on" : "off");
   } else if (memcmp(config, "agc.reset.interval", 18) == 0) {

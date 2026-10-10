@@ -160,9 +160,21 @@ private:
     _row_sum_valid = true;
   }
 
+  // Panels whose controller has no RAM window (UC81xx) take the whole frame
+  // on every write. Optional: a panel without fullFrameWrites() gets bands.
+  template<typename P>
+  static auto fullFrameImpl(const P& p, int) -> decltype(p.fullFrameWrites()) { return p.fullFrameWrites(); }
+  template<typename P>
+  static bool fullFrameImpl(const P&, long) { return false; }
+
   void writeForRefresh(bool partial) {
     if (partial) {
-      markDirtyBand();
+      if (fullFrameImpl(epd2, 0)) {
+        _dirty_first = 0;
+        _dirty_rows  = Panel::HEIGHT;
+      } else {
+        markDirtyBand();
+      }
       epd2.writeImage(_buffer + size_t(_dirty_first) * BYTES_PER_ROW,
                       0, _dirty_first, Panel::WIDTH, _dirty_rows);
     } else {

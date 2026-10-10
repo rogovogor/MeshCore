@@ -14,7 +14,12 @@ public:
 #include <helpers/AutoDiscoverRTCClock.h>
 #include <helpers/SensorManager.h>
 #ifdef DISPLAY_CLASS
-#include <helpers/ui/E213Display.h>
+#if defined(WITH_ASYNC_EINK)
+  // Панель ведёт GxEPD2-канва с неблокирующим драйвером AsyncHeltec213.
+  #include <helpers/ui/GxEPDDisplay.h>
+#else
+  #include <helpers/ui/E213Display.h>
+#endif
 #include <helpers/ui/MomentaryButton.h>
 #endif
 

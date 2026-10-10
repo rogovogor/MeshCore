@@ -83,6 +83,7 @@ public:
   bool isConnected() const override;
 
   bool isWriteBusy() const override;
+  bool isReadBusy() const override;
   size_t writeFrame(const uint8_t src[], size_t len) override;
   size_t checkRecvFrame(uint8_t dest[]) override;
   void flushSend() override;
