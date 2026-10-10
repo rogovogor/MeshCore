@@ -159,12 +159,6 @@ static void repeater_pm_setup() {
 
 // Service the keep-awake windows and the power pref. Runs every loop iteration.
 static void repeater_pm_service() {
-  // Extend the CLI window while serial bytes arrive.
-  if (Serial.available()) {
-    repeater_pm_serial_active = true;
-    repeater_pm_serial_until = millis() + REPEATER_PM_SERIAL_HOLD_MS;
-  }
-
   #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
     if (digitalRead(PIN_USER_BTN) == LOW) {
       repeater_pm_btn_active = true;
@@ -301,6 +295,15 @@ void setup() {
 }
 
 void loop() {
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  // Note CLI bytes as soon as they arrive — before the read loop below consumes
+  // them — so the keep-awake window is armed by the received bytes themselves.
+  if (Serial.available()) {
+    repeater_pm_serial_active = true;
+    repeater_pm_serial_until = millis() + REPEATER_PM_SERIAL_HOLD_MS;
+  }
+#endif
+
   // Handle Serial CLI
   int len = strlen(command);
   while (Serial.available() && len < sizeof(command)-1) {
