@@ -1252,7 +1252,11 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   _prefs.ui_pm_clock_mode = 1;  // PM inline on clock page by default
   _prefs.ui_clock_dim_mode = 0; // normal auto-off by default
   _prefs.adc_multiplier = 0.0f; // 0.0f = use board default
+#ifdef EINK_DEFAULT_ROTATION
+  _prefs.ui_display_rotation = EINK_DEFAULT_ROTATION;   // GxEPDDisplay takes rotation from prefs (async screen_180)
+#else
   _prefs.ui_display_rotation = 3;   // default landscape (matches compile-time DISPLAY_ROTATION=3)
+#endif
   _prefs.ui_max_unread_idx = 1;     // 32 unread messages
   _prefs.ui_max_log_idx = 1;        // 32 history messages
   _prefs.ui_charge_uptime_base = 0;
