@@ -18,6 +18,8 @@
 #if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
   #include "esp_pm.h"
   #include "esp_bt.h"
+  #include "esp_sleep.h"
+  #include "driver/rtc_io.h"
 
   #define ESP32_PM_CPU_MAX_MHZ   80
   #define ESP32_PM_CPU_MIN_MHZ   40
@@ -51,8 +53,9 @@
   // WITH_WIFI_SWITCHING is not in the list: there the transport is chosen at runtime,
   // so light sleep stays configured and esp32_pm_wantsAwake() holds the lock while
   // the active transport is WiFi or USB.
-  #if defined(WIFI_SSID) || defined(ENABLE_USB_INTERFACE)
-    // The transport itself is WiFi or USB: sleeping breaks the link, not just the log.
+  #if defined(WIFI_SSID) || defined(ENABLE_USB_INTERFACE) || defined(SERIAL_RX) || defined(ETHERNET_ENABLED)
+    // The transport itself is WiFi, USB, UART or Ethernet: sleeping breaks the link,
+    // not just the log.
     #define ESP32_PM_LIGHT_SLEEP   0
     #define ESP32_PM_USB_GUARD     0
   #elif ESP32_PM_NATIVE_USB && !defined(WITH_ESP32_POWER_SAVING_USB_SERIAL_SAFE)
@@ -182,9 +185,12 @@ void halt() {
 // is held whenever the CPU must stay awake instead, and three things ask for that:
 // a USB host on the line (that link is serviced by the CPU), the app connected in
 // the CONSERVATIVE profile, and a button-granted window for reading the console.
-static esp_pm_lock_handle_t esp32_pm_lock = NULL;
+static esp_pm_lock_handle_t esp32_pm_lock = NULL;      // ESP_PM_NO_LIGHT_SLEEP
+static esp_pm_lock_handle_t esp32_pm_apb_lock = NULL;  // ESP_PM_APB_FREQ_MAX
 static bool esp32_pm_lock_held = false;
+static bool esp32_pm_apb_lock_held = false;
 static uint32_t esp32_pm_hold_until = 0;
+static bool esp32_pm_window_active = false;
 static uint16_t esp32_pm_yield_ms = ESP32_PM_IDLE_YIELD_MS;
 static uint8_t esp32_pm_applied_mode = 0xFF;
 
@@ -215,7 +221,33 @@ static bool esp32_pm_wantsAwake() {
       && interface_manager.isConnected()) {
     return true;
   }
-  return (int32_t)(esp32_pm_hold_until - millis()) > 0;
+  #if ENV_INCLUDE_GPS == 1
+    // GPS runs over UART (Tracker 115200, v4): light sleep drops NMEA bytes, so stay
+    // awake while the GPS is enabled in prefs (see applyGpsPrefs()).
+    if (the_mesh.getNodePrefs()->gps_enabled) return true;
+  #endif
+  return esp32_pm_window_active;
+}
+
+// The NO_LIGHT_SLEEP lock above only stops light sleep; it does not stop DFS from
+// dropping the CPU to the XTAL frequency. On ESP32-S3 that also powers the BBPLL
+// down, and BBPLL clocks the chip's own USB-Serial-JTAG (HWCDC) and USB-OTG
+// (TinyUSB) — so the console dies even though the guard "holds". Keep APB at max
+// while a host is on the line or a button window is open, and for the whole session
+// when the *transport* is native USB (there DFS is never safe).
+static bool esp32_pm_wantsApbMax() {
+  #if ESP32_PM_NATIVE_USB
+    #if ESP32_PM_USB_GUARD
+      if (esp32_usbHostPresent()) return true;
+    #endif
+    if (esp32_pm_window_active) return true;
+  #endif
+
+  #if defined(ENABLE_USB_INTERFACE) && ESP32_PM_LIGHT_SLEEP == 0 && ESP32_PM_NATIVE_USB
+    return true;
+  #endif
+
+  return false;
 }
 
 static void esp32_servicePmHold() {
@@ -223,19 +255,42 @@ static void esp32_servicePmHold() {
     // Active low with a pull-up. One press buys a window with the CPU awake, so the
     // console can be read even when host detection says nothing is attached.
     if (digitalRead(PIN_USER_BTN) == LOW) {
+      esp32_pm_window_active = true;
       esp32_pm_hold_until = millis() + ESP32_PM_USB_HOLD_MS;
     }
   #endif
 
-  if (esp32_pm_lock == NULL) return;
-  const bool hold = esp32_pm_wantsAwake();
-  if (hold == esp32_pm_lock_held) return;
-  if (hold) {
-    esp_pm_lock_acquire(esp32_pm_lock);
-  } else {
-    esp_pm_lock_release(esp32_pm_lock);
+  // The window is a flag, not a signed difference: millis() wraps every ~49.7 days,
+  // and a naive (int32_t)(hold_until - millis()) > 0 turns positive again ~24.8 days
+  // after the wrap, holding the lock with no sleep. Clear the flag once the deadline
+  // has passed; the unsigned subtraction is correct across the millis() wrap.
+  if (esp32_pm_window_active && ((int32_t)(millis() - esp32_pm_hold_until) >= 0)) {
+    esp32_pm_window_active = false;
   }
-  esp32_pm_lock_held = hold;
+
+  if (esp32_pm_lock != NULL) {
+    const bool hold = esp32_pm_wantsAwake();
+    if (hold != esp32_pm_lock_held) {
+      if (hold) {
+        esp_pm_lock_acquire(esp32_pm_lock);
+      } else {
+        esp_pm_lock_release(esp32_pm_lock);
+      }
+      esp32_pm_lock_held = hold;
+    }
+  }
+
+  if (esp32_pm_apb_lock != NULL) {
+    const bool apb = esp32_pm_wantsApbMax();
+    if (apb != esp32_pm_apb_lock_held) {
+      if (apb) {
+        esp_pm_lock_acquire(esp32_pm_apb_lock);
+      } else {
+        esp_pm_lock_release(esp32_pm_apb_lock);
+      }
+      esp32_pm_apb_lock_held = apb;
+    }
+  }
 }
 
 // Apply the profile: at startup, and again whenever the setting changes, because
@@ -256,15 +311,24 @@ static void esp32_applyPowerMode(uint8_t mode) {
     #error "No esp_pm_config_t for this target"
   #endif
 
-  pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
-  pm_config.min_freq_mhz = ESP32_PM_CPU_MIN_MHZ;
-  pm_config.light_sleep_enable = (ESP32_PM_LIGHT_SLEEP != 0) && (mode != POWER_MODE_OFF);
+  if (mode == POWER_MODE_OFF) {
+    // "off" means "as before the feature": a fixed CPU frequency with no DFS and no
+    // light sleep. min == max disables DFS, so an on-the-fly off -> auto switch
+    // re-applies scaling on the next esp_pm_configure() call.
+    pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+    pm_config.min_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+    pm_config.light_sleep_enable = false;
+  } else {
+    pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+    pm_config.min_freq_mhz = ESP32_PM_CPU_MIN_MHZ;
+    pm_config.light_sleep_enable = (ESP32_PM_LIGHT_SLEEP != 0);
+  }
 
   esp_err_t err_pm = esp_pm_configure(&pm_config);
   esp32_pm_applied_mode = mode;
   if (err_pm == ESP_OK) {
     Serial.printf("ESP32 PM: %d-%d MHz, light sleep %s, mode %u\n",
-                  (int)ESP32_PM_CPU_MAX_MHZ, (int)ESP32_PM_CPU_MIN_MHZ,
+                  (int)pm_config.max_freq_mhz, (int)pm_config.min_freq_mhz,
                   pm_config.light_sleep_enable ? "on" : "off", (unsigned)mode);
   } else {
     Serial.printf("ESP32 PM: unavailable (%d) - framework built without CONFIG_PM_ENABLE\n",
@@ -283,8 +347,8 @@ static void esp32_setupPower() {
   #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
     pinMode(PIN_USER_BTN, INPUT_PULLUP);
   #endif
-  // Take the lock BEFORE light sleep is switched on, so a USB port is never dropped
-  // in the first moments.
+  // Take the locks BEFORE light sleep and DFS are switched on, so a USB port is
+  // never dropped in the first moments.
   if (esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "power", &esp32_pm_lock) != ESP_OK) {
     esp32_pm_lock = NULL;
     Serial.println("ESP32 PM: no lock available");
@@ -292,6 +356,31 @@ static void esp32_setupPower() {
     esp_pm_lock_acquire(esp32_pm_lock);
     esp32_pm_lock_held = true;
   }
+
+  if (esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "power_apb", &esp32_pm_apb_lock) != ESP_OK) {
+    esp32_pm_apb_lock = NULL;
+    Serial.println("ESP32 PM: no APB lock available");
+  } else if (esp32_pm_wantsApbMax()) {
+    esp_pm_lock_acquire(esp32_pm_apb_lock);
+    esp32_pm_apb_lock_held = true;
+  }
+
+  // Wake on a received LoRa packet. RadioLib hooks the packet-received interrupt
+  // on DIO1; ext1 with a HIGH level latches the edge that fires while the CPU is
+  // asleep, so the wake happens and the loop can read the frame. Do NOT use
+  // gpio_wakeup_enable() (as ESP32Board::sleep() does): it leaves the interrupt
+  // level-triggered, and in the automatic mode the ISR would storm until the loop
+  // services the radio. Only RTC-capable pins can drive ext1.
+  #if defined(P_LORA_DIO_1)
+    gpio_num_t dio_pin = (gpio_num_t)P_LORA_DIO_1;
+    if (rtc_gpio_is_valid_gpio(dio_pin)) {
+      esp_sleep_enable_ext1_wakeup(1ULL << P_LORA_DIO_1, ESP_EXT1_WAKEUP_ANY_HIGH);
+    } else {
+      Serial.printf("ESP32 PM: DIO1 GPIO%d is not RTC-capable, no LoRa RX wakeup\n",
+                    (int)P_LORA_DIO_1);
+    }
+  #endif
+
   esp32_applyPowerMode(the_mesh.getNodePrefs()->power_mode);
 }
 #endif
@@ -469,6 +558,7 @@ void loop() {
     // busy too, so both the lock state and the profile always match the settings.
     esp32_servicePowerPrefs();
     esp32_servicePmHold();
+    radio_driver.recoverMissedDioInterrupt();
   #endif
 
   if (!the_mesh.hasPendingWork()) {
@@ -482,10 +572,11 @@ void loop() {
       board.sleep(0);
     }
 #elif defined(ESP32) && defined(WITH_ESP32_POWER_SAVING) && ESP32_PM_LIGHT_SLEEP
-    // Walking the loop as fast as it can keeps the CPU out of light sleep, and
-    // every wake-up costs a TCXO start on top. Yielding to the idle task is what
-    // actually lets the chip sleep; while a received frame is still queued the
-    // loop keeps running instead so the frame is handed over promptly.
+    // Walking the loop as fast as it can keeps the CPU out of light sleep; the
+    // SX1262 TCXO stays up through ESP32 light sleep, so there is no TCXO start
+    // cost per wake-up. Yielding to the idle task is what actually lets the chip
+    // sleep; while a received frame is still queued the loop keeps running instead
+    // so the frame is handed over promptly.
     // With WiFi or USB active the lock keeps the chip awake anyway, so the yield
     // would only add latency to a link interface_manager does not even see.
     if (!interface_manager.isReadBusy() && !interface_manager.isWriteBusy()

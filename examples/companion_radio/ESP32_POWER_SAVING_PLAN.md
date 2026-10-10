@@ -25,12 +25,10 @@ BLE и приём LoRa. Сообщения при этом приходят и �
 
 ## Что сделано
 
-| Коммит | Что |
-|---|---|
-| `d3f701b8` | код: `isReadBusy()` в базовом интерфейсе и в ESP32 BLE, `esp_pm_configure`/`esp_bt_sleep_enable` в `setup()`, уступка 10 мс в холостом цикле, отключение light sleep для USB-CDC/USB-компаньонов/WiFi; всё под `WITH_ESP32_POWER_SAVING`, по умолчанию выключено |
-| `565342c2` | окружение `Heltec_v3_companion_radio_ble_ps` с нашим ядром |
-| `2fa5d165` | путь к ядру через переменную `PS_FRAMEWORK` |
-| `cfafb8c8` | переменная несёт спецификацию пакета целиком |
+- код: `isReadBusy()` в базовом интерфейсе и в ESP32 BLE, `esp_pm_configure`/`esp_bt_sleep_enable` в `setup()`, уступка 10 мс в холостом цикле, отключение light sleep для USB-CDC/USB-компаньонов/WiFi; всё под `WITH_ESP32_POWER_SAVING`, по умолчанию выключено;
+- окружение `Heltec_v3_companion_radio_ble_ps` с нашим ядром;
+- путь к ядру через переменную `PS_FRAMEWORK`;
+- переменная несёт спецификацию пакета целиком.
 
 Ядро собрано: arduino-esp32 2.0.17 + IDF 4.4.7, дельта к штатному `sdkconfig`
 (PM + тиклесс + BT modem sleep), `libesp_pm.a` 171 180 → 203 440 байт.
@@ -135,4 +133,3 @@ Wireless Tracker, v4, v4 tft, v4 r8, v4 r8 tft — по два файла на �
   надо. Вернуть штатное — удалить каталог пакета.
 - Сборка с нативным USB-CDC, USB-компаньоном или WiFi **намеренно** получает
   только частотное масштабирование: light sleep им противопоказан.
-- Ничего не пушилось: ветка `feature/esp32-powersave` живёт локально.

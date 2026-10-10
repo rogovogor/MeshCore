@@ -18,10 +18,10 @@
 
 // Companion power-saving profile (`pwr_mode`). Power saving is what lets the CPU
 // of an ESP32 companion drop into light sleep between BLE connection events; the
-// profile says how far to take it. AUTO is the platform's previous behaviour, so
-// an untouched node does exactly what it did before this setting existed.
-#define POWER_MODE_AUTO         0   // platform default: sleep, with the USB guard
-#define POWER_MODE_OFF          1   // never sleep: maximum responsiveness, ~120 mA
+// profile says how far to take it. AUTO is the default profile: on an ESP32 PS
+// build it turns light sleep and DFS on, on other platforms it changes nothing.
+#define POWER_MODE_AUTO         0   // default: sleep, with the USB guard
+#define POWER_MODE_OFF          1   // no DFS, no sleep: maximum responsiveness, ~120 mA
 #define POWER_MODE_CONSERVATIVE 2   // sleep only while the app is not connected
 #define POWER_MODE_AGGRESSIVE   3   // longer idle yield, fewer wake-ups
 
@@ -84,11 +84,11 @@ public:
   uint8_t  bridge_channel = 0;        // 1-14 (ESP-NOW only)
   char     bridge_secret[16];
   uint8_t  powersaving_enabled = 0;
-  // Companion power-saving profile. Deliberately a profile, not a switch: AUTO means
-  // "whatever this platform did before", so a node that never touches the setting
-  // behaves exactly as it used to. Prefs are stored by key in a JSON file, so an old
-  // file simply has no value here (the field keeps its default) and an older firmware
-  // ignores a key it does not know.
+  // Companion power-saving profile. Deliberately a profile, not a switch: on an
+  // ESP32 PS build AUTO turns power saving on (light sleep + DFS) and OFF returns
+  // to the pre-feature behaviour (no DFS, no sleep). Prefs are stored by key in a
+  // JSON file, so an old file simply has no value here (the field keeps its
+  // default) and an older firmware ignores a key it does not know.
   uint8_t  power_mode = POWER_MODE_AUTO;
   uint32_t discovery_mod_timestamp = 0;
   float    adc_multiplier = 0;

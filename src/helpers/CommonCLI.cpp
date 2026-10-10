@@ -411,7 +411,9 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
 #endif
     } else if (memcmp(command, "powersaving on", 14) == 0) {
       _prefs->powersaving_enabled = 1;
+#if defined(WITH_COMPANION_CLI)
       _prefs->power_mode = POWER_MODE_AUTO;   // companions: back to the platform default
+#endif
 #if defined(NRF52_PLATFORM)
       savePrefs();
       strcpy(reply, "on - Immediate effect");
@@ -425,12 +427,18 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
 #endif
     } else if (memcmp(command, "powersaving off", 15) == 0) {
       _prefs->powersaving_enabled = 0;
+#if defined(WITH_COMPANION_CLI)
       _prefs->power_mode = POWER_MODE_OFF;
+#endif
       savePrefs();
       strcpy(reply, "off");
     } else if (memcmp(command, "powersaving", 11) == 0) {
       if (_prefs->powersaving_enabled) {
+#if defined(WITH_COMPANION_CLI)
         sprintf(reply, "on (mode %s)", powerModeName(_prefs->power_mode));
+#else
+        strcpy(reply, "on");
+#endif
       } else {
         strcpy(reply, "off");
       }
@@ -579,6 +587,7 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
     } else {
       strcpy(reply, "Error: unsupported");
     }
+#if defined(WITH_COMPANION_CLI)
   } else if (memcmp(config, "power.mode ", 11) == 0) {
     const char* value = &config[11];
     uint8_t mode;
@@ -603,6 +612,7 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
       savePrefs();
       sprintf(reply, "OK - power mode %s", powerModeName(mode));
     }
+#endif
   } else if (memcmp(config, "radio.fem.rxgain ", 17) == 0) {
     if (!_board->canControlLoRaFemLna()) {
       strcpy(reply, "Error: unsupported");
@@ -877,9 +887,11 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, char* command, char* rep
     sprintf(reply, "> %s", StrHelper::ftoa(_prefs->airtime_factor));
   } else if (memcmp(config, "int.thresh", 10) == 0) {
     sprintf(reply, "> %d", (uint32_t) _prefs->interference_threshold);
+#if defined(WITH_COMPANION_CLI)
   } else if (memcmp(config, "power", 5) == 0) {
     sprintf(reply, "> mode=%s powersaving=%s", powerModeName(_prefs->power_mode),
             _prefs->powersaving_enabled ? "on" : "off");
+#endif
   } else if (memcmp(config, "cad", 3) == 0) {
     sprintf(reply, "> %s", _prefs->cad_enabled ? "on" : "off");
   } else if (memcmp(config, "agc.reset.interval", 18) == 0) {
