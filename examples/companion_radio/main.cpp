@@ -19,6 +19,10 @@
   #include "esp_pm.h"
   #include "esp_bt.h"
   #include "esp_sleep.h"
+  #if defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT \
+      && !(defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE)
+    #include "USB.h"   // ESPUSB: TinyUSB "mounted" state for the USB guard
+  #endif
 
   #define ESP32_PM_CPU_MAX_MHZ   80
   #define ESP32_PM_CPU_MIN_MHZ   40
@@ -29,6 +33,9 @@
   // How long one press of the user button keeps the CPU awake — enough to read the
   // console and type a CLI command.
   #define ESP32_PM_USB_HOLD_MS   30000
+  // Awake window right after boot: a native-USB link has to enumerate before the
+  // guard can see the host, and a chip that sleeps first never gets enumerated.
+  #define ESP32_PM_BOOT_HOLD_MS  30000
 
   // Boards whose Serial runs over the ESP32-S3's own USB peripheral cannot sleep
   // while a host is attached: that link is serviced by the CPU, so automatic light
@@ -198,7 +205,10 @@ static bool esp32_usbHostPresent() {
   #if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE
     return Serial.isConnected();   // HWCDC: hardware USB-Serial-JTAG link
   #else
-    return (bool)Serial;           // USBCDC over TinyUSB: host has the port open
+    // USBCDC over TinyUSB: the host has enumerated and configured the device.
+    // Not (bool)Serial — that only turns true once a terminal opens the port with
+    // DTR and RTS, so the chip slept before that and the link died (seen on E290).
+    return (bool)USB;
   #endif
 }
 #endif
@@ -345,6 +355,11 @@ static void esp32_servicePowerPrefs() {
 static void esp32_setupPower() {
   #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
     pinMode(PIN_USER_BTN, INPUT_PULLUP);
+  #endif
+  #if ESP32_PM_NATIVE_USB
+    // Boot window: let a native-USB link enumerate before the guard decides.
+    esp32_pm_window_active = true;
+    esp32_pm_hold_until = millis() + ESP32_PM_BOOT_HOLD_MS;
   #endif
   // Take the locks BEFORE light sleep and DFS are switched on, so a USB port is
   // never dropped in the first moments.
