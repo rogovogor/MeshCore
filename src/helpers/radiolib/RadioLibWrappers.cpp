@@ -2,6 +2,10 @@
 #define RADIOLIB_STATIC_ONLY 1
 #include "RadioLibWrappers.h"
 
+#if defined(WITH_ESP32_POWER_SAVING)
+#include "driver/gpio.h"
+#endif
+
 #define STATE_IDLE       0
 #define STATE_RX         1
 #define STATE_TX_WAIT    3
@@ -83,6 +87,19 @@ void RadioLibWrapper::resetAGC() {
   _num_floor_samples = 0;
   _floor_sample_sum = 0;
 }
+
+#if defined(WITH_ESP32_POWER_SAVING)
+void RadioLibWrapper::recoverMissedDioInterrupt() {
+  #if defined(P_LORA_DIO_1)
+  // `state == STATE_RX` means the radio is receiving and the ISR flag is clear.
+  // If DIO1 is HIGH in that state, the packet-received edge fired while the CPU
+  // was asleep and was never serviced; raise the flag so recvRaw() reads the frame.
+  if (state == STATE_RX && gpio_get_level((gpio_num_t)P_LORA_DIO_1) == HIGH) {
+    state |= STATE_INT_READY;
+  }
+  #endif
+}
+#endif
 
 void RadioLibWrapper::loop() {
   if (state == STATE_RX && _num_floor_samples < NUM_NOISE_FLOOR_SAMPLES) {

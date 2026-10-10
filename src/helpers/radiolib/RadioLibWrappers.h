@@ -65,6 +65,14 @@ public:
 
   void loop() override;
 
+  #if defined(WITH_ESP32_POWER_SAVING)
+  // Light sleep can swallow the DIO1 rising edge: the SX1262 then holds DIO1 HIGH
+  // and no new edge arrives, so the receive flag would stay unset until the next
+  // resetAGC/TX. If the radio is still in RX but the ISR flag is clear and DIO1 is
+  // HIGH, the interrupt fired while asleep — raise the flag so recvRaw() reads it.
+  void recoverMissedDioInterrupt();
+  #endif
+
   uint32_t getPacketsRecv() const { return n_recv; }
   uint32_t getPacketsRecvErrors() const { return n_recv_errors; }
   uint32_t getPacketsSent() const { return n_sent; }
