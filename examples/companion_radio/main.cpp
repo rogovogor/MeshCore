@@ -311,15 +311,24 @@ static void esp32_applyPowerMode(uint8_t mode) {
     #error "No esp_pm_config_t for this target"
   #endif
 
-  pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
-  pm_config.min_freq_mhz = ESP32_PM_CPU_MIN_MHZ;
-  pm_config.light_sleep_enable = (ESP32_PM_LIGHT_SLEEP != 0) && (mode != POWER_MODE_OFF);
+  if (mode == POWER_MODE_OFF) {
+    // "off" means "as before the feature": a fixed CPU frequency with no DFS and no
+    // light sleep. min == max disables DFS, so an on-the-fly off -> auto switch
+    // re-applies scaling on the next esp_pm_configure() call.
+    pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+    pm_config.min_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+    pm_config.light_sleep_enable = false;
+  } else {
+    pm_config.max_freq_mhz = ESP32_PM_CPU_MAX_MHZ;
+    pm_config.min_freq_mhz = ESP32_PM_CPU_MIN_MHZ;
+    pm_config.light_sleep_enable = (ESP32_PM_LIGHT_SLEEP != 0);
+  }
 
   esp_err_t err_pm = esp_pm_configure(&pm_config);
   esp32_pm_applied_mode = mode;
   if (err_pm == ESP_OK) {
     Serial.printf("ESP32 PM: %d-%d MHz, light sleep %s, mode %u\n",
-                  (int)ESP32_PM_CPU_MAX_MHZ, (int)ESP32_PM_CPU_MIN_MHZ,
+                  (int)pm_config.max_freq_mhz, (int)pm_config.min_freq_mhz,
                   pm_config.light_sleep_enable ? "on" : "off", (unsigned)mode);
   } else {
     Serial.printf("ESP32 PM: unavailable (%d) - framework built without CONFIG_PM_ENABLE\n",
@@ -563,10 +572,11 @@ void loop() {
       board.sleep(0);
     }
 #elif defined(ESP32) && defined(WITH_ESP32_POWER_SAVING) && ESP32_PM_LIGHT_SLEEP
-    // Walking the loop as fast as it can keeps the CPU out of light sleep, and
-    // every wake-up costs a TCXO start on top. Yielding to the idle task is what
-    // actually lets the chip sleep; while a received frame is still queued the
-    // loop keeps running instead so the frame is handed over promptly.
+    // Walking the loop as fast as it can keeps the CPU out of light sleep; the
+    // SX1262 TCXO stays up through ESP32 light sleep, so there is no TCXO start
+    // cost per wake-up. Yielding to the idle task is what actually lets the chip
+    // sleep; while a received frame is still queued the loop keeps running instead
+    // so the frame is handed over promptly.
     // With WiFi or USB active the lock keeps the chip awake anyway, so the yield
     // would only add latency to a link interface_manager does not even see.
     if (!interface_manager.isReadBusy() && !interface_manager.isWriteBusy()
