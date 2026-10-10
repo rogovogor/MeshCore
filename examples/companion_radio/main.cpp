@@ -51,8 +51,9 @@
   // WITH_WIFI_SWITCHING is not in the list: there the transport is chosen at runtime,
   // so light sleep stays configured and esp32_pm_wantsAwake() holds the lock while
   // the active transport is WiFi or USB.
-  #if defined(WIFI_SSID) || defined(ENABLE_USB_INTERFACE)
-    // The transport itself is WiFi or USB: sleeping breaks the link, not just the log.
+  #if defined(WIFI_SSID) || defined(ENABLE_USB_INTERFACE) || defined(SERIAL_RX) || defined(ETHERNET_ENABLED)
+    // The transport itself is WiFi, USB, UART or Ethernet: sleeping breaks the link,
+    // not just the log.
     #define ESP32_PM_LIGHT_SLEEP   0
     #define ESP32_PM_USB_GUARD     0
   #elif ESP32_PM_NATIVE_USB && !defined(WITH_ESP32_POWER_SAVING_USB_SERIAL_SAFE)
@@ -218,6 +219,11 @@ static bool esp32_pm_wantsAwake() {
       && interface_manager.isConnected()) {
     return true;
   }
+  #if ENV_INCLUDE_GPS == 1
+    // GPS runs over UART (Tracker 115200, v4): light sleep drops NMEA bytes, so stay
+    // awake while the GPS is enabled in prefs (see applyGpsPrefs()).
+    if (the_mesh.getNodePrefs()->gps_enabled) return true;
+  #endif
   return esp32_pm_window_active;
 }
 
