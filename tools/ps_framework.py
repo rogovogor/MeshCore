@@ -10,6 +10,7 @@ normal environments stay pinned to the stock core.
     python tools/ps_framework.py                 # download the release, verify, unpack
     python tools/ps_framework.py --archive F     # from a local archive (same sha256 check)
     python tools/ps_framework.py --check         # only report what is installed
+    python tools/ps_framework.py --force         # reinstall even if a matching core is there
 
 Standard library only. Safe to run again: an installed, matching core is left as is.
 """
@@ -28,7 +29,7 @@ PS_VERSION = "2.0.17-ps.1"
 PKG_VERSION = "3.20017.241212-ps.1"
 URL = ("https://github.com/rogovogor/arduino-esp32-ps/releases/download/"
        f"{PS_VERSION}/framework-arduinoespressif32-{PS_VERSION}.tar.gz")
-SHA256 = "fe39860de634dc4797dd57a930eaa1f12f6a41981e7adb5bbca6f3e9166518d1"
+SHA256 = "73dc0e78d91d3199407c06b6e2df659a60b77de2898f4bcaf57703835a40f0d6"
 NAME = f"framework-arduinoespressif32-{PS_VERSION}"
 PM_CHECK = "tools/sdk/esp32s3/qio_qspi/include/sdkconfig.h"
 
@@ -65,10 +66,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--archive", type=Path, help="local archive instead of downloading")
     ap.add_argument("--check", action="store_true", help="only report the installed state")
+    ap.add_argument("--force", action="store_true", help="reinstall even if a matching core is installed")
     args = ap.parse_args()
 
     target = core_dir() / "ps" / NAME
-    if installed_ok(target):
+    if installed_ok(target) and not args.force:
         print(f"PS core {PS_VERSION} installed: {target}")
         return 0
     if args.check:
