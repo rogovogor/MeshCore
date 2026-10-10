@@ -185,6 +185,7 @@ void halt() {
 static esp_pm_lock_handle_t esp32_pm_lock = NULL;
 static bool esp32_pm_lock_held = false;
 static uint32_t esp32_pm_hold_until = 0;
+static bool esp32_pm_window_active = false;
 static uint16_t esp32_pm_yield_ms = ESP32_PM_IDLE_YIELD_MS;
 static uint8_t esp32_pm_applied_mode = 0xFF;
 
@@ -215,7 +216,7 @@ static bool esp32_pm_wantsAwake() {
       && interface_manager.isConnected()) {
     return true;
   }
-  return (int32_t)(esp32_pm_hold_until - millis()) > 0;
+  return esp32_pm_window_active;
 }
 
 static void esp32_servicePmHold() {
@@ -223,9 +224,18 @@ static void esp32_servicePmHold() {
     // Active low with a pull-up. One press buys a window with the CPU awake, so the
     // console can be read even when host detection says nothing is attached.
     if (digitalRead(PIN_USER_BTN) == LOW) {
+      esp32_pm_window_active = true;
       esp32_pm_hold_until = millis() + ESP32_PM_USB_HOLD_MS;
     }
   #endif
+
+  // The window is a flag, not a signed difference: millis() wraps every ~49.7 days,
+  // and a naive (int32_t)(hold_until - millis()) > 0 turns positive again ~24.8 days
+  // after the wrap, holding the lock with no sleep. Clear the flag once the deadline
+  // has passed; the unsigned subtraction is correct across the millis() wrap.
+  if (esp32_pm_window_active && ((int32_t)(millis() - esp32_pm_hold_until) >= 0)) {
+    esp32_pm_window_active = false;
+  }
 
   if (esp32_pm_lock == NULL) return;
   const bool hold = esp32_pm_wantsAwake();
