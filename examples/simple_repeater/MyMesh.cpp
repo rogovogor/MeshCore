@@ -998,6 +998,9 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
 
   // defaults
   _prefs.airtime_factor = 1.0;
+#if defined(POWERSAVING_DEFAULT_ON)
+  _prefs.powersaving_enabled = 1;   // PS build: automatic light sleep on by default
+#endif
   _prefs.rx_delay_base = 0.0f;   // turn off by default, was 10.0;
   _prefs.tx_delay_factor = 0.5f; // was 0.25f
   _prefs.direct_tx_delay_factor = 0.3f; // was 0.2
@@ -1605,4 +1608,15 @@ bool MyMesh::hasPendingWork() const {
   if (bridge.isRunning()) return true;  // bridge needs WiFi radio, can't sleep
 #endif
   return _mgr->getOutboundTotal() > 0;
+}
+
+// Work due this instant. Deliberately getOutboundCount(now) and not
+// getOutboundTotal(): the latter also counts packets parked for a delayed
+// retransmit, so a repeater that slept only when it was zero would stay awake
+// for the whole retransmit delay.
+bool MyMesh::hasDueWork() const {
+#if defined(WITH_BRIDGE)
+  if (bridge.isRunning()) return true;  // bridge needs WiFi radio, can't sleep
+#endif
+  return _mgr->getOutboundCount(_ms->getMillis()) > 0;
 }

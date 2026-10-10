@@ -283,6 +283,12 @@ public:
   // To check if there is pending work
   bool hasPendingWork() const;
 
+  // Work due right now (bridge running, or an outbound packet scheduled for the
+  // current millisecond) — unlike hasPendingWork() this ignores packets merely
+  // queued for a delayed retransmit, so the ESP32 PS loop can sleep through the
+  // retransmit delay instead of spinning for it.
+  bool hasDueWork() const;
+
   bool setRxBoostedGain(bool enable) override;
 
   #if defined(USE_LR2021)
