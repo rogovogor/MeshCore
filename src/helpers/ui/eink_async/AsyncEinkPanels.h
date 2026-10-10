@@ -14,8 +14,8 @@
 #include "AsyncGxEPD213B74.h"
 #include "AsyncGxEPD290T94V2.h"
 #include "AsyncGxEPD213BN.h"
+#include "AsyncHeltec213.h"
 #include "AsyncGxEPD290BS.h"
-#include "AsyncHeltecE213.h"
 
 template <typename Panel>
 struct AsyncEinkPanelFor {
@@ -43,7 +43,9 @@ struct AsyncEinkPanelFor<GxEPD2_290_BS> { using Type = AsyncGxEPD290BS; };
 template <>
 struct AsyncEinkPanelFor<GxEPD2_213_BN> { using Type = AsyncGxEPD213BN; };
 
-// Собственный тип панели E213 (UC81xx): инициализация и таблицы Heltec, не
-// затрагивающие GxEPD2_213_B74, на котором работают платы WeAct.
+// 2.13" панели Heltec (Vision Master E213, Wireless Paper): контроллер
+// определяется при старте, поэтому модель и адаптер — один класс.
 template <>
-struct AsyncEinkPanelFor<HeltecE213Panel> { using Type = AsyncHeltecE213; };
+struct AsyncEinkPanelFor<AsyncHeltec213> {
+  using Type = AsyncHeltec213;
+};
