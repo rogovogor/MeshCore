@@ -19,7 +19,6 @@
   #include "esp_pm.h"
   #include "esp_bt.h"
   #include "esp_sleep.h"
-  #include "driver/rtc_io.h"
 
   #define ESP32_PM_CPU_MAX_MHZ   80
   #define ESP32_PM_CPU_MIN_MHZ   40
@@ -365,21 +364,11 @@ static void esp32_setupPower() {
     esp32_pm_apb_lock_held = true;
   }
 
-  // Wake on a received LoRa packet. RadioLib hooks the packet-received interrupt
-  // on DIO1; ext1 with a HIGH level latches the edge that fires while the CPU is
-  // asleep, so the wake happens and the loop can read the frame. Do NOT use
-  // gpio_wakeup_enable() (as ESP32Board::sleep() does): it leaves the interrupt
-  // level-triggered, and in the automatic mode the ISR would storm until the loop
-  // services the radio. Only RTC-capable pins can drive ext1.
-  #if defined(P_LORA_DIO_1)
-    gpio_num_t dio_pin = (gpio_num_t)P_LORA_DIO_1;
-    if (rtc_gpio_is_valid_gpio(dio_pin)) {
-      esp_sleep_enable_ext1_wakeup(1ULL << P_LORA_DIO_1, ESP_EXT1_WAKEUP_ANY_HIGH);
-    } else {
-      Serial.printf("ESP32 PM: DIO1 GPIO%d is not RTC-capable, no LoRa RX wakeup\n",
-                    (int)P_LORA_DIO_1);
-    }
-  #endif
+  // LoRa wake-up is the yield timer plus DIO1 polling: no ext1 on DIO1. IDF 4.4
+  // moves ext1 pins into the RTC domain before every sleep and does not return
+  // them to digital after light sleep, which breaks the RadioLib interrupt and the
+  // DIO1 level read. A front that fired while asleep is recovered by
+  // radio_driver.recoverMissedDioInterrupt() in loop().
 
   esp32_applyPowerMode(the_mesh.getNodePrefs()->power_mode);
 }

@@ -39,6 +39,166 @@ static unsigned long userBtnDownAt = 0;
 static unsigned long startup_millis = 0;
 #endif
 
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+// Repeater automatic power saving: the same mechanism as the companion —
+// automatic light sleep via esp_pm_configure() plus a loop yield to the idle
+// task, instead of a manual board.sleep(). Needs a framework built with
+// CONFIG_PM_ENABLE; on a stock one esp_pm_configure() reports
+// ESP_ERR_NOT_SUPPORTED and the node runs as if powersaving were off.
+#include "esp_pm.h"
+#include "esp_sleep.h"
+#include "driver/uart.h"
+
+#define REPEATER_PM_CPU_MAX_MHZ   80
+#define REPEATER_PM_CPU_MIN_MHZ   40
+
+// How long the loop yields when there is nothing urgent to do; this is what
+// actually hands the CPU to light sleep (or to DFS down to 40 MHz).
+#ifndef REPEATER_PM_YIELD_MS
+  #define REPEATER_PM_YIELD_MS    50
+#endif
+
+// Keep-awake windows: first boot, CLI serial traffic, user button.
+#define REPEATER_PM_SERIAL_HOLD_MS  60000
+#define REPEATER_PM_BTN_HOLD_MS     30000
+
+// Light sleep is allowed only when Serial is a real UART (no native USB CDC) and
+// there is no bridge, Ethernet or WiFi link for the CPU to service. Heltec v3 is
+// UART0 through a CP2102, so it sleeps; everything else gets DFS (frequency
+// scaling) but no sleep.
+#if (defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT) \
+    || defined(WITH_BRIDGE) || defined(ETHERNET_ENABLED) || defined(WIFI_SSID)
+  #define REPEATER_PM_LIGHT_SLEEP   0
+#else
+  #define REPEATER_PM_LIGHT_SLEEP   1
+#endif
+
+static esp_pm_lock_handle_t repeater_pm_lock = NULL;
+static bool repeater_pm_lock_held = false;
+static uint8_t repeater_pm_applied = 0xFF;   // 0 = off, 1 = on
+
+static bool repeater_pm_boot_active = false;
+static uint32_t repeater_pm_boot_until = 0;
+static bool repeater_pm_serial_active = false;
+static uint32_t repeater_pm_serial_until = 0;
+static bool repeater_pm_btn_active = false;
+static uint32_t repeater_pm_btn_until = 0;
+
+static bool repeater_pm_wantsAwake() {
+  return repeater_pm_boot_active || repeater_pm_serial_active || repeater_pm_btn_active;
+}
+
+// Apply the powersaving_enabled pref to esp_pm_configure(). Called at setup and
+// again whenever the pref changes, so `powersaving on|off` works without a reboot.
+static void repeater_pm_configure(uint8_t on) {
+  #if CONFIG_IDF_TARGET_ESP32C3
+    esp_pm_config_esp32c3_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32S3
+    esp_pm_config_esp32s3_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32
+    esp_pm_config_esp32_t pm_config;
+  #elif CONFIG_IDF_TARGET_ESP32C6
+    esp_pm_config_t pm_config;
+  #else
+    #error "No esp_pm_config_t for this target"
+  #endif
+
+  if (on) {
+    pm_config.max_freq_mhz = REPEATER_PM_CPU_MAX_MHZ;
+    pm_config.min_freq_mhz = REPEATER_PM_CPU_MIN_MHZ;
+    pm_config.light_sleep_enable = (REPEATER_PM_LIGHT_SLEEP != 0);
+  } else {
+    pm_config.max_freq_mhz = REPEATER_PM_CPU_MAX_MHZ;
+    pm_config.min_freq_mhz = REPEATER_PM_CPU_MAX_MHZ;   // min == max disables DFS
+    pm_config.light_sleep_enable = false;
+  }
+
+  esp_err_t err = esp_pm_configure(&pm_config);
+  repeater_pm_applied = on;
+  if (err == ESP_OK) {
+    Serial.printf("Repeater PM: %d-%d MHz, light sleep %s, %s\n",
+                  (int)pm_config.max_freq_mhz, (int)pm_config.min_freq_mhz,
+                  pm_config.light_sleep_enable ? "on" : "off",
+                  on ? "on" : "off");
+  } else {
+    Serial.printf("Repeater PM: unavailable (%d) - framework without CONFIG_PM_ENABLE\n",
+                  (int)err);
+  }
+}
+
+static void repeater_pm_setup() {
+  // NO_LIGHT_SLEEP lock: held while a keep-awake window is open.
+  if (esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "repeater", &repeater_pm_lock) != ESP_OK) {
+    repeater_pm_lock = NULL;
+    Serial.println("Repeater PM: no lock available");
+  }
+
+  // UART0 RX wakes the CPU so the CLI can be typed while asleep. The first few
+  // characters that woke the chip are lost — the 60 s window after the last
+  // received byte covers that.
+  esp_err_t err = uart_set_wakeup_threshold(UART_NUM_0, 3);
+  if (err != ESP_OK) {
+    Serial.printf("Repeater PM: uart wakeup threshold error (%d)\n", (int)err);
+  }
+  err = esp_sleep_enable_uart_wakeup(UART_NUM_0);
+  if (err != ESP_OK) {
+    Serial.printf("Repeater PM: uart wakeup enable error (%d)\n", (int)err);
+  }
+
+  #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0) && !defined(DISPLAY_CLASS)
+    // With a display, MomentaryButton::begin() already sets INPUT_PULLUP.
+    pinMode(PIN_USER_BTN, INPUT_PULLUP);
+  #endif
+
+  // Boot keep-awake window, so the CLI works right after flashing.
+  repeater_pm_boot_active = true;
+  repeater_pm_boot_until = millis() + POWERSAVING_FIRSTSLEEP_SECS * 1000;
+
+  repeater_pm_configure(the_mesh.getNodePrefs()->powersaving_enabled ? 1 : 0);
+}
+
+// Service the keep-awake windows and the power pref. Runs every loop iteration.
+static void repeater_pm_service() {
+  #if defined(PIN_USER_BTN) && (PIN_USER_BTN >= 0)
+    if (digitalRead(PIN_USER_BTN) == LOW) {
+      repeater_pm_btn_active = true;
+      repeater_pm_btn_until = millis() + REPEATER_PM_BTN_HOLD_MS;
+    }
+  #endif
+
+  // Flags + deadlines, cleared via unsigned subtraction so the millis() wrap is
+  // handled correctly (the arithmetic stays right across the ~49.7-day wrap).
+  if (repeater_pm_boot_active && ((int32_t)(millis() - repeater_pm_boot_until) >= 0)) {
+    repeater_pm_boot_active = false;
+  }
+  if (repeater_pm_serial_active && ((int32_t)(millis() - repeater_pm_serial_until) >= 0)) {
+    repeater_pm_serial_active = false;
+  }
+  if (repeater_pm_btn_active && ((int32_t)(millis() - repeater_pm_btn_until) >= 0)) {
+    repeater_pm_btn_active = false;
+  }
+
+  // Apply powersaving on|off without a reboot.
+  const uint8_t want = the_mesh.getNodePrefs()->powersaving_enabled ? 1 : 0;
+  if (want != repeater_pm_applied) {
+    repeater_pm_configure(want);
+  }
+
+  // Hold/release the lock to match the windows.
+  if (repeater_pm_lock != NULL) {
+    const bool hold = repeater_pm_wantsAwake();
+    if (hold != repeater_pm_lock_held) {
+      if (hold) {
+        esp_pm_lock_acquire(repeater_pm_lock);
+      } else {
+        esp_pm_lock_release(repeater_pm_lock);
+      }
+      repeater_pm_lock_held = hold;
+    }
+  }
+}
+#endif
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -128,9 +288,22 @@ void setup() {
 #ifdef AUTO_REBOOT_MS
   startup_millis = millis();
 #endif
+
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  repeater_pm_setup();
+#endif
 }
 
 void loop() {
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  // Note CLI bytes as soon as they arrive — before the read loop below consumes
+  // them — so the keep-awake window is armed by the received bytes themselves.
+  if (Serial.available()) {
+    repeater_pm_serial_active = true;
+    repeater_pm_serial_until = millis() + REPEATER_PM_SERIAL_HOLD_MS;
+  }
+#endif
+
   // Handle Serial CLI
   int len = strlen(command);
   while (Serial.available() && len < sizeof(command)-1) {
@@ -212,13 +385,32 @@ void loop() {
 #ifdef HAS_EXTERNAL_WATCHDOG
   external_watchdog.loop();
 #endif
+
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  repeater_pm_service();
+  radio_driver.recoverMissedDioInterrupt();
+#endif
+
   if (the_mesh.getNodePrefs()->powersaving_enabled && !the_mesh.hasPendingWork()) {
 #if defined(NRF52_PLATFORM)
     board.sleep(0); // nrf ignores seconds param, sleeps whenever possible
+#elif defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+    // Automatic light sleep: the yield below lets the idle task sleep the CPU.
+    // The old manual board.sleep(30) path is deliberately not used here.
 #else
     if (the_mesh.millisHasNowPassed(POWERSAVING_FIRSTSLEEP_SECS * 1000)) { // To check if it is time to sleep
       board.sleep(30); // Sleep. Wake up after a while or when receiving a LoRa packet
     }
 #endif
   }
+
+#if defined(ESP32) && defined(WITH_ESP32_POWER_SAVING)
+  // Yield to the FreeRTOS idle task when nothing is due right now: this is what
+  // actually hands the CPU over to light sleep (or DFS down to 40 MHz). hasDueWork
+  // ignores packets merely parked for a delayed retransmit, so the repeater can
+  // sleep through the retransmit delay instead of spinning for it.
+  if (the_mesh.getNodePrefs()->powersaving_enabled && !the_mesh.hasDueWork()) {
+    vTaskDelay(pdMS_TO_TICKS(REPEATER_PM_YIELD_MS));
+  }
+#endif
 }
