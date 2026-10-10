@@ -47,7 +47,10 @@ public:
     // раньше номинального времени обновления. Иначе выходит "done after 10 ms"
     // при реальных ~600 мс — кадр не прорисовывается, и экран остаётся на
     // первой надписи. Линия занятости остаётся признаком, но лишь уточняющим.
-    const uint32_t nominal = _partial_refresh ? partial_refresh_time : full_refresh_time;
+    // Номинал — у запущенной операции: выключение питания панели держится свои
+    // ~150–250 мс, а не время полного обновления (иначе после каждого кадра
+    // экран 4 с «занят» и кнопки отвечают с той же задержкой).
+    const uint32_t nominal = _nominal_ms;
     if (elapsed < nominal) {
       if (elapsed > _timeout_ms) { completeOperation(); return PollResult::TimedOut; }
       return PollResult::Busy;
@@ -73,11 +76,13 @@ private:
   Operation _operation = Operation::None;
   uint32_t _started_at = 0;
   uint32_t _timeout_ms = 0;
+  uint32_t _nominal_ms = 0;
   bool _partial_refresh = false;
 
   void start(Operation operation, uint32_t nominal_ms, bool partial) {
     _operation = operation;
     _started_at = millis();
+    _nominal_ms = nominal_ms;
     _timeout_ms = nominal_ms + ASYNC_EINK_TIMEOUT_SLACK_MS;
     _partial_refresh = partial;
   }
